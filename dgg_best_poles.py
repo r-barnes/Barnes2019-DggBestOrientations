@@ -5,10 +5,10 @@ import rtree
 import fiona
 import shapely.geometry
 import shapely.speedups
+import shapely.ops
 import pyproj
 import math
 from matplotlib import pyplot as plt
-import transforms3d.euler
 
 def TransformLatLon(latr,lonr,plat,plon):
   """Take a point at (latr,lonr) in a system with a pole at (90,*) and rotate it
@@ -47,6 +47,13 @@ def PlotPoints(px,py):
     pol_x,pol_y = i.exterior.xy
     ax.plot(pol_x,pol_y, color='#6699cc', alpha=0.7, linewidth=3, solid_capstyle='round')
   ax.scatter(px,py,color='green',marker='o')
+  plt.show()
+
+def PlotFeature(i):
+  fig = plt.figure()
+  ax  = fig.add_subplot(111)
+  pol_x,pol_y = features[i].exterior.xy
+  ax.plot(pol_x,pol_y, color='#6699cc', alpha=0.7, linewidth=3, solid_capstyle='round')
   plt.show()
 
 def PlotPolyPoint(x,y):
@@ -88,16 +95,30 @@ olons    = vertices[:,1]
 
 
 #http://openstreetmapdata.com/data/land-polygons
-shapefilename = '/home/rick/projects/dgg_best_poles/simplified-land-polygons-complete-3857/simplified_land_polygons.shp'
-features      = [x for x in fiona.open(shapefilename)]                       #Read shapefile
-features      = [shapely.geometry.shape(x['geometry']) for x in features]    #Convert to shapely shapes
-features      = [x.simplify(40000) for x in features]                        #Simplify shapes for speed
-features.sort(key=lambda poly: len(poly.exterior.xy[0]), reverse=True)
-ridx          = rtree.index.Index([ (i,x.bounds,x) for i,x in enumerate(features) if x.exterior is not None ]) #Build spatial index
+shapefilename     = '/home/rick/projects/dgg_best_poles/simplified-land-polygons-complete-3857/simplified_land_polygons.shp'
+features          = [x for x in fiona.open(shapefilename)]                       #Read shapefile
+features          = [shapely.geometry.shape(x['geometry']) for x in features]    #Convert to shapely shapes
+features          = [x.simplify(40000) for x in features]                        #Simplify shapes for speed
+features.sort(key = lambda poly: len(poly.exterior.xy[0]), reverse=True)
 
-good = []
-for lat in np.arange(0,52,0.05):
-  for lon in np.arange(-180,180,0.05):
+ridx      = rtree.index.Index([ (i,x.bounds,x) for i,x in enumerate(features) if x.exterior is not None ]) #Build spatial index
+ufeatures = shapely.ops.cascaded_union(features)
+
+#FeatureID (when sorted) | Landform
+#0                       | Eurasia
+#1                       | North & South America
+#2                       | Greenland
+#3                       | Antarctica
+#4                       | Baffin Island
+#5                       | Ellesmere
+#6                       | Australia
+#7                       | Africa
+#8                       | England
+
+found = []
+for lat in np.arange(10,52,0.5):
+  print(lat)
+  for lon in np.arange(0,72,0.5):
     x,y = wgs_to_mercator(*TransformLatLon(olats,olons,lat,lon))
     pts = zip(x,y)
     good = len(olats)
@@ -106,14 +127,19 @@ for lat in np.arange(0,52,0.05):
       isecs = [poly for poly in isecs if IntersectsPoly(p[0],p[1],poly)]
       if len(isecs)==0:
         good -= 1
-    if good==0:
-      PlotPoints(*wgs_to_mercator(*TransformLatLon(olats,olons,lat,lon)))
+    found.append( (good,lat,lon) )
+
+found.sort(key=lambda x: x[0])
 
 
 
+fout = open('/z/out','w')
+for x in found:
+  fout.write("{0} {1} {2}\n".format(*x))
+fout.close()
 
-#tp = wgs_to_mercator(45,-93)
-#ridx.intersection((tp))
-
-
-#PlotPoints(*wgs_to_mercator(*TransformLatLon(olats,olons,lat,lon)))
+i       = 419
+wpts    = wgs_to_mercator(*TransformLatLon(olats,olons,found[i][1],found[i][2]))
+uvertex = shapely.geometry.MultiPoint([shapely.geometry.Point(*x) for x in list(zip(*wpts))])
+ufeatures.distance(uvertex)
+PlotPoints(*wpts)
