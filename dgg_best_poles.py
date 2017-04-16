@@ -12,6 +12,8 @@ import math
 import functools
 from matplotlib import pyplot as plt
 
+shapely.speedups.enable()
+
 def CountPoints(geom):
   """Count the number of points used to define a geometry"""
   if geom.type == 'Polygon':
@@ -248,7 +250,7 @@ def PlotPolyPoint(x,y):
   ax.scatter(x,y,color='green',marker='o')
   plt.show()
 
-shapely.speedups.enable()
+
 
 
 #https://en.wikipedia.org/wiki/Regular_icosahedron#Spherical_coordinates
