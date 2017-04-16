@@ -9,6 +9,7 @@ import shapely.speedups
 import shapely.ops
 import pyproj
 import math
+import functools
 from matplotlib import pyplot as plt
 
 def CountPoints(geom):
@@ -204,6 +205,18 @@ def wgs_to_mercator(lat, lon):
   #lon     = np.clip(lon,-179.9,180)
   x, y = pyproj.transform(prj_wgs, prj_mer, lon-0.0001, lat-0.001, radians=False) #Yes, `lon,lat` is the correct order here
   return x, y
+
+def ReprojectGeometry(geom, lon0):
+  """Reproject from WGS84 latitude-longitude to Miller projection
+  :param lon0 Longitude on which to center the Miller projection
+  :returns: The reprojected geometry
+  """
+  project = functools.partial(
+    pyproj.transform,
+    pyproj.Proj(init='epsg:4326'),      # source coordinate system
+    pyproj.Proj(proj='mill', lon_0=lon0) # destination coordinate system
+  )
+  return shapely.ops.transform(project, geom)  # apply projection
 
 def IntersectsPoly(x,y,poly):
   return poly.contains(shapely.geometry.Point(x,y))
