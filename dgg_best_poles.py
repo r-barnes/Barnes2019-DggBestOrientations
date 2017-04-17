@@ -253,6 +253,22 @@ def PlotPolyIntersectPoint(x,y):
   ax.scatter(x,y,color='green',marker='o')
   plt.show()
 
+def FindUncoveredPointsInIndex(ridx):
+  found = []
+  for lat in np.arange(10,52,1):
+    print(lat)
+    for lon in np.arange(0,72,1):
+      x,y = wgs_to_mercator(*TransformLatLon(olats,olons,lat,lon))
+      pts = zip(x,y)
+      good = len(olats)
+      for p in pts:
+        isecs = ridx.intersection((p[0],p[1],p[0],p[1]), objects="raw")
+        isecs = [poly for poly in isecs if IntersectsPoly(p[0],p[1],poly)]
+        if len(isecs)==0:
+          good -= 1
+      found.append( (good,lat,lon) )
+  found.sort(key=lambda x: x[0])
+
 
 
 
@@ -280,16 +296,13 @@ olats    = vertices[:,0]
 olons    = vertices[:,1]
 
 
-#http://openstreetmapdata.com/data/land-polygons
-shapefilename     = '/home/rick/projects/dgg_best_poles/simplified-land-polygons-complete-3857/simplified_land_polygons.shp'
-features          = [x for x in fiona.open(shapefilename)]                       #Read shapefile
-features          = [shapely.geometry.shape(x['geometry']) for x in features]    #Convert to shapely shapes
-features          = [x.simplify(40000) for x in features]                        #Simplify shapes for speed
-features.sort(key = lambda poly: len(poly.exterior.xy[0]), reverse=True)
 
-ridx      = rtree.index.Index([ (i,x.bounds,x) for i,x in enumerate(features) if x.exterior is not None ]) #Build spatial index
-ufeatures = shapely.ops.cascaded_union(features)
 
+
+
+#############################
+#MINIMIZE GLOBAL OVERLAPS
+#############################
 #FeatureID (when sorted) | Landform
 #0                       | Eurasia
 #1                       | North & South America
@@ -300,32 +313,57 @@ ufeatures = shapely.ops.cascaded_union(features)
 #6                       | Australia
 #7                       | Africa
 #8                       | England
+landshapesfn = '/home/rick/projects/dgg_best_poles/simplified-land-polygons-complete-3857/simplified_land_polygons.shp'
+features     = [x for x in fiona.open(landshapesfn)]
+for f in features: 
+  f['geometry'] = shapely.geometry.shape(f['geometry'])
+  f['geometry'] = f['geometry'].simplify(40000)          #TODO: Simplify shapes for speed
 
-found = []
-for lat in np.arange(10,52,0.5):
-  print(lat)
-  for lon in np.arange(0,72,0.5):
-    x,y = wgs_to_mercator(*TransformLatLon(olats,olons,lat,lon))
-    pts = zip(x,y)
-    good = len(olats)
-    for p in pts:
-      isecs = ridx.intersection((p[0],p[1],p[0],p[1]), objects="raw")
-      isecs = [poly for poly in isecs if IntersectsPoly(p[0],p[1],poly)]
-      if len(isecs)==0:
-        good -= 1
-    found.append( (good,lat,lon) )
+features.sort(key = lambda f: CountPoints(f['geometry'])['ext']+CountPoints(f['geometry'])['int'], reverse=True)
 
-found.sort(key=lambda x: x[0])
-
-
-
-fout = open('/z/out','w')
+ridx  = rtree.index.Index([ (i,x.bounds,x) for i,x in enumerate(features) if x.exterior is not None ]) #Build spatial index
+found = FindUncoveredPointsInIndex(ridx)
+fout  = open('/z/out','w')
 for x in found:
   fout.write("{0} {1} {2}\n".format(*x))
 fout.close()
 
-i       = 419
+
+
+#Drop Antarctica
+del features[3] #TODO
+
+ridx  = rtree.index.Index([ (i,x.bounds,x) for i,x in enumerate(features) if x.exterior is not None ]) #Build spatial index
+found = FindUncoveredPointsInIndex(ridx)
+fout  = open('/z/out','w')
+for x in found:
+  fout.write("{0} {1} {2}\n".format(*x))
+fout.close()
+
+
+
+
+
+#############################
+#AVOID COUNTRIES
+#############################
+
+countries = '/home/rick/projects/dgg_best_poles/countries/TM_WORLD_BORDERS-0.3.shp'
+features  = [x for x in fiona.open(shapefilename)]                       #Read shapefile
+for f in features:
+  f['geometry'] = shapely.geometry.shape(f['geometry'])
+  f['geometry'] = f['geometry'].simplify(40000)          #Simplify shapes for speed
+features.sort(key = lambda f: len(f['geometry'].exterior.xy[0]), reverse=True)
+
+
+
+
+
+
+i       = 158
 wpts    = wgs_to_mercator(*TransformLatLon(olats,olons,found[i][1],found[i][2]))
-uvertex = shapely.geometry.MultiPoint([shapely.geometry.Point(*x) for x in list(zip(*wpts))])
-ufeatures.distance(uvertex)
 PlotPoints(*wpts)
+#uvertex = shapely.geometry.MultiPoint([shapely.geometry.Point(*x) for x in list(zip(*wpts))])
+#ufeatures = shapely.ops.cascaded_union(features)
+#ufeatures.distance(uvertex)
+
