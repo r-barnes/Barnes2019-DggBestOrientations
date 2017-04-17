@@ -176,7 +176,7 @@ def Distance3dPointTo3dPolygon(lat,lon,geom):
   """
   if geom.type == 'Polygon':
     dist = math.inf
-    xy   = features[0]['geometry'][0].exterior.xy
+    xy   = geom.exterior.xy
     #Polygons are closed rings, so the first-last pair is automagically delt with
     for p1, p2 in Pairwise(zip(*xy)):
       dist = min(dist,DistanceToGCArc(p1[1],p1[0],p2[1],p2[0],lat,lon))
