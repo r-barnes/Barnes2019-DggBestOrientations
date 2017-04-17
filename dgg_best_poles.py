@@ -224,22 +224,25 @@ def IntersectsPoly(x,y,poly):
   return poly.contains(shapely.geometry.Point(x,y))
 
 def PlotPoints(px,py):
+  """Plot points along with some of the largest land masses, for content"""
   fig   = plt.figure()
   ax    = fig.add_subplot(111)
-  for i in features[0:8]:
-    pol_x,pol_y = i.exterior.xy
+  for f in features[0:8]:
+    pol_x,pol_y = f['geometry'].exterior.xy
     ax.plot(pol_x,pol_y, color='#6699cc', alpha=0.7, linewidth=3, solid_capstyle='round')
   ax.scatter(px,py,color='green',marker='o')
   plt.show()
 
-def PlotFeature(i):
+def PlotFeature(feature):
+  """Display the feature"""
   fig = plt.figure()
   ax  = fig.add_subplot(111)
-  pol_x,pol_y = features[i].exterior.xy
+  pol_x,pol_y = feature.exterior.xy
   ax.plot(pol_x,pol_y, color='#6699cc', alpha=0.7, linewidth=3, solid_capstyle='round')
   plt.show()
 
-def PlotPolyPoint(x,y):
+def PlotPolyIntersectPoint(x,y):
+  """Plot the polygon(s) which contain the indicated point"""
   fig   = plt.figure()
   ax    = fig.add_subplot(111)
   isecs = ridx.intersection((x,y,x,y), objects="raw")
