@@ -227,7 +227,7 @@ def PlotPoints(px,py):
   """Plot points along with some of the largest land masses, for content"""
   fig   = plt.figure()
   ax    = fig.add_subplot(111)
-  for f in features[0:8]:
+  for f in landmasses[0:8]:
     pol_x,pol_y = f['geometry'].exterior.xy
     ax.plot(pol_x,pol_y, color='#6699cc', alpha=0.7, linewidth=3, solid_capstyle='round')
   ax.scatter(px,py,color='green',marker='o')
@@ -313,15 +313,15 @@ olons    = vertices[:,1]
 #6                       | Australia
 #7                       | Africa
 #8                       | England
-landshapesfn = '/home/rick/projects/dgg_best_poles/simplified-land-polygons-complete-3857/simplified_land_polygons.shp'
-features     = [x for x in fiona.open(landshapesfn)]
-for f in features: 
+landmasses = '/home/rick/projects/dgg_best_poles/simplified-land-polygons-complete-3857/simplified_land_polygons.shp'
+landmasses = [x for x in fiona.open(landmasses)]
+for f in landmasses: 
   f['geometry'] = shapely.geometry.shape(f['geometry'])
   f['geometry'] = f['geometry'].simplify(40000)          #TODO: Simplify shapes for speed
 
-features.sort(key = lambda f: CountPoints(f['geometry'])['ext']+CountPoints(f['geometry'])['int'], reverse=True)
+landmasses.sort(key = lambda f: CountPoints(f['geometry'])['ext']+CountPoints(f['geometry'])['int'], reverse=True)
 
-ridx  = rtree.index.Index([ (i,x.bounds,x) for i,x in enumerate(features) if x.exterior is not None ]) #Build spatial index
+ridx  = rtree.index.Index([ (i,x.bounds,x) for i,x in enumerate(landmasses) if x.exterior is not None ]) #Build spatial index
 found = FindUncoveredPointsInIndex(ridx)
 fout  = open('/z/out','w')
 for x in found:
@@ -331,9 +331,9 @@ fout.close()
 
 
 #Drop Antarctica
-del features[3] #TODO
+del landmasses[3] #TODO
 
-ridx  = rtree.index.Index([ (i,x.bounds,x) for i,x in enumerate(features) if x.exterior is not None ]) #Build spatial index
+ridx  = rtree.index.Index([ (i,x.bounds,x) for i,x in enumerate(landmasses) if x.exterior is not None ]) #Build spatial index
 found = FindUncoveredPointsInIndex(ridx)
 fout  = open('/z/out','w')
 for x in found:
@@ -349,11 +349,12 @@ fout.close()
 #############################
 
 countries = '/home/rick/projects/dgg_best_poles/countries/TM_WORLD_BORDERS-0.3.shp'
-features  = [x for x in fiona.open(shapefilename)]                       #Read shapefile
-for f in features:
+countries = [x for x in fiona.open(countries)]                     
+for f in countries:
   f['geometry'] = shapely.geometry.shape(f['geometry'])
   f['geometry'] = f['geometry'].simplify(40000)          #Simplify shapes for speed
-features.sort(key = lambda f: len(f['geometry'].exterior.xy[0]), reverse=True)
+
+countries.sort(key = lambda f: CountPoints(f['geometry'])['ext']+CountPoints(f['geometry'])['int'], reverse=True)
 
 
 
