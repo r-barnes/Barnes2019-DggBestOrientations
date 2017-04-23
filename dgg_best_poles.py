@@ -86,6 +86,27 @@ def XYZtoLatLon(x,y,z):
   lon    = np.degrees(np.arctan2(y, x))   
   return lat,lon
 
+def Interpolate(lat1, lon1, lat2, lon2):
+  """
+  Find points lying on the shortest Great Circle Arc between (lat1,lon1) and
+  (lat2,lon2).
+  """
+  geod = pyproj.Geod("+ellps=WGS84")
+  return geod.npts(
+    lat1 = lat1,
+    lon1 = lon1,
+    lat2 = lat2,
+    lon2 = lon2,
+    npts = 50
+  )
+
+def GetTriangleEdges(lats, lons, neighbors):
+  """Return the edges of the major triangles comprising the icosahedron"""
+  ret = []
+  for n1,n2 in neighbors:
+    ret.append(Interpolate(lats[n1],lons[n1],lats[n2],lons[n2]))
+  return ret
+
 def Haversine(lat1, lon1, lat2, lon2):
   """
   Calculate the Great Circle distance on Earth between two latitude-longitude
@@ -296,7 +317,27 @@ olats    = vertices[:,0]
 olons    = vertices[:,1]
 
 
+#Neighbors of each vertex
+neighbors = [
+ [10, 8, 6, 4, 2],  #0
+ [3, 5, 7, 11, 9],  #1
+ [0, 10, 4, 11, 3], #2
+ [2, 4, 11, 5, 1],  #3
+ [0, 6, 5, 3, 2],   #4
+ [6, 4, 3, 7, 1],   #5
+ [0, 4, 8, 5, 7],   #6
+ [6, 8, 5, 9, 1],   #7
+ [0, 6, 10, 7, 9],  #8
+ [8, 10, 7, 11, 1], #9
+ [0, 2, 8, 9, 11],  #10
+ [10, 2, 9, 3, 1]   #11
+]
 
+#Since the above repeats some neighbors, make them unique as follows
+neighbors = list(set([tuple(sorted((i,j))) for i, x in enumerate(neighbors) for j in x]))
+
+
+GetTriangleEdges(olats,olons,neighbors)
 
 
 
