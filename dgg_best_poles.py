@@ -12,7 +12,10 @@ import math
 import functools
 from matplotlib import pyplot as plt
 
-shapely.speedups.enable()
+if shapely.speedups.available:
+  shapely.speedups.enable()
+else:
+  print('shapely speed-ups were not available!')
 
 def CountPoints(geom):
   """Count the number of points used to define a geometry"""
