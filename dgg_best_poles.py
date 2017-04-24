@@ -191,7 +191,7 @@ def DistanceToGCArc(alat,alon,blat,blon,plat,plon):
 def Distance3dPointTo3dPolygon(lat,lon,geom):
   """
   Calculate the closest distance between a polygon and a latitude-longitude
-  point, using only spherical considerations
+  point, using only spherical considerations. Consider edges.
   :param lat  Latitude of query point in degrees
   :param lon  Longitude of query point in degrees
   :param geom A `shapely` geometry whose points are in latitude-longitude space
@@ -208,13 +208,30 @@ def Distance3dPointTo3dPolygon(lat,lon,geom):
     dist = min(*[Distance3dPointTo3dPolygon(lat,lon,part) for part in geom])
   return dist
 
+def Distance3dPointTo3dPolygonQuick(lat,lon,geom):
+  """
+  Calculate the closest distance between a polygon and a latitude-longitude
+  point, using only spherical considerations. Ignore edges.
+  :param lat  Latitude of query point in degrees
+  :param lon  Longitude of query point in degrees
+  :param geom A `shapely` geometry whose points are in latitude-longitude space
+  :returns: The minimum distance in kilometres between the polygon and the
+            query point
+  """
+  if geom.type == 'Polygon':
+    dist = math.inf
+    xy   = np.asarray(geom.exterior)
+    #Polygons are closed rings, so the first-last pair is automagically delt with
+    dist = np.min(Haversine(xy[:,1],xy[:,0],lat,lon))
+  elif geom.type == 'MultiPolygon':
+    dist = min(*[Distance3dPointTo3dPolygonQuick(lat,lon,part) for part in geom])
+  return dist
+
 def TransformLatLon(latr,lonr,plat,plon):
   """Take a point at (latr,lonr) in a system with a pole at (90,*) and rotate it
      into a system with a pole at (plat,plon) while first rotating it ptheta"""
   latr       = latr.copy()
   lonr       = lonr.copy()
-  latr       = np.radians(latr)
-  lonr       = np.radians(lonr)
   plat       = np.radians(plat)
   plon       = np.radians(plon)
   xr, yr, zr = LatLonToXYZ(latr,lonr,1)
@@ -232,7 +249,8 @@ def wgs_to_mercator(lat, lon):
   x, y = pyproj.transform(prj_wgs, prj_mer, lon-0.0001, lat-0.001, radians=False) #Yes, `lon,lat` is the correct order here
   return x, y
 
-def ReprojectGeometry(geom, lon0):
+#Note: Miller projection is also nice
+def ReprojectGeomToMercator(geom):
   """Reproject from WGS84 latitude-longitude to Miller projection
   :param lon0 Longitude on which to center the Miller projection
   :returns: The reprojected geometry
@@ -240,7 +258,7 @@ def ReprojectGeometry(geom, lon0):
   project = functools.partial(
     pyproj.transform,
     pyproj.Proj(init='epsg:4326'),      # source coordinate system
-    pyproj.Proj(proj='mill', lon_0=lon0) # destination coordinate system
+    pyproj.Proj(proj='merc') # destination coordinate system
   )
   return shapely.ops.transform(project, geom)  # apply projection
 
@@ -263,6 +281,18 @@ def PlotFeature(feature):
   ax  = fig.add_subplot(111)
   pol_x,pol_y = feature.exterior.xy
   ax.plot(pol_x,pol_y, color='#6699cc', alpha=0.7, linewidth=3, solid_capstyle='round')
+  plt.show()
+
+def PlotFeatureAndReprojPoints(lat,lon,geom):
+  """Display the geom and the reprojected points"""
+  x,y = wgs_to_mercator(*TransformLatLon(olats,olons,lat,lon))
+  fig  = plt.figure()
+  ax   = fig.add_subplot(111)
+  geom = ReprojectGeomToMercator(geom)
+  for poly in geom:
+    pol_x,pol_y = poly.exterior.xy
+    ax.plot(pol_x,pol_y, color='#6699cc', alpha=0.7, linewidth=3, solid_capstyle='round')
+  ax.scatter(x,y,color='green',marker='o')
   plt.show()
 
 def PlotPolyIntersectPoint(x,y):
@@ -357,7 +387,7 @@ GetTriangleEdges(olats,olons,neighbors)
 #6                       | Australia
 #7                       | Africa
 #8                       | England
-landmasses = '/home/rick/projects/dgg_best_poles/simplified-land-polygons-complete-3857/simplified_land_polygons.shp'
+landmasses = 'simplified-land-polygons-complete-3857/simplified_land_polygons.shp'
 landmasses = [x for x in fiona.open(landmasses)]
 for f in landmasses: 
   f['geometry'] = shapely.geometry.shape(f['geometry'])
@@ -392,14 +422,12 @@ fout.close()
 #AVOID COUNTRIES
 #############################
 
-countries = '/home/rick/projects/dgg_best_poles/countries/TM_WORLD_BORDERS-0.3.shp'
+countries = 'countries/TM_WORLD_BORDERS-0.3.shp'
 countries = [x for x in fiona.open(countries)]                     
 for f in countries:
   f['geometry'] = shapely.geometry.shape(f['geometry'])
-  f['geometry'] = f['geometry'].simplify(40000)          #Simplify shapes for speed
 
 countries.sort(key = lambda f: CountPoints(f['geometry'])['ext']+CountPoints(f['geometry'])['int'], reverse=True)
-
 
 
 
