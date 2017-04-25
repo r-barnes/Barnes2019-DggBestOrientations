@@ -254,13 +254,17 @@ def Distance3dPointTo3dPolygonQuick(lat,lon,geom):
     dist = min(*[Distance3dPointTo3dPolygonQuick(lat,lon,part) for part in geom])
   return dist
 
-def TransformLatLon(latr,lonr,plat,plon):
+def TransformLatLon(latr,lonr,plat,plon,ptheta):
   """Take a point at (latr,lonr) in a system with a pole at (90,*) and rotate it
      into a system with a pole at (plat,plon) while first rotating it ptheta"""
-  latr       = latr.copy()
-  lonr       = lonr.copy()
-  plat       = np.radians(plat)
-  plon       = np.radians(plon)
+  latr = latr.copy()
+  lonr = lonr.copy()
+  plat = np.radians(plat)
+  plon = np.radians(plon)
+  lonr += 180                               #Move lonr to the [0,360] system
+  lonr += ptheta                            #Rotate points by longitude
+  lonr = np.fmod(360+np.fmod(lonr,360),360) #Map everything to [0,360]
+  lonr -= 180                               #Move back to the [-180,180] system
   xr, yr, zr = LatLonToXYZ(latr,lonr,1)
   x          =  np.cos(plat)*np.cos(plon)*xr + np.sin(plon)*yr + np.sin(plat)*np.cos(plon)*zr
   y          = -np.cos(plat)*np.sin(plon)*xr + np.cos(plon)*yr - np.sin(plat)*np.sin(plon)*zr
