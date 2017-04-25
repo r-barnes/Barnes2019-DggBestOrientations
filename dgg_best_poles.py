@@ -76,21 +76,6 @@ def CountPoints(geom):
   return {'ext': exterior_coords,
           'int': interior_coords}
 
-def PairwiseCircular(iterable): #TODO: Cut
-  """
-  Iterate through an itertable returning adjacent pairs, including first-last
-  :param iterable   An iterable
-  :returns: Pairs of sequential, adjacent entries from the iterable, as well as
-            the first-last pair
-  """
-  it    = iter(iterable)
-  a     = next(it, None)
-  first = a
-  for b in it:
-    yield (a, b)
-    a = b
-  yield (a,first)
-
 def Pairwise(iterable):
   """
   Iterate through an itertable returning adjacent pairs
