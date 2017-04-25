@@ -116,25 +116,25 @@ def XYZtoLatLon(x,y,z):
   lon    = np.degrees(np.arctan2(y, x))   
   return lat,lon
 
-def Interpolate(lat1, lon1, lat2, lon2):
+def GCInterpolate(lat1, lon1, lat2, lon2):
   """
   Find points lying on the shortest Great Circle Arc between (lat1,lon1) and
   (lat2,lon2).
   """
   geod = pyproj.Geod("+ellps=WGS84")
   return geod.npts(
-    lat1 = lat1,
     lon1 = lon1,
-    lat2 = lat2,
+    lat1 = lat1,
     lon2 = lon2,
-    npts = 50
+    lat2 = lat2,
+    npts = 100
   )
 
 def GetTriangleEdges(lats, lons, neighbors):
   """Return the edges of the major triangles comprising the icosahedron"""
   ret = []
   for n1,n2 in neighbors:
-    ret.append(Interpolate(lats[n1],lons[n1],lats[n2],lons[n2]))
+    ret.append(GCInterpolate(lats[n1],lons[n1],lats[n2],lons[n2]))
   return ret
 
 def Haversine(lat1, lon1, lat2, lon2):
