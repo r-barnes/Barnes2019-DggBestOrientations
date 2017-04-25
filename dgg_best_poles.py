@@ -4,18 +4,60 @@ import numpy as np
 import numpy.linalg as LA
 import rtree
 import fiona
-import shapely.geometry
+import shapely.geometry as sg
 import shapely.speedups
 import shapely.ops
+import shapely.prepared
 import pyproj
 import math
+import copy
 import functools
-from matplotlib import pyplot as plt
+import itertools
+import pickle
+import multiprocessing as mulproc
 
 if shapely.speedups.available:
   shapely.speedups.enable()
 else:
   print('shapely speed-ups were not available!')
+
+
+#260000 is about the width of Florida in a Mercator projection
+def katana(geometry, threshold=260000, count=0):
+  """Split a Polygon into two parts across it's shortest dimension"""
+  bounds = geometry.bounds
+  width  = bounds[2] - bounds[0]
+  height = bounds[3] - bounds[1]
+  if max(width, height) <= threshold or count == 250:
+    # either the polygon is smaller than the threshold, or the maximum
+    # number of recursions has been reached
+    return [geometry]
+  if height >= width:
+    # split left to right
+    a = sg.box(bounds[0], bounds[1], bounds[2], bounds[1]+height/2)
+    b = sg.box(bounds[0], bounds[1]+height/2, bounds[2], bounds[3])
+  else:
+    # split top to bottom
+    a = sg.box(bounds[0], bounds[1], bounds[0]+width/2, bounds[3])
+    b = sg.box(bounds[0]+width/2, bounds[1], bounds[2], bounds[3])
+  result = []
+  for d in (a, b,):
+    c = geometry.intersection(d)
+    if not isinstance(c, sg.GeometryCollection):
+      c = [c]
+    for e in c:
+      if isinstance(e, (sg.Polygon, sg.MultiPolygon)):
+        result.extend(katana(e, threshold, count+1))
+  if count > 0:
+    return result
+  # convert multipart into singlepart
+  final_result = []
+  for g in result:
+    if isinstance(g, sg.MultiPolygon):
+      final_result.extend(g)
+    else:
+      final_result.append(g)
+  return final_result
 
 def CountPoints(geom):
   """Count the number of points used to define a geometry"""
