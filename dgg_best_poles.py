@@ -294,67 +294,27 @@ def ReprojectGeomToMercator(geom):
   return shapely.ops.transform(project, geom)  # apply projection
 
 def IntersectsPoly(x,y,poly):
-  return poly.contains(shapely.geometry.Point(x,y))
+  return poly.contains(sg.Point(x,y))
 
-def PlotPoints(px,py):
-  """Plot points along with some of the largest land masses, for content"""
-  fig   = plt.figure()
-  ax    = fig.add_subplot(111)
-  for f in landmasses[0:8]:
-    pol_x,pol_y = f['geometry'].exterior.xy
-    ax.plot(pol_x,pol_y, color='#6699cc', alpha=0.7, linewidth=3, solid_capstyle='round')
-  ax.scatter(px,py,color='green',marker='o')
-  plt.show()
-
-def PlotFeature(feature):
-  """Display the feature"""
-  fig = plt.figure()
-  ax  = fig.add_subplot(111)
-  pol_x,pol_y = feature.exterior.xy
-  ax.plot(pol_x,pol_y, color='#6699cc', alpha=0.7, linewidth=3, solid_capstyle='round')
-  plt.show()
-
-def PlotFeatureAndReprojPoints(lat,lon,geom):
-  """Display the geom and the reprojected points"""
-  x,y = wgs_to_mercator(*TransformLatLon(olats,olons,lat,lon))
-  fig  = plt.figure()
-  ax   = fig.add_subplot(111)
-  geom = ReprojectGeomToMercator(geom)
-  for poly in geom:
-    pol_x,pol_y = poly.exterior.xy
-    ax.plot(pol_x,pol_y, color='#6699cc', alpha=0.7, linewidth=3, solid_capstyle='round')
-  ax.scatter(x,y,color='green',marker='o')
-  plt.show()
-
-def PlotPolyIntersectPoint(x,y):
-  """Plot the polygon(s) which contain the indicated point"""
-  fig   = plt.figure()
-  ax    = fig.add_subplot(111)
-  isecs = ridx.intersection((x,y,x,y), objects="raw")
-  isecs = [p for p in isecs if IntersectsPoly(x,y,p)]
-  for i in isecs:
-    px,py = i.exterior.xy
-    ax.plot(px, py, color='#6699cc', alpha=0.7, linewidth=3, solid_capstyle='round')
-  ax.scatter(x,y,color='green',marker='o')
-  plt.show()
-
-def FindUncoveredPointsInIndex(ridx):
-  found = []
-  for lat in np.arange(10,52,1):
-    print(lat)
-    for lon in np.arange(0,72,1):
-      x,y = wgs_to_mercator(*TransformLatLon(olats,olons,lat,lon))
-      pts = zip(x,y)
-      good = len(olats)
-      for p in pts:
-        isecs = ridx.intersection((p[0],p[1],p[0],p[1]), objects="raw")
-        isecs = [poly for poly in isecs if IntersectsPoly(p[0],p[1],poly)]
-        if len(isecs)==0:
-          good -= 1
-      found.append( (good,lat,lon) )
-  found.sort(key=lambda x: x[0])
-
-
+#Note that our polygon boundaries cut out around 85.01192483772849S due to
+#Mercator distortion and anything south of this is land anyway. The farthest
+#north point of land is 83-42 at 83.7N, so all points north of here are valid.
+def CountOverlaps(lat,lon,theta):
+  slat,slon = TransformLatLon(olats,olons,lat,lon,theta)
+  x,y       = wgs_to_mercator(slat,slon)
+  pts       = zip(x,y)
+  overlaps  = len(olats)
+  for i,p in enumerate(pts):
+    if slat[i]>83.7:  #The island "83-42" as at 83.7N so anything north of this is on water
+      overlaps -= 1
+    elif slat[i]<-80: #The southmost extent of water is ~79.5S, so anything south of this is on land
+      pass
+    else:             #Everything else needs to be considered directly
+      isecs = lmidx.intersection((p[0],p[1],p[0],p[1]), objects="raw")
+      isecs = [poly for poly in isecs if IntersectsPoly(p[0],p[1],poly)]
+      if len(isecs)==0:
+        overlaps -= 1
+  return overlaps,lat,lon,theta
 
 
 #https://en.wikipedia.org/wiki/Regular_icosahedron#Spherical_coordinates
