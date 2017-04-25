@@ -341,30 +341,6 @@ olats    = vertices[:,0]
 olons    = vertices[:,1]
 
 
-#Neighbors of each vertex
-neighbors = [
- [10, 8, 6, 4, 2],  #0
- [3, 5, 7, 11, 9],  #1
- [0, 10, 4, 11, 3], #2
- [2, 4, 11, 5, 1],  #3
- [0, 6, 5, 3, 2],   #4
- [6, 4, 3, 7, 1],   #5
- [0, 4, 8, 5, 7],   #6
- [6, 8, 5, 9, 1],   #7
- [0, 6, 10, 7, 9],  #8
- [8, 10, 7, 11, 1], #9
- [0, 2, 8, 9, 11],  #10
- [10, 2, 9, 3, 1]   #11
-]
-
-#Since the above repeats some neighbors, make them unique as follows
-neighbors = list(set([tuple(sorted((i,j))) for i, x in enumerate(neighbors) for j in x]))
-
-
-GetTriangleEdges(olats,olons,neighbors)
-
-
-
 #############################
 #MINIMIZE GLOBAL OVERLAPS
 #############################
@@ -379,19 +355,66 @@ GetTriangleEdges(olats,olons,neighbors)
 #7                       | Africa
 #8                       | England
 landmasses = 'simplified-land-polygons-complete-3857/simplified_land_polygons.shp'
+landmasses = 'land-polygons-split-4326/land_polygons.shp'
 landmasses = [x for x in fiona.open(landmasses)]
-for f in landmasses: 
-  f['geometry'] = shapely.geometry.shape(f['geometry'])
-  f['geometry'] = f['geometry'].simplify(40000)          #TODO: Simplify shapes for speed
+landmasses = [sg.shape(x['geometry']) for x in landmasses]
+#landmasses = [x.simplify(40000) for x in landmasses]        #TODO: Simplify shapes for speed
+#landmasses.sort(key = lambda x: CountPoints(x)['ext']+CountPoints(x)['int'], reverse=True)
+lmunsplit = copy.deepcopy(landmasses)
+#landmasses = [katana(x) for x in landmasses]
+#landmasses = [x for y in landmasses for x in y]
 
-landmasses.sort(key = lambda f: CountPoints(f['geometry'])['ext']+CountPoints(f['geometry'])['int'], reverse=True)
+lmidx = rtree.index.Index('lmidx',[ (i,x.bounds,x) for i,x in enumerate(landmasses) if x.exterior is not None ]) #Build spatial index
 
-ridx  = rtree.index.Index([ (i,x.bounds,x) for i,x in enumerate(landmasses) if x.exterior is not None ]) #Build spatial index
-found = FindUncoveredPointsInIndex(ridx)
+
+#save the state here
+
+# obj0, obj1, obj2 are created here...
+
+# Saving the objects:
+with open('objs.pickle', 'w') as f:  # Python 3: open(..., 'wb')
+    pickle.dump([obj0, obj1, obj2], f)
+
+# Getting back the objects:
+with open('objs.pickle') as f:  # Python 3: open(..., 'rb')
+    obj0, obj1, obj2 = pickle.load(f)
+
+
+
+
+
+found = FindUncoveredPointsInIndex(ridx,olats,olons)
 fout  = open('/z/out','w')
 for x in found:
   fout.write("{0} {1} {2}\n".format(*x))
 fout.close()
+
+
+
+
+
+
+
+pool = mulproc.Pool(3)
+
+
+
+
+
+search_lats    = np.arange(0,52,1)
+search_lons    = np.arange(0,72,1)
+search_thetas  = np.arange(0,72,1)
+search_thetas  = [0]
+searches       = itertools.product(search_lats,search_lons,search_thetas)
+found          = pool.starmap(CountOverlaps,searches)
+found.sort(key = lambda x: x[0])
+
+wpts = wgs_to_mercator(*TransformLatLon(olats,olons,46,49,0))
+wpts = wgs_to_mercator(*TransformLatLon(olats,olons,48,61,0))
+wpts = wgs_to_mercator(*TransformLatLon(olats,olons,58.28,11.25,0))
+PlotPoints(*wpts)
+
+
 
 
 
@@ -405,29 +428,4 @@ for x in found:
   fout.write("{0} {1} {2}\n".format(*x))
 fout.close()
 
-
-
-
-
-#############################
-#AVOID COUNTRIES
-#############################
-
-countries = 'countries/TM_WORLD_BORDERS-0.3.shp'
-countries = [x for x in fiona.open(countries)]                     
-for f in countries:
-  f['geometry'] = shapely.geometry.shape(f['geometry'])
-
-countries.sort(key = lambda f: CountPoints(f['geometry'])['ext']+CountPoints(f['geometry'])['int'], reverse=True)
-
-
-
-
-
-i       = 158
-wpts    = wgs_to_mercator(*TransformLatLon(olats,olons,found[i][1],found[i][2]))
-PlotPoints(*wpts)
-#uvertex = shapely.geometry.MultiPoint([shapely.geometry.Point(*x) for x in list(zip(*wpts))])
-#ufeatures = shapely.ops.cascaded_union(features)
-#ufeatures.distance(uvertex)
 
