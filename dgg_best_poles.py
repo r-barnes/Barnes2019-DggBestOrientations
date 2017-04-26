@@ -329,6 +329,37 @@ def CountOverlaps(lat):
         ret.extend( (overlaps,lat,lon,theta) )
   return ret
 
+@jug.TaskGenerator
+def GetLandmasses():
+  if not os.path.isfile(os.path.join(storedir,'landmasses.pickle')):
+    landmasses = [x for x in fiona.open(landmassfile)]
+    landmasses = [sg.shape(x['geometry']) for x in landmasses]
+    with open(os.path.join(storedir,'landmasses.pickle'), 'wb') as f:
+      pickle.dump(landmasses, f, protocol=-1)
+  else:
+    with open(os.path.join(storedir,'landmasses.pickle'), 'rb') as f:
+      landmasses = pickle.load(f)
+
+  if not os.path.isfile(os.path.join(storedir,'lmidx.idx')):
+    lmidx = rtree.index.Index(os.path.join(storedir,'lmidx'),[ (i,x.bounds,x) for i,x in enumerate(landmasses) if x.exterior is not None ]) #Build spatial index
+
+  return landmasses
+
+@TaskGenerator
+def FilterOverlaps(a,b):
+  a     = value(a)
+  b     = value(b)
+  ret   = array.array('d')
+  a     = np.array(a).reshape((-1,4))
+  b     = np.array(b).reshape((-1,4))
+  agood = np.logical_or(a[:,0] == 0,a[:,0]==12)
+  bgood = np.logical_or(b[:,0] == 0,b[:,0]==12)
+  a     = a[agood,:].flatten()
+  b     = b[agood,:].flatten()
+  ret.extend(a)
+  ret.extend(b)
+  return ret
+
 
 #https://en.wikipedia.org/wiki/Regular_icosahedron#Spherical_coordinates
 #The locations of the vertices of a regular icosahedron can be described using
@@ -367,19 +398,14 @@ olons    = vertices[:,1]
 #6                       | Australia
 #7                       | Africa
 #8                       | England
-if not os.path.isfile(os.path.join(storedir,'landmasses.pickle')):
-  landmasses = [x for x in fiona.open(landmassfile)]
-  landmasses = [sg.shape(x['geometry']) for x in landmasses]
-  with open(os.path.join(storedir,'landmasses.pickle'), 'wb') as f:
-    pickle.dump(landmasses, f, protocol=-1)
-else:
-  with open(os.path.join(storedir,'landmasses.pickle'), 'rb') as f:
-    landmasses = pickle.load(f)
 
-if not os.path.isfile(os.path.join(storedir,'lmidx.idx')):
-  lmidx = rtree.index.Index(os.path.join(storedir,'lmidx'),[ (i,x.bounds,x) for i,x in enumerate(landmasses) if x.exterior is not None ]) #Build spatial index
-else:
-  lmidx = rtree.index.Index(os.path.join(storedir,'lmidx'))
+
+landmasses = GetLandmasses()
+
+jug.barrier()
+
+landmasses = jug.value(landmasses)
+lmidx      = rtree.index.Index(os.path.join(storedir,'lmidx'))
 
 
 #Search every ~10km from 90N to (90-26.57)N, which is the location of the next
@@ -388,22 +414,6 @@ search_lats = np.arange(0,90-26.57,0.1).tolist()
 #pool       = mulproc.Pool()
 #found      = pool.starmap(CountOverlaps,search_lats)
 found       = [CountOverlaps(x) for x in search_lats]
+found       = jug.mapreduce.reduce(FilterOverlaps,found)
 
 jug.barrier()
-
-
-# #Save current state
-# with open(os.path.join(storedir,'landmasses.pickle'), 'wb') as f:
-#   pickle.dump(found, f, protocol=-1)
-
-
-
-
-#Restore state
-#with open('/home/rbarnes1/scratch/dgg_best/found.pickle', 'rb') as f:
-#  found = pickle.load(f)
-
-
-
-
-#Distance3dPointTo3dPolygonQuick(lat,lon,geom)
