@@ -1,0 +1,15 @@
+#!/bin/bash  
+#SBATCH --job-name="dgg-job"  
+#SBATCH --output="dgg-job.%j.%N.out"  
+#SBATCH --partition=compute  
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=24  
+#SBATCH --export=ALL  
+#SBATCH -t 10:00:00
+
+export PATH="$HOME/bin:$PATH"
+export PATH="/home/rbarnes1/os/anaconda3/bin:$PATH"
+
+cd /home/rbarnes1/dgg_best_poles
+
+python3 dgg_best_poles.py
