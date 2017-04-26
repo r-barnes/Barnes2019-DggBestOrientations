@@ -35,4 +35,4 @@ jug execute --jugdir="/home/rbarnes1/scratch/dgg_best/%(jugfile)s.jugdata" dgg_b
 jug execute --jugdir="/home/rbarnes1/scratch/dgg_best/%(jugfile)s.jugdata" dgg_best_poles.py &
 jug execute --jugdir="/home/rbarnes1/scratch/dgg_best/%(jugfile)s.jugdata" dgg_best_poles.py &
 jug execute --jugdir="/home/rbarnes1/scratch/dgg_best/%(jugfile)s.jugdata" dgg_best_poles.py &
-jug execute --jugdir="/home/rbarnes1/scratch/dgg_best/%(jugfile)s.jugdata" dgg_best_poles.py &
+jug execute --jugdir="/home/rbarnes1/scratch/dgg_best/%(jugfile)s.jugdata" dgg_best_poles.py
