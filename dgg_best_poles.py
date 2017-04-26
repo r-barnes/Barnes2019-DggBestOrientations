@@ -14,13 +14,21 @@ import copy
 import functools
 import itertools
 import pickle
+import os
+import array
 import multiprocessing as mulproc
+import jug
 
 if shapely.speedups.available:
   shapely.speedups.enable()
 else:
   print('shapely speed-ups were not available!')
 
+#landmassfile = 'simplified-land-polygons-complete-3857/simplified_land_polygons.shp'
+#storedir     = '/z/'
+
+landmassfile = 'land-polygons-split-3857/land_polygons.shp'
+storedir     = '/home/rbarnes1/scratch/dgg_best'
 
 #260000 is about the width of Florida in a Mercator projection
 def katana(geometry, threshold=260000, count=0):
@@ -282,14 +290,13 @@ def wgs_to_mercator(lat, lon):
 
 #Note: Miller projection is also nice
 def ReprojectGeomToMercator(geom):
-  """Reproject from WGS84 latitude-longitude to Miller projection
-  :param lon0 Longitude on which to center the Miller projection
+  """Reproject from WGS84 latitude-longitude to Mercator projection
   :returns: The reprojected geometry
   """
   project = functools.partial(
     pyproj.transform,
-    pyproj.Proj(init='epsg:4326'),      # source coordinate system
-    pyproj.Proj(proj='merc') # destination coordinate system
+    pyproj.Proj(init='epsg:4326'), # source coordinate system
+    pyproj.Proj(proj='epsg:3857')  # destination coordinate system
   )
   return shapely.ops.transform(project, geom)  # apply projection
 
@@ -299,22 +306,28 @@ def IntersectsPoly(x,y,poly):
 #Note that our polygon boundaries cut out around 85.01192483772849S due to
 #Mercator distortion and anything south of this is land anyway. The farthest
 #north point of land is 83-42 at 83.7N, so all points north of here are valid.
-def CountOverlaps(lat,lon,theta):
-  slat,slon = TransformLatLon(olats,olons,lat,lon,theta)
-  x,y       = wgs_to_mercator(slat,slon)
-  pts       = zip(x,y)
-  overlaps  = len(olats)
-  for i,p in enumerate(pts):
-    if slat[i]>83.7:  #The island "83-42" as at 83.7N so anything north of this is on water
-      overlaps -= 1
-    elif slat[i]<-80: #The southmost extent of water is ~79.5S, so anything south of this is on land
-      pass
-    else:             #Everything else needs to be considered directly
-      isecs = lmidx.intersection((p[0],p[1],p[0],p[1]), objects="raw")
-      isecs = [poly for poly in isecs if IntersectsPoly(p[0],p[1],poly)]
-      if len(isecs)==0:
-        overlaps -= 1
-  return overlaps,lat,lon,theta
+@jug.TaskGenerator
+def CountOverlaps(lat):
+  ret = array.array('d')
+  for lon in np.arange(0,72,0.1).tolist():
+    for theta in np.arange(0,72,0.1).tolist(): #Rotate across 72 degrees
+      slat,slon = TransformLatLon(olats,olons,lat,lon,theta)
+      x,y       = wgs_to_mercator(slat,slon)
+      pts       = zip(x,y)
+      overlaps  = len(olats)
+      for i,p in enumerate(pts):
+        if slat[i]>83.7:  #The island "83-42" as at 83.7N so anything north of this is on water
+          overlaps -= 1
+        elif slat[i]<-80: #The southmost extent of water is ~79.5S, so anything south of this is on land
+          pass
+        else:             #Everything else needs to be considered directly
+          isecs = lmidx.intersection((p[0],p[1],p[0],p[1]), objects="raw")
+          isecs = [poly for poly in isecs if IntersectsPoly(p[0],p[1],poly)]
+          if len(isecs)==0:
+            overlaps -= 1
+      if overlaps==0 or overlaps==len(olats):
+        ret.extend( (overlaps,lat,lon,theta) )
+  return ret
 
 
 #https://en.wikipedia.org/wiki/Regular_icosahedron#Spherical_coordinates
@@ -354,78 +367,43 @@ olons    = vertices[:,1]
 #6                       | Australia
 #7                       | Africa
 #8                       | England
-landmasses = 'simplified-land-polygons-complete-3857/simplified_land_polygons.shp'
-landmasses = 'land-polygons-split-4326/land_polygons.shp'
-landmasses = [x for x in fiona.open(landmasses)]
-landmasses = [sg.shape(x['geometry']) for x in landmasses]
-#landmasses = [x.simplify(40000) for x in landmasses]        #TODO: Simplify shapes for speed
-#landmasses.sort(key = lambda x: CountPoints(x)['ext']+CountPoints(x)['int'], reverse=True)
-lmunsplit = copy.deepcopy(landmasses)
-#landmasses = [katana(x) for x in landmasses]
-#landmasses = [x for y in landmasses for x in y]
+if not os.path.isfile(os.path.join(storedir,'landmasses.pickle')):
+  landmasses = [x for x in fiona.open(landmassfile)]
+  landmasses = [sg.shape(x['geometry']) for x in landmasses]
+  with open(os.path.join(storedir,'landmasses.pickle'), 'wb') as f:
+    pickle.dump(landmasses, f, protocol=-1)
+else:
+  with open(os.path.join(storedir,'landmasses.pickle'), 'rb') as f:
+    landmasses = pickle.load(f)
 
-lmidx = rtree.index.Index('lmidx',[ (i,x.bounds,x) for i,x in enumerate(landmasses) if x.exterior is not None ]) #Build spatial index
-
-
-#save the state here
-
-# obj0, obj1, obj2 are created here...
-
-# Saving the objects:
-with open('objs.pickle', 'w') as f:  # Python 3: open(..., 'wb')
-    pickle.dump([obj0, obj1, obj2], f)
-
-# Getting back the objects:
-with open('objs.pickle') as f:  # Python 3: open(..., 'rb')
-    obj0, obj1, obj2 = pickle.load(f)
+if not os.path.isfile(os.path.join(storedir,'lmidx.idx')):
+  lmidx = rtree.index.Index(os.path.join(storedir,'lmidx'),[ (i,x.bounds,x) for i,x in enumerate(landmasses) if x.exterior is not None ]) #Build spatial index
+else:
+  lmidx = rtree.index.Index(os.path.join(storedir,'lmidx'))
 
 
+#Search every ~10km from 90N to (90-26.57)N, which is the location of the next
+#lowest vertex
+search_lats = np.arange(0,90-26.57,0.1).tolist()
+#pool       = mulproc.Pool()
+#found      = pool.starmap(CountOverlaps,search_lats)
+found       = [CountOverlaps(x) for x in search_lats]
+
+jug.barrier()
 
 
-
-found = FindUncoveredPointsInIndex(ridx,olats,olons)
-fout  = open('/z/out','w')
-for x in found:
-  fout.write("{0} {1} {2}\n".format(*x))
-fout.close()
+# #Save current state
+# with open(os.path.join(storedir,'landmasses.pickle'), 'wb') as f:
+#   pickle.dump(found, f, protocol=-1)
 
 
 
 
-
-
-
-pool = mulproc.Pool(3)
-
-
-
-
-
-search_lats    = np.arange(0,52,1)
-search_lons    = np.arange(0,72,1)
-search_thetas  = np.arange(0,72,1)
-search_thetas  = [0]
-searches       = itertools.product(search_lats,search_lons,search_thetas)
-found          = pool.starmap(CountOverlaps,searches)
-found.sort(key = lambda x: x[0])
-
-wpts = wgs_to_mercator(*TransformLatLon(olats,olons,46,49,0))
-wpts = wgs_to_mercator(*TransformLatLon(olats,olons,48,61,0))
-wpts = wgs_to_mercator(*TransformLatLon(olats,olons,58.28,11.25,0))
-PlotPoints(*wpts)
+#Restore state
+#with open('/home/rbarnes1/scratch/dgg_best/found.pickle', 'rb') as f:
+#  found = pickle.load(f)
 
 
 
 
-
-#Drop Antarctica
-del landmasses[3] #TODO
-
-ridx  = rtree.index.Index([ (i,x.bounds,x) for i,x in enumerate(landmasses) if x.exterior is not None ]) #Build spatial index
-found = FindUncoveredPointsInIndex(ridx)
-fout  = open('/z/out','w')
-for x in found:
-  fout.write("{0} {1} {2}\n".format(*x))
-fout.close()
-
-
+#Distance3dPointTo3dPolygonQuick(lat,lon,geom)
