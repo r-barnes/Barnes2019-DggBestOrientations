@@ -18,17 +18,21 @@ import os
 import array
 import multiprocessing as mulproc
 import jug
+import sys
 
 if shapely.speedups.available:
   shapely.speedups.enable()
 else:
   print('shapely speed-ups were not available!')
 
-#landmassfile = 'simplified-land-polygons-complete-3857/simplified_land_polygons.shp'
-#storedir     = '/z/'
+unprojected_landmassfile = 'data/land-polygons-complete-4326/land_polygons.shp'
+plottable_landmassfile   = 'data/simplified-land-polygons-complete-3857/simplified_land_polygons.shp'
+landmassfile             = 'data/land-polygons-split-3857/land_polygons.shp'
 
-landmassfile = 'land-polygons-split-3857/land_polygons.shp'
-storedir     = '/home/rbarnes1/scratch/dgg_best'
+#storedir = '/home/rbarnes1/scratch/dgg_best'
+storedir  = 'temp'
+PRECISION = 0.1
+
 
 #260000 is about the width of Florida in a Mercator projection
 def katana(geometry, threshold=260000, count=0):
@@ -309,8 +313,8 @@ def IntersectsPoly(x,y,poly):
 @jug.TaskGenerator
 def CountOverlaps(lat):
   ret = array.array('d')
-  for lon in np.arange(0,72,0.1).tolist():
-    for theta in np.arange(0,72,0.1).tolist(): #Rotate across 72 degrees
+  for lon in np.arange(0,72,PRECISION).tolist():
+    for theta in np.arange(0,72,PRECISION).tolist(): #Rotate across 72 degrees
       slat,slon = TransformLatLon(olats,olons,lat,lon,theta)
       x,y       = wgs_to_mercator(slat,slon)
       pts       = zip(x,y)
@@ -325,41 +329,36 @@ def CountOverlaps(lat):
           isecs = [poly for poly in isecs if IntersectsPoly(p[0],p[1],poly)]
           if len(isecs)==0:
             overlaps -= 1
-      if overlaps==0 or overlaps==len(olats):
+      if overlaps==0 or overlaps>=8:
         ret.extend( (overlaps,lat,lon,theta) )
   return ret
 
-@jug.TaskGenerator
-def GetLandmasses():
+def GenerateLandmasses():
   if not os.path.isfile(os.path.join(storedir,'landmasses.pickle')):
     landmasses = [x for x in fiona.open(landmassfile)]
     landmasses = [sg.shape(x['geometry']) for x in landmasses]
     with open(os.path.join(storedir,'landmasses.pickle'), 'wb') as f:
       pickle.dump(landmasses, f, protocol=-1)
-  else:
-    with open(os.path.join(storedir,'landmasses.pickle'), 'rb') as f:
-      landmasses = pickle.load(f)
-
-  if not os.path.isfile(os.path.join(storedir,'lmidx.idx')):
+    os.remove(os.path.join(storedir,'lmidx.idx'))
+    os.remove(os.path.join(storedir,'lmidx.dat'))
     lmidx = rtree.index.Index(os.path.join(storedir,'lmidx'),[ (i,x.bounds,x) for i,x in enumerate(landmasses) if x.exterior is not None ]) #Build spatial index
 
-  return landmasses
+def GeneratePlottableLandmasses():
+  if not os.path.isfile(os.path.join(storedir,'plottable_landmasses.pickle')):
+    plottable_landmasses = [x for x in fiona.open(plottable_landmassfile)]
+    plottable_landmasses = [sg.shape(x['geometry']) for x in plottable_landmasses]
+  plottable_landmasses.sort(key=lambda x: x.area, reverse=True)
+  with open(os.path.join(storedir,'plottable_landmasses.pickle'), 'wb') as f:
+    pickle.dump(landmasses, f, protocol=-1)
 
-@TaskGenerator
-def FilterOverlaps(a,b):
-  a     = value(a)
-  b     = value(b)
-  ret   = array.array('d')
-  a     = np.array(a).reshape((-1,4))
-  b     = np.array(b).reshape((-1,4))
-  agood = np.logical_or(a[:,0] == 0,a[:,0]==12)
-  bgood = np.logical_or(b[:,0] == 0,b[:,0]==12)
-  a     = a[agood,:].flatten()
-  b     = b[agood,:].flatten()
-  ret.extend(a)
-  ret.extend(b)
-  return ret
-
+def GenerateUnprojectedLandmasses():
+  if not os.path.isfile(os.path.join(storedir,'unprojected_landmasses.pickle')):
+    unprojected_landmasses = [x for x in fiona.open(unprojected_landmassfile)]
+    unprojected_landmasses = [sg.shape(x['geometry']) for x in unprojected_landmasses]
+  unprojected_landmasses.sort(key=lambda x: x.area, reverse=True)
+  with open(os.path.join(storedir,'unprojected_landmasses.pickle'), 'wb') as f:
+    pickle.dump(unprojected_landmasses, f, protocol=-1)
+  return True
 
 #https://en.wikipedia.org/wiki/Regular_icosahedron#Spherical_coordinates
 #The locations of the vertices of a regular icosahedron can be described using
@@ -400,20 +399,37 @@ olons    = vertices[:,1]
 #8                       | England
 
 
-landmasses = GetLandmasses()
-
+jug.Task(GenerateLandmasses)
+jug.Task(GeneratePlottableLandmasses)
+jug.Task(GenerateUnprojectedLandmasses)
 jug.barrier()
 
-landmasses = jug.value(landmasses)
+landmasses = pickle.load(open(os.path.join(storedir,'landmasses.pickle'), 'rb'))
 lmidx      = rtree.index.Index(os.path.join(storedir,'lmidx'))
-
 
 #Search every ~10km from 90N to (90-26.57)N, which is the location of the next
 #lowest vertex
-search_lats = np.arange(0,90-26.57,0.1).tolist()
-#pool       = mulproc.Pool()
-#found      = pool.starmap(CountOverlaps,search_lats)
+search_lats = np.arange(0,90-26.57,PRECISION).tolist()
 found       = [CountOverlaps(x) for x in search_lats]
-found       = jug.mapreduce.reduce(FilterOverlaps,found)
+found       = value(found)
 
-jug.barrier()
+
+
+found = [x for x in found if len(x)>0]
+found = np.hstack([np.array(x) for x in found])
+found = found.reshape((-1,4))
+
+high_vals = (found[:,0]>=8)
+high_vals = found[high_vals,:]
+
+low_vals = (found[:,0]==0)
+low_vals = found[low_vals,:]
+
+
+Distance3dPointTo3dPolygonQuick
+
+
+
+TransformLatLon(olats,olons,lat,lon,azimuth)
+
+#jug.barrier()
