@@ -257,8 +257,11 @@ def Distance3dPointTo3dPolygonQuick(lat,lon,geom):
   :returns: The minimum distance in kilometres between the polygon and the
             query point
   """
-  if geom.type == 'Polygon':
+  if isinstance(geom,list):
     dist = math.inf
+    for g in geom:
+      dist = min(dist,Distance3dPointTo3dPolygonQuick(lat,lon,g))
+  if geom.type == 'Polygon':
     xy   = np.asarray(geom.exterior)
     #Polygons are closed rings, so the first-last pair is automagically delt with
     dist = np.min(Haversine(xy[:,1],xy[:,0],lat,lon))
