@@ -205,13 +205,13 @@ class Polygon {
   double maxY() const {
     return *std::max_element(exterior.y.begin(), exterior.y.end());
   }
-  void toRadian() {
+  void toRadians() {
     for(auto &i: exterior.x) i *= DEG_TO_RAD;
     for(auto &i: exterior.y) i *= DEG_TO_RAD;
     for(auto &i: interior.x) i *= DEG_TO_RAD;
     for(auto &i: interior.y) i *= DEG_TO_RAD;
   }
-  void toDegree() {
+  void toDegrees() {
     for(auto &i: exterior.x) i *= RAD_TO_DEG;
     for(auto &i: exterior.y) i *= RAD_TO_DEG;
     for(auto &i: interior.x) i *= RAD_TO_DEG;
@@ -478,6 +478,9 @@ void DistancesToPoles(std::vector<struct POI> &pois){
   std::cerr<<"Reading WGS84 shapefile..."<<std::endl;
   std::vector<Polygon> landmass_wgs84;
   ReadShapefile("data/land-polygons-complete-4326/land_polygons.shp", "land_polygons", landmass_wgs84);
+
+  for(auto &p: landmass_wgs84)
+    p.toRadians();
 
   std::cerr<<"Calculating distances to poles..."<<std::endl;
   #pragma omp parallel for
