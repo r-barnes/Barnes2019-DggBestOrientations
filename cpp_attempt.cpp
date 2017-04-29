@@ -105,18 +105,15 @@ int ContainsPoint(const std::vector<double> &vertx, const std::vector<double> &v
 // :param lon2 Longtiude of Point 2 in degrees
 // :returns Distance between the two points in kilometres
 // """
-double Haversine(
+double GeoDistance(
   const double lon1, 
   const double lat1, 
   const double lon2,
   const double lat2 
 ){
   const double Rearth = 6371; //km
-  const double dlon   = lon2 - lon1;
-  const double dlat   = lat2 - lat1;
-  const double a      = std::pow(std::sin(dlat/2),2) + std::cos(lat1) * std::cos(lat2) * std::pow(std::sin(dlon/2),2);
-  const double c      = 2*std::asin(std::sqrt(a));
-  return Rearth*c;
+
+  return Rearth*std::acos( std::sin(lat1)*std::sin(lat2) + std::cos(lat1)*std::cos(lat2)*std::cos(lon2-lon1) );
 }
 
 
@@ -193,7 +190,7 @@ class Polygon {
   double distanceFromPoint(const double px, const double py) const {
     double dist = std::numeric_limits<double>::infinity();
     for(unsigned int i=0;i<exterior.x.size();i++)
-      dist = std::min(dist,Haversine(px,py,exterior.x[i],exterior.y[i]));
+      dist = std::min(dist,GeoDistance(px,py,exterior.x[i],exterior.y[i]));
     return dist;
   }
 
