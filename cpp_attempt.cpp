@@ -367,6 +367,8 @@ uint8_t CountOverlaps(const Pole &p, const SpIndex &sp, const std::vector<Polygo
 void Test(){
   std::cerr<<"Running tests..."<<std::endl;
 
+  std::cerr<<"PROJ version = "<<PJ_VERSION<<std::endl;
+
   {
     Pole p;
     p.rotatePole(23*DEG_TO_RAD,44*DEG_TO_RAD,5*DEG_TO_RAD);
