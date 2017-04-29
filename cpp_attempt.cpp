@@ -510,7 +510,7 @@ int main(int argc, char **argv){
 
   std::cerr<<"Sorting poles of interest..."<<std::endl;
   std::sort(pois.begin(),pois.end(), [](const POI &a, const POI &b){
-    return a.distance<b.distance;
+    return a.distance>b.distance;
   });
 
   std::cerr<<"Writing output..."<<std::endl;
