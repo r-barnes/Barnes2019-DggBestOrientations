@@ -12,8 +12,9 @@
 #include <iomanip>
 #include <cassert>
 
-const double IEL = std::atan(0.5); //Icosahedron equatorial latitudes
-const double IES = 36*M_PI/180;    //Icosahedron equatorial spacing
+const double IEL    = std::atan(0.5); //Icosahedron equatorial latitudes
+const double IES    = 36*M_PI/180;    //Icosahedron equatorial spacing
+const int PRECISION = 50;             //Grid spacing for search
 
 template<class T>
 void ToRadians(T &vec){
@@ -411,9 +412,9 @@ std::vector<struct POI> FindPolesOfInterest(){
   std::cerr<<"Finding poles..."<<std::endl;
   std::vector<struct POI> pois;
   #pragma omp parallel for collapse(3)
-  for(int plat  =0; plat  <634; plat+=1  ) //(pi()/2-vla)*180/pi()
-  for(int plon  =0; plon  <720; plon+=1  )
-  for(int ptheta=0; ptheta<720; ptheta+=1){
+  for(int16_t rlat  =0; rlat  <634; rlat  +=PRECISION) //(pi()/2-vla)*180/pi()
+  for(int16_t rlon  =0; rlon  <720; rlon  +=PRECISION)
+  for(int16_t rtheta=0; rtheta<720; rtheta+=PRECISION){
     Pole p;
     p.rotatePole(plat/10.0*DEG_TO_RAD, plon/10.0*DEG_TO_RAD, ptheta/10.0*DEG_TO_RAD);
     p.toMercator();
