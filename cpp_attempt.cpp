@@ -11,6 +11,7 @@
 #include <array>
 #include <iomanip>
 #include <cassert>
+#include <fstream>
 
 const double IEL    = std::atan(0.5); //Icosahedron equatorial latitudes
 const double IES    = 36*M_PI/180;    //Icosahedron equatorial spacing
@@ -472,10 +473,19 @@ int main(int argc, char **argv){
 
   auto pois = FindPolesOfInterest();
 
-  //DistancesToPoles(pois);
+  DistancesToPoles(pois);
+
+  std::cerr<<"Sorting poles of interest..."<<std::endl;
+  std::sort(pois.begin(),pois.end(), [](const POI &a, const POI &b){
+    return a.distance<b.distance;
+  });
+
+  std::cerr<<"Writing output..."<<std::endl;
+  std::ofstream fout("/z/out.csv");
+  for(const auto &p: pois)
+    fout<<(int)p.overlaps<<","<<p.rlat<<","<<p.rlon<<","<<p.rtheta<<","<<p.distance<<"\n";
+  fout.close();
 }
-
-
 
 
 
