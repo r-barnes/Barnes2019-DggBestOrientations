@@ -429,12 +429,12 @@ std::vector<struct POI> FindPolesOfInterest(){
   for(int16_t rlon  =0; rlon  <720; rlon  +=PRECISION)
   for(int16_t rtheta=0; rtheta<720; rtheta+=PRECISION){
     Pole p;
-    p.rotatePole(plat/10.0*DEG_TO_RAD, plon/10.0*DEG_TO_RAD, ptheta/10.0*DEG_TO_RAD);
+    p.rotatePole(rlat/10.0*DEG_TO_RAD, rlon/10.0*DEG_TO_RAD, rtheta/10.0*DEG_TO_RAD);
     p.toMercator();
     auto overlaps = CountOverlaps(p,sp,landmass_merc);
     if(overlaps==0 || overlaps>=8){
       #pragma omp critical
-      pois.push_back(POI{overlaps,plat/10.0,plon/10.0,ptheta/10.0,-1});
+      pois.push_back(POI{overlaps,rlat,rlon,rtheta,-1});
     }
   }
 
