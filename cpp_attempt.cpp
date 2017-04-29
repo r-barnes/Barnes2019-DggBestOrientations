@@ -449,12 +449,13 @@ void DistancesToPoles(std::vector<struct POI> &pois){
   ReadShapefile("data/land-polygons-complete-4326/land_polygons.shp", "land_polygons", landmass_wgs84);
 
   std::cerr<<"Calculating distances to poles..."<<std::endl;
-  for(auto &poi: pois){
+  #pragma omp parallel for
+  for(unsigned int i=0;i<pois.size();i++){
     Pole p;
-    p.rotatePole(poi.rlat*DEG_TO_RAD, poi.rlon*DEG_TO_RAD, poi.rtheta*DEG_TO_RAD);
-    poi.distance = std::numeric_limits<double>::infinity();
+    p.rotatePole(pois[i].rlat/10.0*DEG_TO_RAD, pois[i].rlon/10.0*DEG_TO_RAD, pois[i].rtheta/10.0*DEG_TO_RAD);
+    pois[i].distance = std::numeric_limits<double>::infinity();
     for(const auto &g: landmass_wgs84)
-      poi.distance = std::min(poi.distance, g.distanceFromPole(p));
+      pois[i].distance = std::min(pois[i].distance, g.distanceFromPole(p));
   }
 }
 
