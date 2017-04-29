@@ -461,6 +461,14 @@ void DistancesToPoles(std::vector<struct POI> &pois){
 int main(int argc, char **argv){
   Test();
 
+  //Do this somewhere convenient ... like here
+  #pragma omp parallel
+  {
+    pj_ctx   = pj_ctx_alloc();
+    pj_wgs84 = pj_init_plus_ctx(pj_ctx,wgs84_str);
+    pj_merc  = pj_init_plus_ctx(pj_ctx,merc_str);
+  }
+
   auto pois = FindPolesOfInterest();
 
   //DistancesToPoles(pois);
