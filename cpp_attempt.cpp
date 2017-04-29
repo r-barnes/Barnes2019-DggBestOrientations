@@ -36,8 +36,19 @@ class LineString {
 
 const char* wgs84_str = "+init=epsg:4326"; // EPSG:4326 definition: http://spatialreference.org/ref/epsg/4326/proj4/
 const char* merc_str  = "+init=epsg:3857";
-const projPJ pj_wgs84 = pj_init_plus(wgs84_str);
-const projPJ pj_merc  = pj_init_plus(merc_str);
+
+//Using static means that these variables are file-scope. If we didn't use
+//static then the variables might be accessed across many files and OpenMP would
+//not like that
+static projPJ  pj_wgs84;
+static projPJ  pj_merc;
+static projCtx pj_ctx;
+
+//Set it so each thread has its own, private copy of these variables
+#pragma omp threadprivate(pj_wgs84)
+#pragma omp threadprivate(pj_merc)
+#pragma omp threadprivate(pj_ctx)
+
 
 template<class T>
 void ToMercator(T &x, T &y){
