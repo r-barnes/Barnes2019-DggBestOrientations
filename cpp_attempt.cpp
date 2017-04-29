@@ -347,8 +347,8 @@ class SpIndex {
 };
 
 
-int CountOverlaps(const Pole &p, const SpIndex &sp, const std::vector<Polygon> &polygons){
-  int overlaps = 0;
+uint8_t CountOverlaps(const Pole &p, const SpIndex &sp, const std::vector<Polygon> &polygons){
+  uint8_t overlaps = 0;
   for(unsigned int i=0;i<p.lat.size();i++){
     auto sp_overlaps = sp.overlaps(p.lon[i],p.lat[i]);
     if(sp_overlaps.size()==0)
@@ -399,11 +399,11 @@ void Test(){
 }
 
 struct POI {
-  int overlaps;
-  double rlat;
-  double rlon;
-  double rtheta;
-  double distance;
+  uint8_t overlaps;
+  int16_t rlat;
+  int16_t rlon;
+  int16_t rtheta;
+  double  distance;
 };
 
 std::vector<struct POI> FindPolesOfInterest(){
