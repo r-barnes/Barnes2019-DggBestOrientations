@@ -1,6 +1,5 @@
 //https://gis.stackexchange.com/questions/70800/how-to-read-vector-datasets-using-gdal-library
-#include <gdal/ogrsf_frmts.h>
-#include <proj_api.h>
+#include <ogrsf_frmts.h>
 #include <spatialindex/capi/sidx_api.h>
 #include <spatialindex/capi/sidx_impl.h>
 #include <spatialindex/capi/sidx_config.h>
@@ -13,9 +12,11 @@
 #include <cassert>
 #include <fstream>
 
-const double IEL    = std::atan(0.5); //Icosahedron equatorial latitudes
-const double IES    = 36*M_PI/180;    //Icosahedron equatorial spacing
-const int PRECISION = 50;             //Grid spacing for search
+const double DEG_TO_RAD = M_PI/180.0;
+const double RAD_TO_DEG = 180.0/M_PI;
+const double IEL        = std::atan(0.5); //Icosahedron equatorial latitudes
+const double IES        = 36*M_PI/180;    //Icosahedron equatorial spacing
+const int PRECISION     = 1;              //Grid spacing for search
 
 template<class T>
 void ToRadians(T &vec){
@@ -35,25 +36,22 @@ class LineString {
   std::vector<double> y;
 };
 
-const char* wgs84_str = "+init=epsg:4326"; // EPSG:4326 definition: http://spatialreference.org/ref/epsg/4326/proj4/
-const char* merc_str  = "+init=epsg:3857";
-
-//Using static means that these variables are file-scope. If we didn't use
-//static then the variables might be accessed across many files and OpenMP would
-//not like that
-static projPJ  pj_wgs84;
-static projPJ  pj_merc;
-static projCtx pj_ctx;
-
-//Set it so each thread has its own, private copy of these variables
-#pragma omp threadprivate(pj_wgs84)
-#pragma omp threadprivate(pj_merc)
-#pragma omp threadprivate(pj_ctx)
-
+//See: https://github.com/proj4js/proj4js/blob/2006b0a06d000308caa3625005f3d5734ef11f61/lib/projections/merc.js
+void WGS84toEPSG3857(
+  const double lon, //Specified in radians
+  const double lat, //Specified in radians
+  double &x,
+  double &y
+){
+  const double radius = 6378137; //Radius of sphere lat-lon are assumed to be on
+  x = lon*radius;
+  y = radius*std::log(std::tan(M_PI/4+0.5*lat));
+}
 
 template<class T>
 void ToMercator(T &x, T &y){
-  pj_transform(pj_wgs84, pj_merc, x.size(), 1, x.data(), y.data(), NULL);
+  for(unsigned int i=0;i<x.size();i++)
+    WGS84toEPSG3857(x[i],y[i],x[i],y[i]);
 }
 
 void LatLonToXYZ(
@@ -80,7 +78,6 @@ void XYZtoLatLon(
   lat = std::asin(z/radius);
   lon = std::atan2(y,x);
 }
-
 
 void RotatePoint(const double rlat, const double rlon, const double rtheta, double &lat, double &lon){
   lon += M_PI+rtheta;                                    //Move [0,360] and add theta
@@ -398,8 +395,6 @@ uint8_t CountOverlaps(const Pole &p, const SpIndex &sp, const std::vector<Polygo
 void Test(){
   std::cerr<<"Running tests..."<<std::endl;
 
-  std::cerr<<"PROJ version = "<<PJ_VERSION<<std::endl;
-
   {
     Pole p;
     p.rotatePole(23*DEG_TO_RAD,44*DEG_TO_RAD,5*DEG_TO_RAD);
@@ -427,6 +422,14 @@ void Test(){
   assert(p.containsPoint(75,77));
   assert(p.containsPoint(74.3,72.2));
   assert(!p.containsPoint(69.4,72.2));
+
+  {
+    double x,y;
+    WGS84toEPSG3857(-93*DEG_TO_RAD,45*DEG_TO_RAD,x,y);
+    std::cout<<"(-93,45) = ("<<std::fixed<<x<<","<<std::fixed<<y<<")"<<std::endl;
+    assert(std::abs(x-(-10352712.6438))<1e-4);
+    assert(std::abs(y-5621521.48619)<1e-4);
+  }
 
   std::cerr<<"Passed"<<std::endl;
 }
@@ -496,14 +499,6 @@ void DistancesToPoles(std::vector<struct POI> &pois){
 int main(int argc, char **argv){
   Test();
 
-  //Do this somewhere convenient ... like here
-  #pragma omp parallel
-  {
-    pj_ctx   = pj_ctx_alloc();
-    pj_wgs84 = pj_init_plus_ctx(pj_ctx,wgs84_str);
-    pj_merc  = pj_init_plus_ctx(pj_ctx,merc_str);
-  }
-
   auto pois = FindPolesOfInterest();
 
   DistancesToPoles(pois);
@@ -519,41 +514,3 @@ int main(int argc, char **argv){
     fout<<(int)p.overlaps<<","<<p.rlat<<","<<p.rlon<<","<<p.rtheta<<","<<p.distance<<"\n";
   fout.close();
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-/*
-
-  void toWGS84(){
-    // EPSG:4326 definition: http://spatialreference.org/ref/epsg/4326/proj4/
-    const char* wgs84 = "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs";
-    // EPSG:27700 definition: http://spatialreference.org/ref/epsg/27700/proj4/
-    const char* merc = "+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +datum=OSGB36 +units=m +no_defs";
-    
-    projPJ pj_src = pj_init_plus(src);
-    projPJ pj_dst = pj_init_plus(dst);
-
-    toRadian();
-
-    pj_transform(merc, wgs84, exterior.x.size(), 1, exterior.x.data(), exterior.y.data(), NULL);
-    pj_transform(merc, wgs84, interior.x.size(), 1, interior.x.data(), interior.y.data(), NULL);
-  }
-  */
