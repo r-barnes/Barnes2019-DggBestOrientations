@@ -125,11 +125,11 @@ double GeoDistance(
   const double lat2 
 ){
   //Flat Earth Approx
-  // const double Rearth = 6371; //km
-  // const double dlat = lat2-lat1;
-  // const double dlon = lon2-lon1;
-  // const double mlat = (lat2+lat1)/2;
-  // return Rearth*std::sqrt(dlat*dlat + std::pow(std::cos(mlat)*dlon,2));
+  const double Rearth = 6371; //km
+  const double dlat = lat2-lat1;
+  const double dlon = lon2-lon1;
+  const double mlat = (lat2+lat1)/2;
+  return Rearth*std::sqrt(dlat*dlat + std::pow(std::cos(mlat)*dlon,2));
 
   //https://www.mapbox.com/blog/cheap-ruler/
   //http://www.focusonmath.org/sites/focusonmath.org/files/assets/MT2004-08-20a%281%29.pdf
@@ -151,12 +151,12 @@ double GeoDistance(
   //return Rearth*std::acos( std::sin(lat1)*std::sin(lat2) + std::cos(lat1)*std::cos(lat2)*std::cos(lon2-lon1) );
 
   //Haversine Distance
-  const double Rearth = 6371; //km
-  const double dlon   = lon2 - lon1;
-  const double dlat   = lat2 - lat1;
-  const double a      = std::pow(std::sin(dlat/2),2) + std::cos(lat1) * std::cos(lat2) * std::pow(std::sin(dlon/2),2);
-  const double c      = 2*std::asin(std::sqrt(a));
-  return Rearth*c;
+  // const double Rearth = 6371; //km
+  // const double dlon   = lon2 - lon1;
+  // const double dlat   = lat2 - lat1;
+  // const double a      = std::pow(std::sin(dlat/2),2) + std::cos(lat1) * std::cos(lat2) * std::pow(std::sin(dlon/2),2);
+  // const double c      = 2*std::asin(std::sqrt(a));
+  // return Rearth*c;
 }
 
 
