@@ -71,6 +71,7 @@ def katana(geometry, threshold=260000, count=0):
       final_result.append(g)
   return final_result
 
+
 def CountPoints(geom):
   """Count the number of points used to define a geometry"""
   if geom.type == 'Polygon':
@@ -88,6 +89,7 @@ def CountPoints(geom):
   return {'ext': exterior_coords,
           'int': interior_coords}
 
+
 def Pairwise(iterable):
   """
   Iterate through an itertable returning adjacent pairs
@@ -99,6 +101,7 @@ def Pairwise(iterable):
   for b in it:
     yield (a, b)
     a = b
+
 
 def LatLonToXYZ(lat,lon,radius):
   """
@@ -115,6 +118,7 @@ def LatLonToXYZ(lat,lon,radius):
   z   = radius * np.sin(lat)
   return x,y,z
 
+
 def XYZtoLatLon(x,y,z):
   """
   Convert 3D-Cartesian coordinates to a latitude-longitude pair
@@ -127,6 +131,7 @@ def XYZtoLatLon(x,y,z):
   lat    = np.degrees(np.arcsin(z/radius))
   lon    = np.degrees(np.arctan2(y, x))   
   return lat,lon
+
 
 def GCInterpolate(lat1, lon1, lat2, lon2):
   """
@@ -142,12 +147,14 @@ def GCInterpolate(lat1, lon1, lat2, lon2):
     npts = 100
   )
 
+
 def GetTriangleEdges(lats, lons, neighbors):
   """Return the edges of the major triangles comprising the icosahedron"""
   ret = []
   for n1,n2 in neighbors:
     ret.append(GCInterpolate(lats[n1],lons[n1],lats[n2],lons[n2]))
   return ret
+
 
 def Haversine(lat1, lon1, lat2, lon2):
   """
@@ -170,6 +177,7 @@ def Haversine(lat1, lon1, lat2, lon2):
   a = np.sin(dlat/2)**2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon/2)**2
   c = 2 * np.arcsin(np.sqrt(a)) 
   return Rearth*c
+
 
 #http://stackoverflow.com/a/1302268/752843
 def NearestPointOnGC(alat1,alon1,alat2,alon2,plat,plon):
@@ -194,6 +202,7 @@ def NearestPointOnGC(alat1,alon1,alat2,alon2,plat,plon):
   T         = Rearth*T/LA.norm(T) #Normalize to lie on the Great Circle
   tlat,tlon = XYZtoLatLon(*T)
   return tlat,tlon
+
 
 def DistanceToGCArc(alat,alon,blat,blon,plat,plon):
   """
@@ -227,7 +236,8 @@ def DistanceToGCArc(alat,alon,blat,blon,plat,plon):
   bpdist = Haversine(blat,blon,plat,plon)
   return min(apdist,bpdist)
 
-def Distance3dPointTo3dPolygon(lat,lon,geom):
+
+def Distance3DPointTo3DPolygon(lat,lon,geom):
   """
   Calculate the closest distance between a polygon and a latitude-longitude
   point, using only spherical considerations. Consider edges.
@@ -244,10 +254,11 @@ def Distance3dPointTo3dPolygon(lat,lon,geom):
     for p1, p2 in Pairwise(zip(*xy)):
       dist = min(dist,DistanceToGCArc(p1[1],p1[0],p2[1],p2[0],lat,lon))
   elif geom.type == 'MultiPolygon':
-    dist = min(*[Distance3dPointTo3dPolygon(lat,lon,part) for part in geom])
+    dist = min(*[Distance3DPointTo3DPolygon(lat,lon,part) for part in geom])
   return dist
 
-def Distance3dPointTo3dPolygonQuick(lat,lon,geom):
+
+def Distance3DPointTo3DPolygonQuick(lat,lon,geom):
   """
   Calculate the closest distance between a polygon and a latitude-longitude
   point, using only spherical considerations. Ignore edges.
@@ -260,14 +271,22 @@ def Distance3dPointTo3dPolygonQuick(lat,lon,geom):
   if isinstance(geom,list):
     dist = math.inf
     for g in geom:
-      dist = min(dist,Distance3dPointTo3dPolygonQuick(lat,lon,g))
-  if geom.type == 'Polygon':
+      dist = min(dist,Distance3DPointTo3DPolygonQuick(lat,lon,g))
+  elif geom.type == 'Polygon':
     xy   = np.asarray(geom.exterior)
     #Polygons are closed rings, so the first-last pair is automagically delt with
     dist = np.min(Haversine(xy[:,1],xy[:,0],lat,lon))
   elif geom.type == 'MultiPolygon':
-    dist = min(*[Distance3dPointTo3dPolygonQuick(lat,lon,part) for part in geom])
+    dist = min(*[Distance3DPointTo3DPolygonQuick(lat,lon,part) for part in geom])
   return dist
+
+
+def Distance3DPointsTo3DPolygonQuick(lat,lon,geom):
+  dist = math.inf
+  for i in range(len(lat)):
+    dist = min(dist,Distance3DPointTo3DPolygonQuick(lat[i],lon[i],geom))
+  return dist
+
 
 def TransformLatLon(latr,lonr,plat,plon,ptheta):
   """Take a point at (latr,lonr) in a system with a pole at (90,*) and rotate it
@@ -295,6 +314,7 @@ def wgs_to_mercator(lat, lon):
   x, y = pyproj.transform(prj_wgs, prj_mer, lon-0.0001, lat-0.001, radians=False) #Yes, `lon,lat` is the correct order here
   return x, y
 
+
 #Note: Miller projection is also nice
 def ReprojectGeomToMercator(geom):
   """Reproject from WGS84 latitude-longitude to Mercator projection
@@ -307,13 +327,15 @@ def ReprojectGeomToMercator(geom):
   )
   return shapely.ops.transform(project, geom)  # apply projection
 
+
 def IntersectsPoly(x,y,poly):
   return poly.contains(sg.Point(x,y))
+
 
 #Note that our polygon boundaries cut out around 85.01192483772849S due to
 #Mercator distortion and anything south of this is land anyway. The farthest
 #north point of land is 83-42 at 83.7N, so all points north of here are valid.
-@jug.TaskGenerator
+#@jug.TaskGenerator
 def CountOverlaps(lat):
   ret = array.array('d')
   for lon in np.arange(0,72,PRECISION).tolist():
@@ -336,6 +358,7 @@ def CountOverlaps(lat):
         ret.extend( (overlaps,lat,lon,theta) )
   return ret
 
+
 def GenerateLandmasses():
   if not os.path.isfile(os.path.join(storedir,'landmasses.pickle')):
     landmasses = [x for x in fiona.open(landmassfile)]
@@ -346,22 +369,29 @@ def GenerateLandmasses():
     os.remove(os.path.join(storedir,'lmidx.dat'))
     lmidx = rtree.index.Index(os.path.join(storedir,'lmidx'),[ (i,x.bounds,x) for i,x in enumerate(landmasses) if x.exterior is not None ]) #Build spatial index
 
+
 def GeneratePlottableLandmasses():
   if not os.path.isfile(os.path.join(storedir,'plottable_landmasses.pickle')):
     plottable_landmasses = [x for x in fiona.open(plottable_landmassfile)]
     plottable_landmasses = [sg.shape(x['geometry']) for x in plottable_landmasses]
-  plottable_landmasses.sort(key=lambda x: x.area, reverse=True)
-  with open(os.path.join(storedir,'plottable_landmasses.pickle'), 'wb') as f:
-    pickle.dump(landmasses, f, protocol=-1)
+    plottable_landmasses.sort(key=lambda x: x.area, reverse=True)
+    with open(os.path.join(storedir,'plottable_landmasses.pickle'), 'wb') as f:
+      pickle.dump(landmasses, f, protocol=-1)
+
 
 def GenerateUnprojectedLandmasses():
   if not os.path.isfile(os.path.join(storedir,'unprojected_landmasses.pickle')):
     unprojected_landmasses = [x for x in fiona.open(unprojected_landmassfile)]
     unprojected_landmasses = [sg.shape(x['geometry']) for x in unprojected_landmasses]
-  unprojected_landmasses.sort(key=lambda x: x.area, reverse=True)
-  with open(os.path.join(storedir,'unprojected_landmasses.pickle'), 'wb') as f:
-    pickle.dump(unprojected_landmasses, f, protocol=-1)
-  return True
+    unprojected_landmasses.sort(key=lambda x: x.area, reverse=True)
+    with open(os.path.join(storedir,'unprojected_landmasses.pickle'), 'wb') as f:
+      pickle.dump(unprojected_landmasses, f, protocol=-1)
+
+
+def ShiftedVerticesDistanceToLand(x):
+  slat, slon = TransformLatLon(olats,olons,*x[1:])
+  return Distance3DPointsTo3DPolygonQuick(slat,slon,unprojected_landmasses)
+
 
 #https://en.wikipedia.org/wiki/Regular_icosahedron#Spherical_coordinates
 #The locations of the vertices of a regular icosahedron can be described using
@@ -402,37 +432,47 @@ olons    = vertices[:,1]
 #8                       | England
 
 
-jug.Task(GenerateLandmasses)
-jug.Task(GeneratePlottableLandmasses)
-jug.Task(GenerateUnprojectedLandmasses)
-jug.barrier()
+#jug.Task(GenerateLandmasses)
+#jug.Task(GeneratePlottableLandmasses)
+#jug.Task(GenerateUnprojectedLandmasses)
+#jug.barrier()
 
-landmasses = pickle.load(open(os.path.join(storedir,'landmasses.pickle'), 'rb'))
-lmidx      = rtree.index.Index(os.path.join(storedir,'lmidx'))
+GenerateLandmasses()
+GeneratePlottableLandmasses()
+GenerateUnprojectedLandmasses()
 
-#Search every ~10km from 90N to (90-26.57)N, which is the location of the next
-#lowest vertex
-search_lats = np.arange(0,90-26.57,PRECISION).tolist()
-found       = [CountOverlaps(x) for x in search_lats]
-found       = value(found)
+landmasses             = pickle.load(open(os.path.join(storedir,'landmasses.pickle'), 'rb'))
+plottable_landmasses   = pickle.load(open(os.path.join(storedir,'plottable_landmasses.pickle'), 'rb'))
+lmidx                  = rtree.index.Index(os.path.join(storedir,'lmidx'))
+unprojected_landmasses = pickle.load(open(os.path.join(storedir,'unprojected_landmasses.pickle'), 'rb'))
 
+pool = mulproc.Pool()
+
+if not os.path.isfile(os.path.join(storedir,'found.pickle')):
+  #Search every ~10km from 90N to (90-26.57)N, which is the location of the next
+  #lowest vertex
+  search_lats = np.arange(0,90-26.57,PRECISION).tolist()
+  found       = pool.map(CountOverlaps,search_lats)
+  #found       = [CountOverlaps(x) for x in search_lats]
+  #found       = value(found)
+  with open(os.path.join(storedir,'found.pickle'), 'wb') as f:
+    pickle.dump(found, f, protocol=-1)
+else:
+  found = pickle.load(open(os.path.join(storedir,'found.pickle'), 'rb'))
 
 
 found = [x for x in found if len(x)>0]
 found = np.hstack([np.array(x) for x in found])
 found = found.reshape((-1,4))
 
-high_vals = (found[:,0]>=8)
-high_vals = found[high_vals,:]
+high_vals = (found[:,0] >= 8)    #Find on shifts with many points on land
+high_vals = found[high_vals,:]   #Extract only those
 
-low_vals = (found[:,0]==0)
-low_vals = found[low_vals,:]
+low_vals = (found[:,0] == 0)     #Find on shifts with many points on land
+low_vals = found[low_vals,:]     #Extract only those
+
+low_val_dist  = pool.map(ShiftedVerticesDistanceToLand, low_vals)
+high_val_dist = pool.map(ShiftedVerticesDistanceToLand, high_vals)
 
 
-Distance3dPointTo3dPolygonQuick
-
-
-
-TransformLatLon(olats,olons,lat,lon,azimuth)
-
-#jug.barrier()
+ShiftedVerticesDistanceToLand(low_vals[0])
