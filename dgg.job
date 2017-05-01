@@ -10,29 +10,8 @@
 export PATH="$HOME/bin:$PATH"
 export PATH="/home/rbarnes1/os/anaconda3/bin:$PATH"
 
-cd /home/rbarnes1/dgg_best_poles
+cd /home/rbarnes1/dgg_best_poles2
 
-jug execute --jugdir="/home/rbarnes1/scratch/dgg_best/%(jugfile)s.jugdata" dgg_best_poles.py &
-jug execute --jugdir="/home/rbarnes1/scratch/dgg_best/%(jugfile)s.jugdata" dgg_best_poles.py &
-jug execute --jugdir="/home/rbarnes1/scratch/dgg_best/%(jugfile)s.jugdata" dgg_best_poles.py &
-jug execute --jugdir="/home/rbarnes1/scratch/dgg_best/%(jugfile)s.jugdata" dgg_best_poles.py &
-jug execute --jugdir="/home/rbarnes1/scratch/dgg_best/%(jugfile)s.jugdata" dgg_best_poles.py &
-jug execute --jugdir="/home/rbarnes1/scratch/dgg_best/%(jugfile)s.jugdata" dgg_best_poles.py &
-jug execute --jugdir="/home/rbarnes1/scratch/dgg_best/%(jugfile)s.jugdata" dgg_best_poles.py &
-jug execute --jugdir="/home/rbarnes1/scratch/dgg_best/%(jugfile)s.jugdata" dgg_best_poles.py &
-jug execute --jugdir="/home/rbarnes1/scratch/dgg_best/%(jugfile)s.jugdata" dgg_best_poles.py &
-jug execute --jugdir="/home/rbarnes1/scratch/dgg_best/%(jugfile)s.jugdata" dgg_best_poles.py &
-jug execute --jugdir="/home/rbarnes1/scratch/dgg_best/%(jugfile)s.jugdata" dgg_best_poles.py &
-jug execute --jugdir="/home/rbarnes1/scratch/dgg_best/%(jugfile)s.jugdata" dgg_best_poles.py &
-jug execute --jugdir="/home/rbarnes1/scratch/dgg_best/%(jugfile)s.jugdata" dgg_best_poles.py &
-jug execute --jugdir="/home/rbarnes1/scratch/dgg_best/%(jugfile)s.jugdata" dgg_best_poles.py &
-jug execute --jugdir="/home/rbarnes1/scratch/dgg_best/%(jugfile)s.jugdata" dgg_best_poles.py &
-jug execute --jugdir="/home/rbarnes1/scratch/dgg_best/%(jugfile)s.jugdata" dgg_best_poles.py &
-jug execute --jugdir="/home/rbarnes1/scratch/dgg_best/%(jugfile)s.jugdata" dgg_best_poles.py &
-jug execute --jugdir="/home/rbarnes1/scratch/dgg_best/%(jugfile)s.jugdata" dgg_best_poles.py &
-jug execute --jugdir="/home/rbarnes1/scratch/dgg_best/%(jugfile)s.jugdata" dgg_best_poles.py &
-jug execute --jugdir="/home/rbarnes1/scratch/dgg_best/%(jugfile)s.jugdata" dgg_best_poles.py &
-jug execute --jugdir="/home/rbarnes1/scratch/dgg_best/%(jugfile)s.jugdata" dgg_best_poles.py &
-jug execute --jugdir="/home/rbarnes1/scratch/dgg_best/%(jugfile)s.jugdata" dgg_best_poles.py &
-jug execute --jugdir="/home/rbarnes1/scratch/dgg_best/%(jugfile)s.jugdata" dgg_best_poles.py &
-jug execute --jugdir="/home/rbarnes1/scratch/dgg_best/%(jugfile)s.jugdata" dgg_best_poles.py
+export LD_LIBRARY_PATH=$HOME/os/anaconda3/lib:$LD_LIBRARY_PATH
+
+./dgfinder.exe
