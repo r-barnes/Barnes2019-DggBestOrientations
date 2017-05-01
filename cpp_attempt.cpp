@@ -442,8 +442,8 @@ struct POI {
 std::vector<struct POI> FindPolesOfInterest(){
   std::vector<Polygon> landmass_merc;
   std::cerr<<"Reading Mercator split shapefile..."<<std::endl;
-  ReadShapefile("data/simplified-land-polygons-complete-3857/simplified_land_polygons.shp", "simplified_land_polygons", landmass_merc);
-  //ReadShapefile("data/land-polygons-split-3857/land_polygons.shp", "land_polygons", landmass_merc);
+  //ReadShapefile("data/simplified-land-polygons-complete-3857/simplified_land_polygons.shp", "simplified_land_polygons", landmass_merc);
+  ReadShapefile("/home/rbarnes1/scratch/dgg_best/land-polygons-split-3857/land_polygons.shp", "land_polygons", landmass_merc);
   std::cerr<<"Read "<<landmass_merc.size()<<" polygons."<<std::endl;
 
   SpIndex sp;
@@ -477,7 +477,7 @@ std::vector<struct POI> FindPolesOfInterest(){
 void DistancesToPoles(std::vector<struct POI> &pois){
   std::cerr<<"Reading WGS84 shapefile..."<<std::endl;
   std::vector<Polygon> landmass_wgs84;
-  ReadShapefile("data/land-polygons-complete-4326/land_polygons.shp", "land_polygons", landmass_wgs84);
+  ReadShapefile("/home/rbarnes1/scratch/dgg_best/land-polygons-complete-4326/land_polygons.shp", "land_polygons", landmass_wgs84);
 
   for(auto &p: landmass_wgs84)
     p.toRadians();
@@ -514,7 +514,7 @@ int main(int argc, char **argv){
   });
 
   std::cerr<<"Writing output..."<<std::endl;
-  std::ofstream fout("/z/out.csv");
+  std::ofstream fout("/home/rbarnes1/scratch/dgg_best/out.csv");
   for(const auto &p: pois)
     fout<<(int)p.overlaps<<","<<p.rlat<<","<<p.rlon<<","<<p.rtheta<<","<<p.distance<<"\n";
   fout.close();
