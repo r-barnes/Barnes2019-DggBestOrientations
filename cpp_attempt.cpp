@@ -114,20 +114,6 @@ void RotatePoint(const double rlat, const double rlon, const double rtheta, doub
   XYZtoLatLon(x,y,z, lat, lon);
 }
 
-//Info: https://wrf.ecse.rpi.edu//Research/Short_Notes/pnpoly.html
-//Info: https://stackoverflow.com/questions/8721406/how-to-determine-if-a-point-is-inside-a-2d-convex-polygon/23223947#23223947
-//Info: http://stackoverflow.com/a/2922778/752843
-int ContainsPoint(const std::vector<double> &vertx, const std::vector<double> &verty, const double testx, const double testy) {
-  unsigned int i, j;
-  int c = 0;
-  for (i = 0, j = vertx.size()-1; i < vertx.size(); j = i++) {
-    if ( ((verty[i]>testy) != (verty[j]>testy)) &&
-     (testx < (vertx[j]-vertx[i]) * (testy-verty[i]) / (verty[j]-verty[i]) + vertx[i]) )
-       c = !c;
-  }
-  return c;
-}
-
 // """
 // Calculate the Great Circle distance on Earth between two latitude-longitude
 // points
@@ -207,37 +193,67 @@ class Pole {
   }
 };
 
+class Point2D {
+ public:
+  double x;
+  double y;
+  Point2D(double x, double y) {
+    this->x = x;
+    this->y = y;
+  }
+};
 
 class Polygon {
  public:
-  LineString interior;
-  LineString exterior;
+  std::vector<Point2D> exterior;
   double minX() const {
-    return *std::min_element(exterior.x.begin(), exterior.x.end());
+    double minx=std::numeric_limits<double>::infinity();
+    for(const auto &p: exterior)
+      minx = std::min(p.x,minx);
+    return minx;
   }
   double maxX() const {
-    return *std::max_element(exterior.x.begin(), exterior.x.end());
+    double maxx=-std::numeric_limits<double>::infinity();
+    for(const auto &p: exterior)
+      maxx = std::max(p.x,maxx);
+    return maxx;
   }
   double minY() const {
-    return *std::min_element(exterior.y.begin(), exterior.y.end());
+    double miny=std::numeric_limits<double>::infinity();
+    for(const auto &p: exterior)
+      miny=std::min(p.y,miny);
+    return miny;
   }
   double maxY() const {
-    return *std::max_element(exterior.y.begin(), exterior.y.end());
+    double maxy=-std::numeric_limits<double>::infinity();
+    for(const auto &p: exterior)
+      maxy=std::max(p.y,maxy);
+    return maxy;
   }
   void toRadians() {
-    for(auto &i: exterior.x) i *= DEG_TO_RAD;
-    for(auto &i: exterior.y) i *= DEG_TO_RAD;
-    for(auto &i: interior.x) i *= DEG_TO_RAD;
-    for(auto &i: interior.y) i *= DEG_TO_RAD;
+    for(auto &p: exterior){
+      p.x *= DEG_TO_RAD;
+      p.y *= DEG_TO_RAD;
+    }
   }
   void toDegrees() {
-    for(auto &i: exterior.x) i *= RAD_TO_DEG;
-    for(auto &i: exterior.y) i *= RAD_TO_DEG;
-    for(auto &i: interior.x) i *= RAD_TO_DEG;
-    for(auto &i: interior.y) i *= RAD_TO_DEG;
+    for(auto &p: exterior){
+      p.x *= RAD_TO_DEG;
+      p.y *= RAD_TO_DEG;
+    }
   }
+  //Info: https://wrf.ecse.rpi.edu//Research/Short_Notes/pnpoly.html
+  //Info: https://stackoverflow.com/questions/8721406/how-to-determine-if-a-point-is-inside-a-2d-convex-polygon/23223947#23223947
+  //Info: http://stackoverflow.com/a/2922778/752843
   bool containsPoint(const double testx, const double testy) const {
-    return ContainsPoint(exterior.x, exterior.y, testx, testy);
+    unsigned int i, j;
+    int c = 0;
+    for (i = 0, j = exterior.size()-1; i < exterior.size(); j = i++) {
+      if ( ((exterior[i].y>testy) != (exterior[j].y>testy)) &&
+       (testx < (exterior[j].x-exterior[i].x) * (testy-exterior[i].y) / (exterior[j].y-exterior[i].y) + exterior[i].x) )
+         c = !c;
+    }
+    return c;
   }
 
   // """
@@ -251,8 +267,8 @@ class Polygon {
   // """
   double distanceFromPoint(const double px, const double py) const {
     double dist = std::numeric_limits<double>::infinity();
-    for(unsigned int i=0;i<exterior.x.size();i++)
-      dist = std::min(dist,GeoDistance(px,py,exterior.x[i],exterior.y[i]));
+    for(const auto &e: exterior)
+      dist = std::min(dist,GeoDistance(px,py,e.x,e.y));
     return dist;
   }
 
@@ -306,10 +322,8 @@ void ReadShapefile(std::string filename, std::string layername, std::vector<Poly
       auto extring = poly->getExteriorRing();
       //Ignore interior rings for now: they're probably lakes
       geometries.emplace_back();
-      for(int i=0;i<extring->getNumPoints();i++){
-        geometries.back().exterior.x.emplace_back(extring->getX(i));
-        geometries.back().exterior.y.emplace_back(extring->getY(i));
-      }
+      for(int i=0;i<extring->getNumPoints();i++)
+        geometries.back().exterior.emplace_back(extring->getX(i),extring->getY(i));
     } else {
       std::cerr<<"Unrecognised geometry of type: "<<wkbFlatten(poGeometry->getGeometryType())<<std::endl;
     }
@@ -432,10 +446,10 @@ void Test(){
   assert(sp.overlaps(7.5,5.5)[0]==57);
 
   Polygon p;
-  p.exterior.x.push_back(70); p.exterior.y.push_back(70);
-  p.exterior.x.push_back(70); p.exterior.y.push_back(80);
-  p.exterior.x.push_back(80); p.exterior.y.push_back(80);
-  p.exterior.x.push_back(80); p.exterior.y.push_back(70);
+  p.exterior.emplace_back(70,70);
+  p.exterior.emplace_back(70,80);
+  p.exterior.emplace_back(80,80);
+  p.exterior.emplace_back(80,70);
 
   sp.addPolygon(p, 347);
 
