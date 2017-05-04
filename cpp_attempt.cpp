@@ -510,7 +510,7 @@ void DistancesToPoles(std::vector<struct POI> &pois){
   Timer tmr;
 
   std::cerr<<"Calculating distances to poles..."<<std::endl;
-  #pragma omp parallel for
+  #pragma omp parallel for default(none) shared(pois,landmass_wgs84)
   for(unsigned int i=0;i<pois.size();i++){
     Pole p;
     p.rotatePole(pois[i].rlat/10.0*DEG_TO_RAD, pois[i].rlon/10.0*DEG_TO_RAD, pois[i].rtheta/10.0*DEG_TO_RAD);
