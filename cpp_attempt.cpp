@@ -11,12 +11,26 @@
 #include <iomanip>
 #include <cassert>
 #include <fstream>
+#include <chrono>
 
 const double DEG_TO_RAD = M_PI/180.0;
 const double RAD_TO_DEG = 180.0/M_PI;
 const double IEL        = std::atan(0.5); //Icosahedron equatorial latitudes
 const double IES        = 36*M_PI/180;    //Icosahedron equatorial spacing
 const int PRECISION     = 1;              //Grid spacing for search
+
+class Timer {
+ private:
+  typedef std::chrono::high_resolution_clock clock_;
+  typedef std::chrono::duration<double, std::ratio<1> > second_;
+  std::chrono::time_point<clock_> beg_;
+ public:
+  Timer() : beg_(clock_::now()) {}
+  void reset() { beg_ = clock_::now(); }
+  double elapsed() const { 
+    return std::chrono::duration_cast<second_> (clock_::now() - beg_).count(); 
+  }
+};
 
 template<class T>
 void ToRadians(T &vec){
@@ -458,10 +472,14 @@ std::vector<struct POI> FindPolesOfInterest(){
 
   std::cerr<<"Finding poles..."<<std::endl;
   std::vector<struct POI> pois;
-  #pragma omp parallel for collapse(3)
+  long count=0;
+
+  Timer tmr;
+  #pragma omp parallel for default(none) schedule(static) shared(sp,landmass_merc,pois,std::cerr) reduction(+:count)
   for(int16_t rlat  =0; rlat  <634; rlat  +=PRECISION) //(pi()/2-vla)*180/pi()
   for(int16_t rlon  =0; rlon  <720; rlon  +=PRECISION)
   for(int16_t rtheta=0; rtheta<720; rtheta+=PRECISION){
+    count++;
     Pole p;
     p.rotatePole(rlat/10.0*DEG_TO_RAD, rlon/10.0*DEG_TO_RAD, rtheta/10.0*DEG_TO_RAD);
     p.toMercator();
@@ -472,6 +490,10 @@ std::vector<struct POI> FindPolesOfInterest(){
     }
   }
 
+  double t = tmr.elapsed();
+  std::cout << "Time taken = " << t <<"s"<< std::endl;
+
+  std::cerr<<"Checked = "<<count<<std::endl;
   std::cerr<<"Found "<<pois.size()<<" poles of interest."<<std::endl;
 
   return pois;
@@ -485,6 +507,8 @@ void DistancesToPoles(std::vector<struct POI> &pois){
   for(auto &p: landmass_wgs84)
     p.toRadians();
 
+  Timer tmr;
+
   std::cerr<<"Calculating distances to poles..."<<std::endl;
   #pragma omp parallel for
   for(unsigned int i=0;i<pois.size();i++){
@@ -494,10 +518,15 @@ void DistancesToPoles(std::vector<struct POI> &pois){
     for(const auto &g: landmass_wgs84)
       pois[i].distance = std::min(pois[i].distance, g.distanceFromPole(p));
   }
+
+  double t = tmr.elapsed();
+  std::cout << "Time taken = " << t <<"s"<< std::endl;
 }
 
 int main(int argc, char **argv){
   Test();
+
+  std::cerr<<"PRECISION = "<<PRECISION<<std::endl;
 
   auto pois = FindPolesOfInterest();
 
