@@ -13,6 +13,14 @@
 #include <fstream>
 #include <chrono>
 
+const std::string FILE_WGS84_LANDMASS = "/home/rbarnes1/scratch/dgg_best/land-polygons-complete-4326/land_polygons.shp";
+const std::string FILE_OUTPUT         = "/home/rbarnes1/scratch/dgg_best/out.csv";
+const std::string FILE_MERC_LANDMASS  = "/home/rbarnes1/scratch/dgg_best/land-polygons-split-3857/land_polygons.shp";
+
+//const std::string FILE_WGS84_LANDMASS = "data/land-polygons-complete-4326/land_polygons.shp";
+//const std::string FILE_OUTPUT         = "/z/out.csv";
+//const std::string FILE_MERC_LANDMASS  = "data/land-polygons-split-3857/land_polygons.shp";
+
 const double DEG_TO_RAD = M_PI/180.0;
 const double RAD_TO_DEG = 180.0/M_PI;
 const double IEL        = std::atan(0.5); //Icosahedron equatorial latitudes
@@ -460,7 +468,7 @@ std::vector<struct POI> FindPolesOfInterest(){
   std::vector<Polygon> landmass_merc;
   std::cerr<<"Reading Mercator split shapefile..."<<std::endl;
   //ReadShapefile("data/simplified-land-polygons-complete-3857/simplified_land_polygons.shp", "simplified_land_polygons", landmass_merc);
-  ReadShapefile("/home/rbarnes1/scratch/dgg_best/land-polygons-split-3857/land_polygons.shp", "land_polygons", landmass_merc);
+  ReadShapefile(FILE_MERC_LANDMASS, "land_polygons", landmass_merc);
   std::cerr<<"Read "<<landmass_merc.size()<<" polygons."<<std::endl;
 
   SpIndex sp;
@@ -502,7 +510,7 @@ std::vector<struct POI> FindPolesOfInterest(){
 void DistancesToPoles(std::vector<struct POI> &pois){
   std::cerr<<"Reading WGS84 shapefile..."<<std::endl;
   std::vector<Polygon> landmass_wgs84;
-  ReadShapefile("/home/rbarnes1/scratch/dgg_best/land-polygons-complete-4326/land_polygons.shp", "land_polygons", landmass_wgs84);
+  ReadShapefile(FILE_WGS84_LANDMASS, "land_polygons", landmass_wgs84);
 
   for(auto &p: landmass_wgs84)
     p.toRadians();
@@ -538,7 +546,7 @@ int main(int argc, char **argv){
   });
 
   std::cerr<<"Writing output..."<<std::endl;
-  std::ofstream fout("/home/rbarnes1/scratch/dgg_best/out.csv");
+  std::ofstream fout(FILE_OUTPUT);
   for(const auto &p: pois)
     fout<<(int)p.overlaps<<","<<p.rlat<<","<<p.rlon<<","<<p.rtheta<<","<<p.distance<<"\n";
   fout.close();
