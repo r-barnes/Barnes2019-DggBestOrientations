@@ -1,4 +1,5 @@
 //https://gis.stackexchange.com/questions/70800/how-to-read-vector-datasets-using-gdal-library
+#include "Polygon.hpp"
 #include <ogrsf_frmts.h>
 #include <spatialindex/capi/sidx_api.h>
 #include <spatialindex/capi/sidx_impl.h>
@@ -114,56 +115,6 @@ void RotatePoint(const double rlat, const double rlon, const double rtheta, doub
   XYZtoLatLon(x,y,z, lat, lon);
 }
 
-// """
-// Calculate the Great Circle distance on Earth between two latitude-longitude
-// points
-// :param lat1 Latitude of Point 1 in degrees
-// :param lon1 Longtiude of Point 1 in degrees
-// :param lat2 Latitude of Point 2 in degrees
-// :param lon2 Longtiude of Point 2 in degrees
-// :returns Distance between the two points in kilometres
-// """
-double GeoDistance(
-  const double lon1, 
-  const double lat1, 
-  const double lon2,
-  const double lat2 
-){
-  //Flat Earth Approx
-  const double Rearth = 6371; //km
-  const double dlat = lat2-lat1;
-  const double dlon = lon2-lon1;
-  const double mlat = (lat2+lat1)/2;
-  return Rearth*std::sqrt(dlat*dlat + std::pow(std::cos(mlat)*dlon,2));
-
-  //https://www.mapbox.com/blog/cheap-ruler/
-  //http://www.focusonmath.org/sites/focusonmath.org/files/assets/MT2004-08-20a%281%29.pdf
-  //From: https://www.gpo.gov/fdsys/pkg/CFR-2005-title47-vol4/pdf/CFR-2005-title47-vol4-sec73-208.pdf. Valid for distances <295 miles
-  // const double ml      = (lat1+lat2)/2;
-  // const double cs      = std::cos(ml);
-  // const double cs2     = 2*cs*cs  - 1;
-  // const double cs3     = 2*cs*cs2 - cs;
-  // const double cs4     = 2*cs*cs3 - cs2;
-  // const double cs5     = 2*cs*cs4 - cs3;
-  // const double kpd_lat = 111.13209    - 0.56605*cs2 + 0.00120*cs4;
-  // const double kpd_lon = 111.41513*cs - 0.09455*cs3 + 0.00012*cs5;
-  // const double ns      = kpd_lat*(lat1-lat2);
-  // const double ew      = kpd_lon*(lon1-lon2);
-  // return std::sqrt(ns*ns+ew*ew);
-
-  //Law of Cosines method
-  //const double Rearth = 6371; //km
-  //return Rearth*std::acos( std::sin(lat1)*std::sin(lat2) + std::cos(lat1)*std::cos(lat2)*std::cos(lon2-lon1) );
-
-  //Haversine Distance
-  // const double Rearth = 6371; //km
-  // const double dlon   = lon2 - lon1;
-  // const double dlat   = lat2 - lat1;
-  // const double a      = std::pow(std::sin(dlat/2),2) + std::cos(lat1) * std::cos(lat2) * std::pow(std::sin(dlon/2),2);
-  // const double c      = 2*std::asin(std::sqrt(a));
-  // return Rearth*c;
-}
-
 
 const double vla = 26.57;
 
@@ -193,96 +144,12 @@ class Pole {
   }
 };
 
-class Point2D {
- public:
-  double x;
-  double y;
-  Point2D(double x, double y) {
-    this->x = x;
-    this->y = y;
-  }
-};
-
-class Polygon {
- public:
-  std::vector<Point2D> exterior;
-  double minX() const {
-    double minx=std::numeric_limits<double>::infinity();
-    for(const auto &p: exterior)
-      minx = std::min(p.x,minx);
-    return minx;
-  }
-  double maxX() const {
-    double maxx=-std::numeric_limits<double>::infinity();
-    for(const auto &p: exterior)
-      maxx = std::max(p.x,maxx);
-    return maxx;
-  }
-  double minY() const {
-    double miny=std::numeric_limits<double>::infinity();
-    for(const auto &p: exterior)
-      miny=std::min(p.y,miny);
-    return miny;
-  }
-  double maxY() const {
-    double maxy=-std::numeric_limits<double>::infinity();
-    for(const auto &p: exterior)
-      maxy=std::max(p.y,maxy);
-    return maxy;
-  }
-  void toRadians() {
-    for(auto &p: exterior){
-      p.x *= DEG_TO_RAD;
-      p.y *= DEG_TO_RAD;
-    }
-  }
-  void toDegrees() {
-    for(auto &p: exterior){
-      p.x *= RAD_TO_DEG;
-      p.y *= RAD_TO_DEG;
-    }
-  }
-  //Info: https://wrf.ecse.rpi.edu//Research/Short_Notes/pnpoly.html
-  //Info: https://stackoverflow.com/questions/8721406/how-to-determine-if-a-point-is-inside-a-2d-convex-polygon/23223947#23223947
-  //Info: http://stackoverflow.com/a/2922778/752843
-  bool containsPoint(const double testx, const double testy) const {
-    unsigned int i, j;
-    int c = 0;
-    for (i = 0, j = exterior.size()-1; i < exterior.size(); j = i++) {
-      if ( ((exterior[i].y>testy) != (exterior[j].y>testy)) &&
-       (testx < (exterior[j].x-exterior[i].x) * (testy-exterior[i].y) / (exterior[j].y-exterior[i].y) + exterior[i].x) )
-         c = !c;
-    }
-    return c;
-  }
-
-  // """
-  // Calculate the closest distance between a polygon and a latitude-longitude
-  // point, using only spherical considerations. Ignore edges.
-  // :param lat  Latitude of query point in degrees
-  // :param lon  Longitude of query point in degrees
-  // :param geom A `shapely` geometry whose points are in latitude-longitude space
-  // :returns: The minimum distance in kilometres between the polygon and the
-  //           query point
-  // """
-  double distanceFromPoint(const double px, const double py) const {
-    double dist = std::numeric_limits<double>::infinity();
-    for(const auto &e: exterior)
-      dist = std::min(dist,GeoDistance(px,py,e.x,e.y));
-    return dist;
-  }
-
-  double distanceFromPole(const Pole &p) const {
-    double dist = std::numeric_limits<double>::infinity();
-    for(unsigned int i=0;i<p.lon.size();i++)
-      dist = std::min(dist,distanceFromPoint(p.lon[i],p.lat[i]));
-    return dist;
-  }
-};
-
-
-
-
+double DistancePoleToPolygon(const Pole &p, const Polygon &poly) {
+  double dist = std::numeric_limits<double>::infinity();
+  for(unsigned int i=0;i<p.lon.size();i++)
+    dist = std::min(dist,poly.distanceFromPoint(p.lon[i],p.lat[i]));
+  return dist;
+}
 
 void ReadShapefile(std::string filename, std::string layername, std::vector<Polygon> &geometries){
   GDALAllRegister();
@@ -538,7 +405,7 @@ void DistancesToPoles(std::vector<struct POI> &pois){
     p.rotatePole(pois[i].rlat/10.0*DEG_TO_RAD, pois[i].rlon/10.0*DEG_TO_RAD, pois[i].rtheta/10.0*DEG_TO_RAD);
     pois[i].distance = std::numeric_limits<double>::infinity();
     for(const auto &g: landmass_wgs84)
-      pois[i].distance = std::min(pois[i].distance, g.distanceFromPole(p));
+      pois[i].distance = std::min(pois[i].distance, DistancePoleToPolygon(p,g));
   }
 
   double t = tmr.elapsed();

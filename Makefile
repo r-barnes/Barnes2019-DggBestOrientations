@@ -8,4 +8,4 @@ export CXXFLAGS=$(GDAL_CFLAGS) $(ARCH_FLAGS) --std=c++11 -O3 -g -Wall -ffast-mat
 export SIDX_FLAGS=-lspatialindex_c -lspatialindex -lproj
 
 main:
-	$(CXX) $(CXXFLAGS) -o dgfinder.exe cpp_attempt.cpp $(GDAL_LIBS) $(SIDX_FLAGS)
+	$(CXX) $(CXXFLAGS) -o dgfinder.exe cpp_attempt.cpp Polygon.cpp $(GDAL_LIBS) $(SIDX_FLAGS)
