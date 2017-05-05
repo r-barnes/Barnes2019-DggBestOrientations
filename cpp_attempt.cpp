@@ -1,9 +1,7 @@
 //https://gis.stackexchange.com/questions/70800/how-to-read-vector-datasets-using-gdal-library
 #include "Polygon.hpp"
+#include "SpIndex.hpp"
 #include <ogrsf_frmts.h>
-#include <spatialindex/capi/sidx_api.h>
-#include <spatialindex/capi/sidx_impl.h>
-#include <spatialindex/capi/sidx_config.h>
 #include <iostream>
 #include <vector>
 #include <stdexcept>
@@ -193,101 +191,25 @@ void ReadShapefile(std::string filename, std::string layername, std::vector<Poly
   GDALClose( poDS );
 }
 
-//Saving to disk: https://stackoverflow.com/questions/33395445/libspatialindex-loading-storing-index-on-disk
-class SpIndex {
- private:
-  Index* idx;
- public:
-  SpIndex(){
-    //Create a property set with default values.
-    //See utility.cc for all defaults  http://libspatialindex.github.io/doxygen/Utility_8cc_source.html#l00031
-    Tools::PropertySet* ps = GetDefaults();
-    Tools::Variant var;
-
-    //Set index type to R*-Tree
-    var.m_varType   = Tools::VT_ULONG;
-    var.m_val.ulVal = RT_RTree;
-    ps->setProperty("IndexType", var);
-
-    //Set index to store in memory (default is disk)
-    var.m_varType   = Tools::VT_ULONG;
-    var.m_val.ulVal = RT_Memory;
-    ps->setProperty("IndexStorageType", var);
-
-    //Initalise index
-    idx = new Index(*ps);
-    delete ps;
-
-    //Check index is ok
-    if (!idx->index().isIndexValid())
-      throw std::runtime_error("Failed to create valid index");
-  }
-
-  void addBox(double left, double bottom, double right, double top, int64_t id){
-    //Create array with lat/lon points
-    double low[]  = {left,bottom};
-    double high[] = {right,top};
-
-    //Shapes can also have an object associated with them, but not this one!
-    uint8_t* pData = 0;
-    uint32_t nDataLength = 0;
-
-    // create shape
-    auto shape = SpatialIndex::Region(low,high,2);
-
-    // insert into index along with the an object and an ID
-    idx->index().insertData(nDataLength,pData,shape,id);
-  }
-
-  void addPolygon(const Polygon &p, int64_t id){
-    double left   = p.minX();
-    double bottom = p.minY();
-    double right  = p.maxX();
-    double top    = p.maxY();
-    addBox(left,bottom,right,top, id);
-  }
-
-  std::vector<int64_t> overlaps(double x, double y) const {
-    double coords[] = {x,y};
-
-    //Object that will show us what results we've found
-    ObjVisitor visitor;
-
-    //Two-dimensional query point
-    SpatialIndex::Point r(coords, 2);
-
-    //Find those regions that intersect with the query point
-    idx->index().intersectsWithQuery(r,visitor);
-
-    //Copy results    
-    std::vector<int64_t> temp;
-    for(const auto &r: visitor.GetResults())
-      temp.push_back(r->getIdentifier()); // dynamic_cast<SpatialIndex::IData*>(results[i]->clone()));
-
-    //std::cout << "found " << visitor.GetResultCount() << " results." << std::endl;
-
-    return temp;
-  }
-
-};
-
-
-uint8_t CountOverlaps(const Pole &p, const SpIndex &sp, const std::vector<Polygon> &polygons){
+uint8_t CountOverlaps(const Pole &p, SpIndex &sp, const std::vector<Polygon> &polygons){
   uint8_t overlaps = 0;
   for(unsigned int i=0;i<p.lat.size();i++){
-    auto sp_overlaps = sp.overlaps(p.lon[i],p.lat[i]);
-    if(sp_overlaps.size()==0)
+    const auto pid = sp.queryPoint(p.lon[i],p.lat[i]);
+    if(pid==-1)
       continue;
-    for(auto &pi: sp_overlaps){
-      if(polygons[pi].containsPoint(p.lon[i],p.lat[i])){
-        overlaps++;
-        break;
-      }
-    }
+    if(polygons[pid].containsPoint(p.lon[i],p.lat[i]))
+      overlaps++;
   }
   return overlaps;
 }
 
+void AddPolygonToSpIndex(const Polygon &poly, SpIndex &sp, const int id){
+  const int xmin = poly.minX();
+  const int ymin = poly.minY();
+  const int xmax = poly.maxX();
+  const int ymax = poly.maxY();
+  sp.addBox(xmin,ymin,xmax,ymax,id);
+}
 
 void Test(){
   std::cerr<<"Running tests..."<<std::endl;
@@ -299,12 +221,16 @@ void Test(){
   }
 
   SpIndex sp;
-  for(double y=0;y<10;y++)
-  for(double x=0;x<10;x++)
-    sp.addBox(x,y,x+1,y+1,y*10+x);
+  int id=0;
+  for(double y=0;y<100;y+=10)
+  for(double x=0;x<100;x+=10)
+    sp.addBox(x,y,x+10,y+10,id++);
 
-  assert(sp.overlaps(3.5,3.5)[0]==33);
-  assert(sp.overlaps(7.5,5.5)[0]==57);
+  sp.buildIndex();
+
+  std::cerr<<sp.queryPoint(35,55)<<std::endl;
+  assert(sp.queryPoint(35,35)==33);
+  assert(sp.queryPoint(75,55)==57);
 
   Polygon p;
   p.exterior.emplace_back(70,70);
@@ -312,9 +238,9 @@ void Test(){
   p.exterior.emplace_back(80,80);
   p.exterior.emplace_back(80,70);
 
-  sp.addPolygon(p, 347);
+  AddPolygonToSpIndex(p, sp, 347);
 
-  assert(sp.overlaps(75,77)[0]==347);
+  assert(sp.queryPoint(75,77)==347);
 
   assert(p.containsPoint(75,77));
   assert(p.containsPoint(74.3,72.2));
@@ -349,8 +275,8 @@ std::vector<struct POI> FindPolesOfInterest(){
   SpIndex sp;
 
   std::cerr<<"Building index..."<<std::endl;
-  for(int64_t i=0;(unsigned)i<landmass_merc.size();i++) //TODO: Fix this unsigned int64 mess
-    sp.addPolygon(landmass_merc[i], i);
+  for(int64_t i=0;(unsigned)i<landmass_merc.size();i++)
+    AddPolygonToSpIndex(landmass_merc[i], sp, i);
   std::cerr<<"Index built."<<std::endl;
 
   std::cerr<<"Finding poles..."<<std::endl;

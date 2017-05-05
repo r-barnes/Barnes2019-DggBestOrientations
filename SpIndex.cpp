@@ -24,7 +24,7 @@ void SpIndex::buildIndex(){
 
 int SpIndex::queryPoint(const int px, const int py) {
   std::list<Interval> output;
-  const auto q = Interval(Pure_interval(Key(px,py), Key(px+1,py+1)),-2);
+  const auto q = Interval(Pure_interval(Key(px,py), Key(px+1,py+1)),0);
   index.window_query(q,std::back_inserter(output));
   if(output.size()==0)
     return -1;

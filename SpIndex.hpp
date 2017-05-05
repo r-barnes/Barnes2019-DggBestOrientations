@@ -9,7 +9,7 @@
 class SpIndex {
  private:
   typedef CGAL::Cartesian<int> K;
-  typedef CGAL::Segment_tree_map_traits_2<K, int> Traits;
+  typedef CGAL::Segment_tree_map_traits_2<K, char> Traits;
   typedef CGAL::Segment_tree_2<Traits> Segment_tree_2_type;
   typedef Traits::Interval Interval;
   typedef Traits::Pure_interval Pure_interval;
