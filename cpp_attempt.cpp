@@ -53,12 +53,6 @@ void ToDegrees(T &vec){
     v *= RAD_TO_DEG;
 }
 
-class LineString {
- public:
-  std::vector<double> x;
-  std::vector<double> y;
-};
-
 //See: https://github.com/proj4js/proj4js/blob/2006b0a06d000308caa3625005f3d5734ef11f61/lib/projections/merc.js
 void WGS84toEPSG3857(
   const double lon, //Specified in radians
