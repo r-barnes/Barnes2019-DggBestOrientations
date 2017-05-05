@@ -21,7 +21,6 @@ class Polygon {
   void toRadians();
   void toDegrees();
   bool containsPoint(const double testx, const double testy) const;
-  double distanceFromPoint(const double px, const double py) const;
 };
 
 #endif
