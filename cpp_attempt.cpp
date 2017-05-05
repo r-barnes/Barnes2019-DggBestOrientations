@@ -197,7 +197,7 @@ uint8_t CountOverlaps(const Pole &p, SpIndex &sp, const std::vector<Polygon> &po
     const auto pid = sp.queryPoint(p.lon[i],p.lat[i]);
     if(pid==-1)
       continue;
-    if(polygons[pid].containsPoint(p.lon[i],p.lat[i]))
+    if(polygons.at(pid).containsPoint(p.lon[i],p.lat[i]))
       overlaps++;
   }
   return overlaps;
@@ -226,25 +226,22 @@ void Test(){
   for(double x=0;x<100;x+=10)
     sp.addBox(x,y,x+10,y+10,id++);
 
-  sp.buildIndex();
-
-  std::cerr<<sp.queryPoint(35,55)<<std::endl;
   assert(sp.queryPoint(35,35)==33);
   assert(sp.queryPoint(75,55)==57);
 
   Polygon p;
-  p.exterior.emplace_back(70,70);
-  p.exterior.emplace_back(70,80);
-  p.exterior.emplace_back(80,80);
-  p.exterior.emplace_back(80,70);
+  p.exterior.emplace_back(120,120);
+  p.exterior.emplace_back(120,130);
+  p.exterior.emplace_back(130,130);
+  p.exterior.emplace_back(130,120);
 
   AddPolygonToSpIndex(p, sp, 347);
 
-  assert(sp.queryPoint(75,77)==347);
+  assert(sp.queryPoint(125,127)==347);
 
-  assert(p.containsPoint(75,77));
-  assert(p.containsPoint(74.3,72.2));
-  assert(!p.containsPoint(69.4,72.2));
+  assert(p.containsPoint(125,127));
+  assert(p.containsPoint(124.3,122.2));
+  assert(!p.containsPoint(119.4,122.2));
 
   {
     double x,y;
@@ -274,10 +271,14 @@ std::vector<struct POI> FindPolesOfInterest(){
 
   SpIndex sp;
 
-  std::cerr<<"Building index..."<<std::endl;
-  for(int64_t i=0;(unsigned)i<landmass_merc.size();i++)
-    AddPolygonToSpIndex(landmass_merc[i], sp, i);
-  std::cerr<<"Index built."<<std::endl;
+  {
+    std::cerr<<"Building index..."<<std::endl;
+    Timer tmr;
+    for(int64_t i=0;(unsigned)i<landmass_merc.size();i++)
+      AddPolygonToSpIndex(landmass_merc[i], sp, i);
+    std::cerr<<"Index built."<<std::endl;
+    std::cerr<<"Time taken = "<<tmr.elapsed()<<std::endl;
+  }
 
   std::cerr<<"Finding poles..."<<std::endl;
   std::vector<struct POI> pois;
