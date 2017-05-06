@@ -25,7 +25,7 @@ const double DEG_TO_RAD = M_PI/180.0;
 const double RAD_TO_DEG = 180.0/M_PI;
 const double IEL        = std::atan(0.5); //Icosahedron equatorial latitudes
 const double IES        = 36*M_PI/180;    //Icosahedron equatorial spacing
-const int PRECISION     = 12;             //Grid spacing for search
+const int PRECISION     = 1;              //Grid spacing for search
 
 // """
 // Calculate the Great Circle distance on Earth between two latitude-longitude
@@ -387,13 +387,13 @@ void DistancesToPoles(std::vector<struct POI> &pois){
     p.rotatePole(pois[i].rlat/10.0*DEG_TO_RAD, pois[i].rlon/10.0*DEG_TO_RAD, pois[i].rtheta/10.0*DEG_TO_RAD);
 
     pois[i].distance = std::numeric_limits<double>::infinity();
-    for(unsigned int i=0;i<p.lat.size();i++){
+    for(unsigned int j=0;j<p.lat.size();j++){
       double xr,yr,zr;
-      LatLonToXYZ(p.lat[i],p.lon[i],1,xr,yr,zr);
+      LatLonToXYZ(p.lat[j],p.lon[j],1,xr,yr,zr);
       const auto cp = pc.queryPoint(xr,yr,zr); //Closest point
       double plat,plon;
       XYZtoLatLon(cp.x,cp.y,cp.z,plat,plon);
-      const auto dist = GeoDistance(plon,plat,p.lon[i],p.lat[i]);
+      const auto dist = GeoDistance(plon,plat,p.lon[j],p.lat[j]);
       pois[i].distance = std::min(pois[i].distance,dist);
     }
   }
