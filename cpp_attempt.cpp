@@ -1,4 +1,5 @@
 //https://gis.stackexchange.com/questions/70800/how-to-read-vector-datasets-using-gdal-library
+//https://math.stackexchange.com/questions/44080/approximating-geodesic-distances-on-the-sphere-by-euclidean-distances-of-a-trans
 #include "Polygon.hpp"
 #include "SpIndex.hpp"
 #include "PointCloud.hpp"
@@ -183,10 +184,8 @@ class Pole {
   void print() const {
     auto templon = lon;
     auto templat = lat;
-    ToDegrees(templon);
-    ToDegrees(templat);
     for(unsigned int i=0;i<lon.size();i++)
-      std::cout<<std::setw(10)<<templat[i]<<" "<<std::setw(10)<<templon[i]<<std::endl;
+      std::cout<<std::fixed<<std::setw(10)<<templat[i]<<" "<<std::fixed<<std::setw(10)<<templon[i]<<" -- "<<std::setw(10)<<std::fixed<<templat[i]*RAD_TO_DEG<<" "<<std::setw(10)<<std::fixed<<templon[i]*RAD_TO_DEG<<std::endl;
   }
 };
 
@@ -264,6 +263,8 @@ void Test(){
   {
     Pole p;
     p.rotatePole(23*DEG_TO_RAD,44*DEG_TO_RAD,5*DEG_TO_RAD);
+    p.print();
+    p.toMercator();
     p.print();
   }
 
