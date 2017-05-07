@@ -274,26 +274,26 @@ void Test(){
 
   SpIndex sp;
   int id=0;
-  for(double y=0;y<100;y+=10)
-  for(double x=0;x<100;x+=10)
-    sp.addBox(x,y,x+10,y+10,id++);
+  for(double y=0;y<1000;y+=100)
+  for(double x=0;x<1000;x+=100)
+    sp.addBox(x,y,x+100,y+100,id++);
 
-  assert(sp.queryPoint(35,35)==33);
-  assert(sp.queryPoint(75,55)==57);
+  assert(sp.queryPoint(350,350)==33);
+  assert(sp.queryPoint(750,550)==57);
 
   Polygon p;
-  p.exterior.emplace_back(120,120);
-  p.exterior.emplace_back(120,130);
-  p.exterior.emplace_back(130,130);
-  p.exterior.emplace_back(130,120);
+  p.exterior.emplace_back(1200,1200);
+  p.exterior.emplace_back(1200,1300);
+  p.exterior.emplace_back(1300,1300);
+  p.exterior.emplace_back(1300,1200);
 
   AddPolygonToSpIndex(p, sp, 347);
 
-  assert(sp.queryPoint(125,127)==347);
+  assert(sp.queryPoint(1250,1270)==347);
 
-  assert(p.containsPoint(125,127));
-  assert(p.containsPoint(124.3,122.2));
-  assert(!p.containsPoint(119.4,122.2));
+  assert(p.containsPoint(1250,1270));
+  assert(p.containsPoint(1243,1222));
+  assert(!p.containsPoint(1194,1222));
 
   {
     double x,y;
