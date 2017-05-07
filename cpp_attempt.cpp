@@ -302,6 +302,9 @@ void Test(){
   p.exterior.emplace_back(1300,1200);
 
   AddPolygonToSpIndex(p, sp, 347);
+  sp.buildIndex();
+
+  std::cerr<<sp.queryPoint(1250,1270)<<std::endl;
 
   assert(sp.queryPoint(1250,1270)==347);
 
