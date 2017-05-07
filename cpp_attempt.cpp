@@ -176,6 +176,10 @@ class Pole {
 
   Pole(){}
 
+  Pole(double rlat, double rlon, double rtheta){
+    rotatePole(rlat,rlon,rtheta);
+  }
+
   void rotatePole(double rlat, double rlon, double rtheta){
     for(unsigned int i=0;i<lon.size();i++)
       RotatePoint(rlat, rlon, rtheta, lat[i], lon[i]);
