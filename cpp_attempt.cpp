@@ -16,11 +16,13 @@
 
 #ifdef ENV_XSEDE
   const std::string FILE_WGS84_LANDMASS = "/home/rbarnes1/scratch/dgg_best/land-polygons-complete-4326/land_polygons.shp";
-  const std::string FILE_OUTPUT         = "/home/rbarnes1/scratch/dgg_best/out.csv";
+  const std::string FILE_OUTPUT_ROT     = "/home/rbarnes1/scratch/dgg_best/out-rot.csv";
+  const std::string FILE_OUTPUT_VERT    = "/home/rbarnes1/scratch/dgg_best/out-vert.csv";
   const std::string FILE_MERC_LANDMASS  = "/home/rbarnes1/scratch/dgg_best/land-polygons-split-3857/land_polygons.shp";
 #elif ENV_LAPTOP
   const std::string FILE_WGS84_LANDMASS = "data/land-polygons-complete-4326/land_polygons.shp";
-  const std::string FILE_OUTPUT         = "/z/out.csv";
+  const std::string FILE_OUTPUT_ROT     = "/z/out.csv";
+  const std::string FILE_OUTPUT_VERT    = "/z/out-vert.csv";
   const std::string FILE_MERC_LANDMASS  = "data/land-polygons-split-3857/land_polygons.shp";
 #else
   this-is-an-error
@@ -435,8 +437,20 @@ int main(int argc, char **argv){
   });
 
   std::cerr<<"Writing output..."<<std::endl;
-  std::ofstream fout(FILE_OUTPUT);
-  for(const auto &p: pois)
-    fout<<(int)p.overlaps<<","<<p.rlat<<","<<p.rlon<<","<<p.rtheta<<","<<p.distance<<"\n";
-  fout.close();
+  {
+    std::ofstream fout(FILE_OUTPUT_ROT);
+    fout<<"Num,Overlaps,Lat,Lon,Theta,Distance\n";
+    for(unsigned int i=0;i<pois.size();i++)
+      fout<<i<<","<<(int)pois[i].overlaps<<","<<pois[i].rlat<<","<<pois[i].rlon<<","<<pois[i].rtheta<<","<<pois[i].distance<<"\n";
+  }
+
+  {
+    std::ofstream fout(FILE_OUTPUT_VERT);
+    fout<<"Num,Lat,Lon\n";
+    for(unsigned int i=0;i<pois.size();i++){
+      Pole pole(pois[i].rlat/10.0*DEG_TO_RAD,pois[i].rlon/10.0*DEG_TO_RAD,pois[i].rtheta/10.0*DEG_TO_RAD);
+      for(unsigned int i=0;i<pole.lat.size();i++)
+        fout<<i<<" "<<pole.lat[i]*RAD_TO_DEG<<","<<pole.lon[i]*RAD_TO_DEG<<"\n";
+    }
+  }
 }
