@@ -254,7 +254,7 @@ void AddPolygonToSpIndex(const Polygon &poly, SpIndex &sp, const int id){
   const int ymin = poly.minY();
   const int xmax = poly.maxX();
   const int ymax = poly.maxY();
-  sp.addBox(xmin,ymin,xmax,ymax,id);
+  sp.addBoxDeferred(xmin,ymin,xmax,ymax,id);
 }
 
 void Test(){
@@ -324,6 +324,7 @@ std::vector<struct POI> FindPolesOfInterest(){
     Timer tmr;
     for(int64_t i=0;(unsigned)i<landmass_merc.size();i++)
       AddPolygonToSpIndex(landmass_merc[i], sp, i);
+    sp.buildIndex();
     std::cerr<<"Index built."<<std::endl;
     std::cerr<<"Time taken = "<<tmr.elapsed()<<std::endl;
   }
