@@ -7,4 +7,4 @@ export ARCH_FLAGS=-march=native -mtune=native #-m32
 export CXXFLAGS=$(GDAL_CFLAGS) $(ARCH_FLAGS) --std=c++11 -g -Wall -ffast-math -fopenmp
 
 main:
-	$(CXX) $(CXXFLAGS) -o dgfinder.exe cpp_attempt.cpp Polygon.cpp SpIndex.cpp PointCloud.cpp $(GDAL_LIBS)
+	$(CXX) $(CXXFLAGS) -o dgfinder.exe cpp_attempt.cpp Polygon.cpp SpIndex.cpp PointCloud.cpp $(GDAL_LIBS) -DENV_LAPTOP #-DDEBUG 

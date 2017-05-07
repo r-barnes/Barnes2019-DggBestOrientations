@@ -14,13 +14,17 @@
 #include <fstream>
 #include <chrono>
 
-const std::string FILE_WGS84_LANDMASS = "/home/rbarnes1/scratch/dgg_best/land-polygons-complete-4326/land_polygons.shp";
-const std::string FILE_OUTPUT         = "/home/rbarnes1/scratch/dgg_best/out.csv";
-const std::string FILE_MERC_LANDMASS  = "/home/rbarnes1/scratch/dgg_best/land-polygons-split-3857/land_polygons.shp";
-
-//const std::string FILE_WGS84_LANDMASS = "data/land-polygons-complete-4326/land_polygons.shp";
-//const std::string FILE_OUTPUT         = "/z/out.csv";
-//const std::string FILE_MERC_LANDMASS  = "data/land-polygons-split-3857/land_polygons.shp";
+#ifdef ENV_XSEDE
+  const std::string FILE_WGS84_LANDMASS = "/home/rbarnes1/scratch/dgg_best/land-polygons-complete-4326/land_polygons.shp";
+  const std::string FILE_OUTPUT         = "/home/rbarnes1/scratch/dgg_best/out.csv";
+  const std::string FILE_MERC_LANDMASS  = "/home/rbarnes1/scratch/dgg_best/land-polygons-split-3857/land_polygons.shp";
+#elif ENV_LAPTOP
+  const std::string FILE_WGS84_LANDMASS = "data/land-polygons-complete-4326/land_polygons.shp";
+  const std::string FILE_OUTPUT         = "/z/out.csv";
+  const std::string FILE_MERC_LANDMASS  = "data/land-polygons-split-3857/land_polygons.shp";
+#else
+  this-is-an-error
+#endif
 
 const double DEG_TO_RAD = M_PI/180.0;
 const double RAD_TO_DEG = 180.0/M_PI;
