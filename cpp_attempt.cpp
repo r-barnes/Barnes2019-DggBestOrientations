@@ -248,10 +248,18 @@ void ReadShapefile(std::string filename, std::string layername, std::vector<Poly
 uint8_t CountOverlaps(const Pole &p, const SpIndex &sp, const std::vector<Polygon> &polygons){
   uint8_t overlaps = 0;
   for(unsigned int i=0;i<p.lat.size();i++){
-    const auto pid = sp.queryPoint(p.lon[i],p.lat[i]);
+    if(p.lat[i]>83.7*DEG_TO_RAD) //The island "83-42" as at 83.7N so anything north of this is on water
+      continue;
+    if(p.lat[i]<-80*DEG_TO_RAD){ //The southmost extent of water is ~79.5S, so anything south of this is on land
+      overlaps++;
+      continue;
+    }
+    double x,y;
+    WGS84toEPSG3857(p.lon[i],p.lat[i],x,y);
+    const auto pid = sp.queryPoint(x,y);
     if(pid==-1)
       continue;
-    if(polygons.at(pid).containsPoint(p.lon[i],p.lat[i]))
+    if(polygons.at(pid).containsPoint(x,y))
       overlaps++;
   }
   return overlaps;
@@ -349,10 +357,8 @@ std::vector<struct POI> FindPolesOfInterest(){
   for(int16_t rlon  =0; rlon  <720; rlon  +=PRECISION)
   for(int16_t rtheta=0; rtheta<720; rtheta+=PRECISION){
     count++;
-    Pole p;
-    p.rotatePole(rlat/10.0*DEG_TO_RAD, rlon/10.0*DEG_TO_RAD, rtheta/10.0*DEG_TO_RAD);
-    p.toMercator();
-    auto overlaps = CountOverlaps(p,sp,landmass_merc);
+    Pole p(rlat/10.0*DEG_TO_RAD, rlon/10.0*DEG_TO_RAD, rtheta/10.0*DEG_TO_RAD);
+    auto overlaps = CountOverlaps(p,sp,landmass_merc);  
     if(overlaps==0 || overlaps>=8){
       #pragma omp critical
       pois.push_back(POI{overlaps,rlat,rlon,rtheta,-1});
