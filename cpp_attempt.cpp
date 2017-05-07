@@ -241,7 +241,7 @@ void ReadShapefile(std::string filename, std::string layername, std::vector<Poly
   GDALClose( poDS );
 }
 
-uint8_t CountOverlaps(const Pole &p, SpIndex &sp, const std::vector<Polygon> &polygons){
+uint8_t CountOverlaps(const Pole &p, const SpIndex &sp, const std::vector<Polygon> &polygons){
   uint8_t overlaps = 0;
   for(unsigned int i=0;i<p.lat.size();i++){
     const auto pid = sp.queryPoint(p.lon[i],p.lat[i]);
