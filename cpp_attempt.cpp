@@ -316,13 +316,15 @@ struct POI {
 
 std::vector<struct POI> FindPolesOfInterest(){
   std::vector<Polygon> landmass_merc;
-  std::cerr<<"Reading Mercator split shapefile..."<<std::endl;
-  //ReadShapefile("data/simplified-land-polygons-complete-3857/simplified_land_polygons.shp", "simplified_land_polygons", landmass_merc);
-  ReadShapefile(FILE_MERC_LANDMASS, "land_polygons", landmass_merc);
-  std::cerr<<"Read "<<landmass_merc.size()<<" polygons."<<std::endl;
+  {
+    std::cerr<<"Reading Mercator split shapefile..."<<std::endl;
+    Timer tmr;
+    ReadShapefile(FILE_MERC_LANDMASS, "land_polygons", landmass_merc);
+    std::cerr<<"Read "<<landmass_merc.size()<<" polygons."<<std::endl;
+    std::cerr<<"Time taken = "<<tmr.elapsed()<<std::endl;
+  }
 
   SpIndex sp;
-
   {
     std::cerr<<"Building index..."<<std::endl;
     Timer tmr;
