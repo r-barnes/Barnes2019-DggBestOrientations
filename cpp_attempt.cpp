@@ -21,7 +21,7 @@
   const std::string FILE_MERC_LANDMASS  = "/home/rbarnes1/scratch/dgg_best/land-polygons-split-3857/land_polygons.shp";
 #elif ENV_LAPTOP
   const std::string FILE_WGS84_LANDMASS = "data/land-polygons-complete-4326/land_polygons.shp";
-  const std::string FILE_OUTPUT_ROT     = "/z/out.csv";
+  const std::string FILE_OUTPUT_ROT     = "/z/out-rot.csv";
   const std::string FILE_OUTPUT_VERT    = "/z/out-vert.csv";
   const std::string FILE_MERC_LANDMASS  = "data/land-polygons-split-3857/land_polygons.shp";
 #else
