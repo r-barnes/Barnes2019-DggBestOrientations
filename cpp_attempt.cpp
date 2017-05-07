@@ -32,7 +32,8 @@ const double DEG_TO_RAD = M_PI/180.0;
 const double RAD_TO_DEG = 180.0/M_PI;
 const double IEL        = std::atan(0.5); //Icosahedron equatorial latitudes
 const double IES        = 36*M_PI/180;    //Icosahedron equatorial spacing
-const int PRECISION     = 1;              //Grid spacing for search
+const double PRECISION  = 0.05;           //Grid spacing for search
+const double DIV        = 100.0;
 
 // """
 // Calculate the Great Circle distance on Earth between two latitude-longitude
@@ -358,11 +359,11 @@ std::vector<struct POI> FindPolesOfInterest(){
 
   Timer tmr;
   #pragma omp parallel for default(none) schedule(static) shared(sp,landmass_merc,pois,std::cerr) reduction(+:count)
-  for(int16_t rlat  =0; rlat  <634; rlat  +=PRECISION) //(pi()/2-vla)*180/pi()
-  for(int16_t rlon  =0; rlon  <720; rlon  +=PRECISION)
-  for(int16_t rtheta=0; rtheta<720; rtheta+=PRECISION){
+  for(int16_t rlat  =0; rlat  <(int)(63.4*DIV); rlat  +=(int)(PRECISION*DIV)) //(pi()/2-vla)*180/pi()
+  for(int16_t rlon  =0; rlon  <(int)(72.0*DIV); rlon  +=(int)(PRECISION*DIV))
+  for(int16_t rtheta=0; rtheta<(int)(72.0*DIV); rtheta+=(int)(PRECISION*DIV)){
     count++;
-    Pole p(rlat/10.0*DEG_TO_RAD, rlon/10.0*DEG_TO_RAD, rtheta/10.0*DEG_TO_RAD);
+    Pole p(rlat/DIV*DEG_TO_RAD, rlon/DIV*DEG_TO_RAD, rtheta/DIV*DEG_TO_RAD);
     auto overlaps = CountOverlaps(p,sp,landmass_merc);  
     if(overlaps==0 || overlaps>=8){
       #pragma omp critical
@@ -407,7 +408,7 @@ void DistancesToPoles(std::vector<struct POI> &pois){
   #pragma omp parallel for default(none) shared(pois,pc)
   for(unsigned int i=0;i<pois.size();i++){
     Pole p;
-    p.rotatePole(pois[i].rlat/10.0*DEG_TO_RAD, pois[i].rlon/10.0*DEG_TO_RAD, pois[i].rtheta/10.0*DEG_TO_RAD);
+    p.rotatePole(pois[i].rlat/DIV*DEG_TO_RAD, pois[i].rlon/DIV*DEG_TO_RAD, pois[i].rtheta/DIV*DEG_TO_RAD);
 
     pois[i].distance = std::numeric_limits<double>::infinity();
     for(unsigned int j=0;j<p.lat.size();j++){
@@ -451,7 +452,7 @@ int main(int argc, char **argv){
     std::ofstream fout(FILE_OUTPUT_VERT);
     fout<<"Num,Lat,Lon\n";
     for(unsigned int i=0;i<pois.size();i++){
-      Pole pole(pois[i].rlat/10.0*DEG_TO_RAD,pois[i].rlon/10.0*DEG_TO_RAD,pois[i].rtheta/10.0*DEG_TO_RAD);
+      Pole pole(pois[i].rlat/DIV*DEG_TO_RAD,pois[i].rlon/DIV*DEG_TO_RAD,pois[i].rtheta/DIV*DEG_TO_RAD);
       for(unsigned int i=0;i<pole.lat.size();i++)
         fout<<i<<" "<<pole.lat[i]*RAD_TO_DEG<<","<<pole.lon[i]*RAD_TO_DEG<<"\n";
     }
