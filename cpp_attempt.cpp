@@ -266,7 +266,7 @@ void Test(){
 
   {
     Pole p;
-    p.rotatePole(23*DEG_TO_RAD,44*DEG_TO_RAD,5*DEG_TO_RAD);
+    p.rotatePole(22.8*DEG_TO_RAD,3.6*DEG_TO_RAD,45.6*DEG_TO_RAD);
     p.print();
     p.toMercator();
     p.print();
