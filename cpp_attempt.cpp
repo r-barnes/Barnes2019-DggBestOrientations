@@ -368,7 +368,7 @@ std::vector<struct POI> FindPolesOfInterest(){
 
   Timer tmr;
   #pragma omp parallel for default(none) schedule(static) shared(sp,landmass_merc,pois,std::cerr) reduction(+:count)
-  for(int16_t rlat  =0; rlat  <(int)(63.4*DIV); rlat  +=(int)(PRECISION*DIV)) //(pi()/2-vla)*180/pi()
+  for(int16_t rlat  =0; rlat  <(int)(63.4*DIV); rlat  +=(int)(PRECISION*DIV)) //(pi()/2-IEL)*180/pi()
   for(int16_t rlon  =0; rlon  <(int)(72.0*DIV); rlon  +=(int)(PRECISION*DIV))
   for(int16_t rtheta=0; rtheta<(int)(72.0*DIV); rtheta+=(int)(PRECISION*DIV)){
     count++;
