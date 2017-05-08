@@ -13,6 +13,7 @@
 #include <cassert>
 #include <fstream>
 #include <chrono>
+#include <bitset>
 
 #ifdef ENV_XSEDE
   const std::string FILE_WGS84_LANDMASS = "/home/rbarnes1/scratch/dgg_best/land-polygons-complete-4326/land_polygons.shp";
@@ -248,13 +249,13 @@ void ReadShapefile(std::string filename, std::string layername, std::vector<Poly
   GDALClose( poDS );
 }
 
-uint8_t CountOverlaps(const Pole &p, const SpIndex &sp, const std::vector<Polygon> &polygons){
-  uint8_t overlaps = 0;
+std::bitset<12> CountOverlaps(const Pole &p, const SpIndex &sp, const std::vector<Polygon> &polygons){
+  std::bitset<12> overlaps = 0;
   for(unsigned int i=0;i<p.lat.size();i++){
     if(p.lat[i]>83.7*DEG_TO_RAD) //The island "83-42" as at 83.7N so anything north of this is on water
       continue;
     if(p.lat[i]<-80*DEG_TO_RAD){ //The southmost extent of water is ~79.5S, so anything south of this is on land
-      overlaps++;
+      overlaps.set(i);
       continue;
     }
     double x,y;
@@ -263,7 +264,7 @@ uint8_t CountOverlaps(const Pole &p, const SpIndex &sp, const std::vector<Polygo
     if(pid==-1)
       continue;
     if(polygons.at(pid).containsPoint(x,y))
-      overlaps++;
+      overlaps.set(i);
   }
   return overlaps;
 }
@@ -324,12 +325,22 @@ void Test(){
   std::cerr<<"Passed"<<std::endl;
 }
 
-struct POI {
-  uint8_t overlaps;
-  int16_t rlat;
-  int16_t rlon;
-  int16_t rtheta;
-  double  distance;
+class POI {
+ public:
+  std::bitset<12> overlaps = 0;
+  int16_t         rlat     = 0;
+  int16_t         rlon     = 0;
+  int16_t         rtheta   = 0;
+  double          mindist  = std::numeric_limits<double>::infinity();
+  double          maxdist  = -std::numeric_limits<double>::infinity();
+  double          avgdist  = 0;
+  uint16_t        cluster  = 0;
+  POI(std::bitset<12> overlaps,double rlat,double rlon,double rtheta){
+    this->overlaps = overlaps;
+    this->rlat     = rlat;
+    this->rlon     = rlon;
+    this->rtheta   = rtheta;
+  }
 };
 
 std::vector<struct POI> FindPolesOfInterest(){
@@ -365,9 +376,9 @@ std::vector<struct POI> FindPolesOfInterest(){
     count++;
     Pole p(rlat/DIV*DEG_TO_RAD, rlon/DIV*DEG_TO_RAD, rtheta/DIV*DEG_TO_RAD);
     auto overlaps = CountOverlaps(p,sp,landmass_merc);  
-    if(overlaps==0 || overlaps>=8){
+    if(overlaps==0 || overlaps.count()>=8){
       #pragma omp critical
-      pois.push_back(POI{overlaps,rlat,rlon,rtheta,-1});
+      pois.emplace_back(overlaps,rlat,rlon,rtheta);
     }
   }
 
@@ -406,19 +417,22 @@ void DistancesToPoles(std::vector<struct POI> &pois){
 
   std::cerr<<"Calculating distances to poles..."<<std::endl;
   #pragma omp parallel for default(none) shared(pois,pc)
-  for(unsigned int i=0;i<pois.size();i++){
+  for(unsigned int pn=0;pn<pois.size();pn++){
     Pole p;
-    p.rotatePole(pois[i].rlat/DIV*DEG_TO_RAD, pois[i].rlon/DIV*DEG_TO_RAD, pois[i].rtheta/DIV*DEG_TO_RAD);
+    p.rotatePole(pois[pn].rlat/DIV*DEG_TO_RAD, pois[pn].rlon/DIV*DEG_TO_RAD, pois[pn].rtheta/DIV*DEG_TO_RAD);
 
-    pois[i].distance = std::numeric_limits<double>::infinity();
     for(unsigned int j=0;j<p.lat.size();j++){
       double xr,yr,zr;
       LatLonToXYZ(p.lat[j],p.lon[j],1,xr,yr,zr);
       const auto cp = pc.queryPoint(xr,yr,zr); //Closest point
       double plat,plon;
       XYZtoLatLon(cp.x,cp.y,cp.z,plat,plon);
-      const auto dist = GeoDistance(plon,plat,p.lon[j],p.lat[j]);
-      pois[i].distance = std::min(pois[i].distance,dist);
+      auto dist = GeoDistance(plon,plat,p.lon[j],p.lat[j]);
+      if(pois[pn].overlaps.test(j))
+        dist = -dist;
+      pois[pn].mindist = std::min(pois[pn].mindist,dist);
+      pois[pn].maxdist = std::max(pois[pn].maxdist,dist);
+      pois[pn].avgdist += dist;
     }
   }
 
@@ -437,24 +451,41 @@ int main(int argc, char **argv){
 
   std::cerr<<"Sorting poles of interest..."<<std::endl;
   std::sort(pois.begin(),pois.end(), [](const POI &a, const POI &b){
-    return a.distance>b.distance;
+    return a.mindist>b.mindist;
   });
 
   std::cerr<<"Writing output..."<<std::endl;
   {
     std::ofstream fout(FILE_OUTPUT_ROT);
-    fout<<"Num,Overlaps,Lat,Lon,Theta,Distance\n";
+    fout<<"Num,Cluster,Overlaps,OverlapCount,Lat,Lon,Theta,MinDistance,MaxDistance,AvgDistance\n";
     for(unsigned int i=0;i<pois.size();i++)
-      fout<<i<<","<<(int)pois[i].overlaps<<","<<pois[i].rlat<<","<<pois[i].rlon<<","<<pois[i].rtheta<<","<<pois[i].distance<<"\n";
+      fout<<i<<","
+          <<pois[i].cluster             <<","
+          <<pois[i].overlaps.to_string()<<","
+          <<pois[i].overlaps.count()    <<","
+          <<pois[i].rlat                <<","
+          <<pois[i].rlon                <<","
+          <<pois[i].rtheta              <<","
+          <<pois[i].mindist             <<","
+          <<pois[i].maxdist             <<","
+          <<(pois[i].avgdist/12)
+          <<"\n";
   }
 
   {
     std::ofstream fout(FILE_OUTPUT_VERT);
-    fout<<"Num,Lat,Lon\n";
-    for(unsigned int i=0;i<pois.size();i++){
-      Pole pole(pois[i].rlat/DIV*DEG_TO_RAD,pois[i].rlon/DIV*DEG_TO_RAD,pois[i].rtheta/DIV*DEG_TO_RAD);
+    fout<<"Num,Cluster,Lat,Lon,OnLand\n";
+    for(unsigned int pn=0;pn<pois.size();pn++){
+      Pole pole(pois[pn].rlat/DIV*DEG_TO_RAD,pois[pn].rlon/DIV*DEG_TO_RAD,pois[pn].rtheta/DIV*DEG_TO_RAD);
       for(unsigned int i=0;i<pole.lat.size();i++)
-        fout<<i<<" "<<pole.lat[i]*RAD_TO_DEG<<","<<pole.lon[i]*RAD_TO_DEG<<"\n";
+        fout<<pn                    <<","
+            <<pois[pn].cluster      <<","
+            <<pole.lat[i]*RAD_TO_DEG<<","
+            <<pole.lon[i]*RAD_TO_DEG<<","
+            <<pois[pn].overlaps.test(i)
+            <<"\n";
     }
   }
+
+
 }
