@@ -171,8 +171,6 @@ void RotatePoint(const double rlat, const double rlon, const double rtheta, doub
 }
 
 
-const double vla = 26.57;
-
 class Pole {
  public:
   std::array<double,12> lon = {{     0,      0,-5*IES,-4*IES,-3*IES, -2*IES,-1*IES,   0, 1*IES,  2*IES,3*IES,4*IES}};
