@@ -3,6 +3,9 @@
 #include "Polygon.hpp"
 #include "SpIndex.hpp"
 #include "PointCloud.hpp"
+#include <GeographicLib/Geodesic.hpp>
+#include <GeographicLib/GeodesicLine.hpp>
+#include <GeographicLib/Constants.hpp>
 #include <ogrsf_frmts.h>
 #include <iostream>
 #include <vector>
@@ -157,7 +160,6 @@ void RotatePoint(const double rlat, const double rlon, const double rtheta, doub
   double z = -std::sin(rlat)*xr + std::cos(rlat)*zr;
   XYZtoLatLon(x,y,z, lat, lon);
 }
-
 
 class Pole {
  public:
@@ -343,14 +345,15 @@ void Test(){
 
 class POI {
  public:
-  std::bitset<12> overlaps = 0;
-  int16_t         rlat     = 0;
-  int16_t         rlon     = 0;
-  int16_t         rtheta   = 0;
-  double          mindist  = std::numeric_limits<double>::infinity();
-  double          maxdist  = -std::numeric_limits<double>::infinity();
-  double          avgdist  = 0;
-  uint16_t        cluster  = 0;
+  std::bitset<12> overlaps      = 0;
+  int16_t         rlat          = 0;
+  int16_t         rlon          = 0;
+  int16_t         rtheta        = 0;
+  double          mindist       = std::numeric_limits<double>::infinity();
+  double          maxdist       = -std::numeric_limits<double>::infinity();
+  double          avgdist       = 0;
+  uint16_t        cluster       = 0;
+  int             edge_overlaps = 0;
   POI(std::bitset<12> overlaps,double rlat,double rlon,double rtheta){
     this->overlaps = overlaps;
     this->rlat     = rlat;
@@ -437,8 +440,40 @@ void DistancesToPoles(std::vector<struct POI> &pois){
     }
   }
 
-  double t = tmr.elapsed();
-  std::cout << "Time taken = " << t <<"s"<< std::endl;
+  std::cout << "Time taken = " << tmr.elapsed() <<"s"<< std::endl;
+}
+
+void EdgeOverlaps(
+  const Polygons &landmass_merc,
+  const SpIndex &sp,
+  std::vector<POI> &pois
+){
+  Timer tmr;
+  std::cerr<<"Calculating edge overlaps..."<<std::endl;
+  const GeographicLib::Geodesic geod(GeographicLib::Constants::WGS84_a(), GeographicLib::Constants::WGS84_f());
+  const auto neighbors = Pole().neighbors();
+  const double ndist   = Pole().neighborDistance()*1000;  //Approximate spacing between vertices in metres
+  const double spacing = 10e3;                            //Spacing between points = 10km
+  const int    num_pts = int(std::ceil(ndist / spacing)); //The number of intervals
+  #pragma omp parallel for default(none) shared(pois,landmass_merc,sp)
+  for(unsigned int pn=0;pn<pois.size();pn++){
+    Pole p(pois[pn].rlat/DIV*DEG_TO_RAD, pois[pn].rlon/DIV*DEG_TO_RAD, pois[pn].rtheta/DIV*DEG_TO_RAD);
+    for(unsigned int n=0;n<neighbors.size();n++){
+      const GeographicLib::GeodesicLine line = geod.InverseLine(
+        p.lat[n]*RAD_TO_DEG,
+        p.lon[n]*RAD_TO_DEG,
+        p.lat[n+1]*RAD_TO_DEG,
+        p.lon[n+1]*RAD_TO_DEG
+      );
+      const double da = line.Arc() / num_pts;
+      for(int i=0;i<=num_pts;i++) {
+        double lat, lon;
+        line.ArcPosition(i * da, lat, lon);
+        pois[pn].edge_overlaps += PointOverlaps(lon*DEG_TO_RAD,lat*DEG_TO_RAD,landmass_merc,sp);
+      }
+    }
+  }
+  std::cout << "Time taken = " << tmr.elapsed() <<"s"<< std::endl;
 }
 
 int main(int argc, char **argv){
@@ -446,9 +481,33 @@ int main(int argc, char **argv){
 
   std::cerr<<"PRECISION = "<<PRECISION<<std::endl;
 
-  auto pois = FindPolesOfInterest();
+  Polygons landmass_merc;
+  {
+    std::cerr<<"Reading Mercator split shapefile..."<<std::endl;
+    Timer tmr;
+    ReadShapefile(FILE_MERC_LANDMASS, "land_polygons", landmass_merc);
+    std::cerr<<"Read "<<landmass_merc.size()<<" polygons."<<std::endl;
+    std::cerr<<"Time taken = "<<tmr.elapsed()<<std::endl;
+  }
+
+  SpIndex sp;
+  {
+    std::cerr<<"Building index..."<<std::endl;
+    Timer tmr;
+    for(int64_t i=0;(unsigned)i<landmass_merc.size();i++)
+      AddPolygonToSpIndex(landmass_merc[i], sp, i);
+    sp.buildIndex();
+    std::cerr<<"Index built."<<std::endl;
+    std::cerr<<"Time taken = "<<tmr.elapsed()<<std::endl;
+  }
+
+  TestWithData(landmass_merc,sp);
+
+  auto pois = FindPolesOfInterest(landmass_merc,sp);
 
   DistancesToPoles(pois);
+
+  EdgeOverlaps(landmass_merc, sp, pois);
 
   std::cerr<<"Sorting poles of interest..."<<std::endl;
   std::sort(pois.begin(),pois.end(), [](const POI &a, const POI &b){
@@ -458,7 +517,7 @@ int main(int argc, char **argv){
   std::cerr<<"Writing output..."<<std::endl;
   {
     std::ofstream fout(FILE_OUTPUT_ROT);
-    fout<<"Num,Cluster,Overlaps,OverlapCount,Lat,Lon,Theta,MinDistance,MaxDistance,AvgDistance\n";
+    fout<<"Num,Cluster,Overlaps,OverlapCount,Lat,Lon,Theta,MinDistance,MaxDistance,AvgDistance,EdgeOverlaps\n";
     for(unsigned int i=0;i<pois.size();i++)
       fout<<i<<","
           <<pois[i].cluster             <<","
@@ -469,7 +528,8 @@ int main(int argc, char **argv){
           <<pois[i].rtheta              <<","
           <<pois[i].mindist             <<","
           <<pois[i].maxdist             <<","
-          <<(pois[i].avgdist/12)
+          <<(pois[i].avgdist/12)        <<","
+          <<pois[i].edge_overlaps
           <<"\n";
   }
 

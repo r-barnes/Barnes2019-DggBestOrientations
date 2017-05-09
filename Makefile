@@ -1,6 +1,6 @@
 export CXX=g++
 export gdconfig=gdal-config
-export GDAL_LIBS=`${gdconfig} --libs`
+export GDAL_LIBS=`${gdconfig} --libs` -lGeographic
 #export GDAL_LIBS=/z/gdal/lib/libgdal.a ../../richdem_x86_64/install/lib/libproj.a
 export GDAL_CFLAGS=`${gdconfig} --cflags`
 export ARCH_FLAGS=-march=native -mtune=native #-m32
