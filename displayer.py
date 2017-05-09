@@ -2,6 +2,7 @@
 import pyproj
 import numpy as np
 from matplotlib import pyplot as plt
+from mpl_toolkits.basemap import Basemap
 import os
 import pickle
 import sys
@@ -13,17 +14,21 @@ landmassfile             = 'data/land-polygons-split-3857/land_polygons.shp'
 #storedir = '/home/rbarnes1/scratch/dgg_best'
 storedir  = 'temp'
 
-def PlotPoints(px,py):
+def PlotPoints(lat,lon):
   """Plot points along with some of the largest land masses, for content"""
-  fig   = plt.figure()
-  ax    = fig.add_subplot(111)
-  for f in plottable_landmasses[0:8]:
-    pol_x,pol_y = f.exterior.xy
-    ax.plot(pol_x,pol_y, color='#6699cc', alpha=0.7, linewidth=3, solid_capstyle='round')
-  ax.scatter(px,py,color='green',marker='o')
+  import time, calendar, datetime, numpy
+  from mpl_toolkits.basemap import Basemap
+  import matplotlib.pyplot as plt
+  # draw map with markers for float locations
+  m = Basemap(projection='mill',lon_0=0)
+  m.drawmapboundary(fill_color='#99ffff')
+  m.fillcontinents(color='#cc9966',lake_color='#99ffff')
+  x,y=m(lon,lat)
+  m.scatter(x,y,
+            marker='o',color='k',
+            zorder=10)
+  plt.title('Hammer projection, data on top',fontsize=12)
   plt.show()
-
-
 
 def TransformLatLon(latr,lonr,plat,plon,ptheta):
   """Take a point at (latr,lonr) in a system with a pole at (90,*) and rotate it
@@ -94,21 +99,10 @@ vertices = np.array(vertices)
 olats    = vertices[:,0]
 olons    = vertices[:,1]
 
-def GeneratePlottableLandmasses():
-  if not os.path.isfile(os.path.join(storedir,'plottable_landmasses.pickle')):
-    plottable_landmasses = [x for x in fiona.open(plottable_landmassfile)]
-    plottable_landmasses = [sg.shape(x['geometry']) for x in plottable_landmasses]
-    plottable_landmasses.sort(key=lambda x: x.area, reverse=True)
-    with open(os.path.join(storedir,'plottable_landmasses.pickle'), 'wb') as f:
-      pickle.dump(landmasses, f, protocol=-1)
-
 sys.argv[1:] = map(float,sys.argv[1:])
-
-plottable_landmasses = GeneratePlottableLandmasses()
-plottable_landmasses = pickle.load(open(os.path.join(storedir,'plottable_landmasses.pickle'), 'rb'))
 
 #print(np.array([olats,olons]).transpose())
 #print(np.array(TransformLatLon(olats,olons,sys.argv[1],sys.argv[2],sys.argv[3])).transpose())
 #print(np.array(wgs_to_mercator(*TransformLatLon(olats,olons,sys.argv[1],sys.argv[2],sys.argv[3]))).transpose())
 
-PlotPoints(*wgs_to_mercator(*TransformLatLon(olats,olons,sys.argv[1],sys.argv[2],sys.argv[3])))
+PlotPoints(*TransformLatLon(olats,olons,sys.argv[1],sys.argv[2],sys.argv[3]))
