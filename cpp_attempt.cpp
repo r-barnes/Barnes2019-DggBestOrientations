@@ -45,7 +45,7 @@ const double DIV        = 100.0;
 // :param lon2 Longtiude of Point 2 in degrees
 // :returns Distance between the two points in kilometres
 // """
-double GeoDistance(
+double GeoDistanceFlatEarth(
   const double lon1, 
   const double lat1, 
   const double lon2,
@@ -57,34 +57,22 @@ double GeoDistance(
   const double dlon = lon2-lon1;
   const double mlat = (lat2+lat1)/2;
   return Rearth*std::sqrt(dlat*dlat + std::pow(std::cos(mlat)*dlon,2));
-
-  //https://www.mapbox.com/blog/cheap-ruler/
-  //http://www.focusonmath.org/sites/focusonmath.org/files/assets/MT2004-08-20a%281%29.pdf
-  //From: https://www.gpo.gov/fdsys/pkg/CFR-2005-title47-vol4/pdf/CFR-2005-title47-vol4-sec73-208.pdf. Valid for distances <295 miles
-  // const double ml      = (lat1+lat2)/2;
-  // const double cs      = std::cos(ml);
-  // const double cs2     = 2*cs*cs  - 1;
-  // const double cs3     = 2*cs*cs2 - cs;
-  // const double cs4     = 2*cs*cs3 - cs2;
-  // const double cs5     = 2*cs*cs4 - cs3;
-  // const double kpd_lat = 111.13209    - 0.56605*cs2 + 0.00120*cs4;
-  // const double kpd_lon = 111.41513*cs - 0.09455*cs3 + 0.00012*cs5;
-  // const double ns      = kpd_lat*(lat1-lat2);
-  // const double ew      = kpd_lon*(lon1-lon2);
-  // return std::sqrt(ns*ns+ew*ew);
-
-  //Law of Cosines method
-  //const double Rearth = 6371; //km
-  //return Rearth*std::acos( std::sin(lat1)*std::sin(lat2) + std::cos(lat1)*std::cos(lat2)*std::cos(lon2-lon1) );
-
-  //Haversine Distance
-  // const double Rearth = 6371; //km
-  // const double dlon   = lon2 - lon1;
-  // const double dlat   = lat2 - lat1;
-  // const double a      = std::pow(std::sin(dlat/2),2) + std::cos(lat1) * std::cos(lat2) * std::pow(std::sin(dlon/2),2);
-  // const double c      = 2*std::asin(std::sqrt(a));
-  // return Rearth*c;
 }
+
+double GeoDistanceHaversine(
+  const double lon1, 
+  const double lat1, 
+  const double lon2,
+  const double lat2 
+){
+  const double Rearth = 6371; //km
+  const double dlon   = lon2 - lon1;
+  const double dlat   = lat2 - lat1;
+  const double a      = std::pow(std::sin(dlat/2),2) + std::cos(lat1) * std::cos(lat2) * std::pow(std::sin(dlon/2),2);
+  const double c      = 2*std::asin(std::sqrt(a));
+  return Rearth*c;
+}
+
 
 class Timer {
  private:
@@ -408,7 +396,7 @@ void DistancesToPoles(std::vector<struct POI> &pois){
       const auto cp = pc.queryPoint(xr,yr,zr); //Closest point
       double plat,plon;
       XYZtoLatLon(cp.x,cp.y,cp.z,plat,plon);
-      auto dist = GeoDistance(plon,plat,p.lon[j],p.lat[j]);
+      auto dist = GeoDistanceFlatEarth(plon,plat,p.lon[j],p.lat[j]);
       if(pois[pn].overlaps.test(j))
         dist = -dist;
       pois[pn].mindist = std::min(pois[pn].mindist,dist);
