@@ -257,24 +257,24 @@ void ReadShapefile(std::string filename, std::string layername, Polygons &geomet
   GDALClose( poDS );
 }
 
-std::bitset<12> CountOverlaps(const Pole &p, const SpIndex &sp, const std::vector<Polygon> &polygons){
-  std::bitset<12> overlaps = 0;
-  for(unsigned int i=0;i<p.lat.size();i++){
-    if(p.lat[i]>83.7*DEG_TO_RAD) //The island "83-42" as at 83.7N so anything north of this is on water
-      continue;
-    if(p.lat[i]<-80*DEG_TO_RAD){ //The southmost extent of water is ~79.5S, so anything south of this is on land
-      overlaps.set(i);
-      continue;
-    }
-    double x,y;
-    WGS84toEPSG3857(p.lon[i],p.lat[i],x,y);
-    const auto pid = sp.queryPoint(x,y);
-    if(pid==-1)
-      continue;
-    if(polygons.at(pid).containsPoint(x,y))
-      overlaps.set(i);
-  }
-  return overlaps;
+bool PointOverlaps(
+  const double lon,
+  const double lat,
+  const Polygons &landmass_merc,
+  const SpIndex &sp
+){
+  if(lat>83.7*DEG_TO_RAD) //The island "83-42" as at 83.7N so anything north of this is on water
+    return false;
+  if(lat<-80*DEG_TO_RAD)  //The southmost extent of water is ~79.5S, so anything south of this is on land
+    return true;
+  double x,y;
+  WGS84toEPSG3857(lon,lat,x,y);
+  const auto pid = sp.queryPoint(x,y);
+  if(pid==-1)
+    return false;
+  if(landmass_merc.at(pid).containsPoint(x,y))
+    return true;
+  return false;
 }
 
 void AddPolygonToSpIndex(const Polygon &poly, SpIndex &sp, const int id){
@@ -294,6 +294,14 @@ void Test(){
     p.print();
     p.toMercator();
     p.print();
+  }
+
+  {
+    std::cerr<<"Neighbors:"<<std::endl;
+    Pole p;
+    const auto n = p.neighbors();
+    for(unsigned int i=0;i<n.size();i+=2)
+      std::cerr<<n[i]<<"-"<<n[i+1]<<std::endl;
   }
 
   SpIndex sp;
@@ -360,13 +368,16 @@ std::vector<struct POI> FindPolesOfInterest(
   long count=0;
 
   Timer tmr;
-  #pragma omp parallel for default(none) schedule(static) shared(sp,landmass_merc,pois,std::cerr) reduction(+:count)
+  #pragma omp parallel for default(none) schedule(static) shared(pois,std::cerr,sp,landmass_merc) reduction(+:count)
   for(int16_t rlat  =0; rlat  <(int)(63.4*DIV); rlat  +=(int)(PRECISION*DIV)) //(pi()/2-IEL)*180/pi()
   for(int16_t rlon  =0; rlon  <(int)(72.0*DIV); rlon  +=(int)(PRECISION*DIV))
   for(int16_t rtheta=0; rtheta<(int)(72.0*DIV); rtheta+=(int)(PRECISION*DIV)){
     count++;
     Pole p(rlat/DIV*DEG_TO_RAD, rlon/DIV*DEG_TO_RAD, rtheta/DIV*DEG_TO_RAD);
-    auto overlaps = CountOverlaps(p,sp,landmass_merc);  
+    std::bitset<12> overlaps = 0;
+    for(unsigned int i=0;i<p.lat.size();i++)
+      if(PointOverlaps(p.lon[i],p.lat[i],landmass_merc,sp))
+        overlaps.set(i);
     if(overlaps==0 || overlaps.count()>=8){
       #pragma omp critical
       pois.emplace_back(overlaps,rlat,rlon,rtheta);
