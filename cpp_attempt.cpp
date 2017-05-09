@@ -362,7 +362,7 @@ std::vector<struct POI> FindPolesOfInterest(
 
 void DistancesToPoles(std::vector<struct POI> &pois){
   std::cerr<<"Reading WGS84 shapefile..."<<std::endl;
-  std::vector<Polygon> landmass_wgs84;
+  Polygons landmass_wgs84;
   ReadShapefile(FILE_WGS84_LANDMASS, "land_polygons", landmass_wgs84);
 
   PointCloud pc;
@@ -387,8 +387,7 @@ void DistancesToPoles(std::vector<struct POI> &pois){
   std::cerr<<"Calculating distances to poles..."<<std::endl;
   #pragma omp parallel for default(none) shared(pois,pc)
   for(unsigned int pn=0;pn<pois.size();pn++){
-    Pole p;
-    p.rotatePole(pois[pn].rlat/DIV*DEG_TO_RAD, pois[pn].rlon/DIV*DEG_TO_RAD, pois[pn].rtheta/DIV*DEG_TO_RAD);
+    Pole p(pois[pn].rlat/DIV*DEG_TO_RAD, pois[pn].rlon/DIV*DEG_TO_RAD, pois[pn].rtheta/DIV*DEG_TO_RAD);
 
     for(unsigned int j=0;j<p.lat.size();j++){
       double xr,yr,zr;
