@@ -185,6 +185,28 @@ class Pole {
     for(unsigned int i=0;i<lon.size();i++)
       std::cout<<std::fixed<<std::setw(10)<<templat[i]<<" "<<std::fixed<<std::setw(10)<<templon[i]<<" -- "<<std::setw(10)<<std::fixed<<templat[i]*RAD_TO_DEG<<" "<<std::setw(10)<<std::fixed<<templon[i]*RAD_TO_DEG<<std::endl;
   }
+
+  std::vector<int> neighbors() const {
+    std::vector<int> ret;
+    double dist = std::numeric_limits<double>::infinity();
+    //Find nearest vertex that isn't itself
+    for(unsigned int i=1;i<lon.size();i++)
+      dist = std::min(dist,GeoDistanceHaversine(lon[0],lat[0],lon[i],lat[i]));
+    //Increase by 10% to account for floating point errors
+    dist *= 1.1;
+    for(unsigned int i=0;  i<lon.size();i++)
+    for(unsigned int j=i+1;j<lon.size();j++)
+      if(GeoDistanceHaversine(lon[i],lat[i],lon[j],lat[j])<dist){ //Pole is about as close as any close pole
+        ret.emplace_back(i);
+        ret.emplace_back(j);
+      }
+    return ret;
+  }
+
+  double neighborDistance() const {
+    auto n = neighbors();
+    return GeoDistanceHaversine(lon[n[0]],lat[n[0]],lon[n[1]],lat[n[1]]); 
+  }
 };
 
 void ReadShapefile(std::string filename, std::string layername, Polygons &geometries){
