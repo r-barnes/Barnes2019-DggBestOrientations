@@ -199,7 +199,7 @@ class Pole {
   }
 };
 
-void ReadShapefile(std::string filename, std::string layername, std::vector<Polygon> &geometries){
+void ReadShapefile(std::string filename, std::string layername, Polygons &geometries){
   GDALAllRegister();
   GDALDataset *poDS;
   poDS = (GDALDataset*) GDALOpenEx(filename.c_str(), GDAL_OF_VECTOR, NULL, NULL, NULL);
@@ -341,27 +341,10 @@ class POI {
   }
 };
 
-std::vector<struct POI> FindPolesOfInterest(){
-  std::vector<Polygon> landmass_merc;
-  {
-    std::cerr<<"Reading Mercator split shapefile..."<<std::endl;
-    Timer tmr;
-    ReadShapefile(FILE_MERC_LANDMASS, "land_polygons", landmass_merc);
-    std::cerr<<"Read "<<landmass_merc.size()<<" polygons."<<std::endl;
-    std::cerr<<"Time taken = "<<tmr.elapsed()<<std::endl;
-  }
-
-  SpIndex sp;
-  {
-    std::cerr<<"Building index..."<<std::endl;
-    Timer tmr;
-    for(int64_t i=0;(unsigned)i<landmass_merc.size();i++)
-      AddPolygonToSpIndex(landmass_merc[i], sp, i);
-    sp.buildIndex();
-    std::cerr<<"Index built."<<std::endl;
-    std::cerr<<"Time taken = "<<tmr.elapsed()<<std::endl;
-  }
-
+std::vector<struct POI> FindPolesOfInterest(
+  const Polygons &landmass_merc,
+  const SpIndex &sp
+){
   std::cerr<<"Finding poles..."<<std::endl;
   std::vector<struct POI> pois;
   long count=0;

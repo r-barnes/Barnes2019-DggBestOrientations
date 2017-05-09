@@ -23,4 +23,6 @@ class Polygon {
   bool containsPoint(const double testx, const double testy) const;
 };
 
+typedef std::vector<Polygon> Polygons;
+
 #endif
