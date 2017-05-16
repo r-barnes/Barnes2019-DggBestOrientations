@@ -36,8 +36,14 @@ const double DEG_TO_RAD = M_PI/180.0;
 const double RAD_TO_DEG = 180.0/M_PI;
 const double IEL        = std::atan(0.5); //Icosahedron equatorial latitudes
 const double IES        = 36*M_PI/180;    //Icosahedron equatorial spacing
-const double PRECISION  = 0.05;           //Grid spacing for search
-const double DIV        = 100.0;
+
+//1/10th of a degree grid spacing
+const double PRECISION  = 0.1;    
+const double DIV        = 10.0;
+
+//1 degree grid spacing
+//const double PRECISION  = 1;  
+//const double DIV        = 1;
 
 // """
 // Calculate the Great Circle distance on Earth between two latitude-longitude
