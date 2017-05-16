@@ -188,6 +188,11 @@ class Pole {
     ToMercator(lon,lat);
   }
 
+  void toRadians(){
+    ToRadians(lat);
+    ToRadians(lon);
+  }
+
   void print() const {
     auto templon = lon;
     auto templat = lat;
