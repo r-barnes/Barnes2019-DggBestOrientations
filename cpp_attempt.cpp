@@ -154,6 +154,7 @@ void XYZtoLatLon(
   lon = std::atan2(y,x);
 }
 
+//https://gis.stackexchange.com/questions/10808/lon-lat-transformation
 void RotatePoint(const double rlat, const double rlon, const double rtheta, double &lat, double &lon){
   lon += M_PI+rtheta;                                    //Move [0,360] and add theta
   lon  = std::fmod(2*M_PI+std::fmod(lon,2*M_PI),2*M_PI); //Map back to [0,360]
