@@ -299,6 +299,23 @@ void AddPolygonToSpIndex(const Polygon &poly, SpIndex &sp, const int id){
   sp.addBoxDeferred(xmin,ymin,xmax,ymax,id);
 }
 
+void TestWithData(const Polygons &landmass_merc, const SpIndex &sp){
+  {
+    Pole p;
+    //Fuller's orientation
+    p.lon = {{10.53620,  -5.24539,  58.15771, 122.3    ,-143.47849, -67.13233, -57.7    ,  36.5215 , 112.86767, 174.7546 ,-121.84229,-169.4638}};
+    p.lat = {{64.7,   2.300882,  10.447378,  39.1,  50.103201,  23.717925, -39.1, -50.1032, -23.717925,  -2.3009, -10.447345, -64.7}};
+    p.toRadians();
+    int ocount = 0;
+    for(unsigned int i=0;i<p.lat.size();i++)
+      if(PointOverlaps(p.lon[i],p.lat[i],landmass_merc,sp))
+        ocount++;
+
+    std::cerr<<"Fuller count: "<<ocount<<std::endl;
+    assert(ocount==0);
+  }
+}
+
 void Test(){
   std::cerr<<"Running tests..."<<std::endl;
 
