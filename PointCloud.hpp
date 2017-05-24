@@ -35,8 +35,8 @@ class PointCloud {
   bool kdtree_get_bbox(BBOX& /* bb */) const;
 
   void buildIndex();
-  void addPoint(double x, double y, double z);
-  const Point3D& queryPoint(double x, double y, double z) const;
+  void addPoint(const Point3D &xyz);
+  const Point3D& queryPoint(const Point3D &xyz) const;
 };
 
 #endif

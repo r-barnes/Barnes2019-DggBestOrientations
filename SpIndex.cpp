@@ -32,8 +32,8 @@ void SpIndex::buildIndex(){
   boxes_to_insert.shrink_to_fit();
 }
 
-int SpIndex::queryPoint(const int px, const int py) const {
-  box query_box(point(px, py), point(px, py));
+int SpIndex::queryPoint(const Point2D &xy) const {
+  box query_box(point(xy.x, xy.y), point(xy.x, xy.y));
   std::vector<value> result_s;
   rtree.query(
     boost::geometry::index::intersects(query_box),

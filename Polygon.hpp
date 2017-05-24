@@ -14,7 +14,7 @@ class Polygon {
   double maxY() const;
   void toRadians();
   void toDegrees();
-  bool containsPoint(const double testx, const double testy) const;
+  bool containsPoint(const Point2D &xy) const;
 };
 
 typedef std::vector<Polygon> Polygons;

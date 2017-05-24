@@ -3,6 +3,7 @@
 
 #include <boost/geometry.hpp>
 #include <boost/geometry/index/rtree.hpp>
+#include "Point.hpp"
 
 class SpIndex {
  private:
@@ -17,7 +18,7 @@ class SpIndex {
   SpIndex();
   void addBox(const int xmin, const int ymin, const int xmax, const int ymax, const int id);
   void addBoxDeferred(const int xmin, const int ymin, const int xmax, const int ymax, const int id);
-  int queryPoint(const int px, const int py) const;
+  int queryPoint(const Point2D &xy) const;
   void buildIndex();
 };
 

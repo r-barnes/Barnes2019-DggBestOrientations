@@ -214,21 +214,19 @@ void ReadShapefile(std::string filename, std::string layername, Polygons &geomet
 }
 
 bool PointOverlaps(
-  const double lon,
-  const double lat,
+  const Point2D &ll,
   const Polygons &landmass_merc,
   const SpIndex &sp
 ){
-  if(lat>83.7*DEG_TO_RAD) //The island "83-42" as at 83.7N so anything north of this is on water
+  if(ll.y>83.7*DEG_TO_RAD) //The island "83-42" as at 83.7N so anything north of this is on water
     return false;
-  if(lat<-80*DEG_TO_RAD)  //The southmost extent of water is ~79.5S, so anything south of this is on land
+  if(ll.y<-80*DEG_TO_RAD)  //The southmost extent of water is ~79.5S, so anything south of this is on land
     return true;
-  double x,y;
-  WGS84toEPSG3857(lon,lat,x,y);
-  const auto pid = sp.queryPoint(x,y);
+  auto xy = WGS84toEPSG3857(ll);
+  const auto pid = sp.queryPoint(xy);
   if(pid==-1)
     return false;
-  if(landmass_merc.at(pid).containsPoint(x,y))
+  if(landmass_merc.at(pid).containsPoint(xy))
     return true;
   return false;
 }
@@ -249,8 +247,8 @@ void TestWithData(const Polygons &landmass_merc, const SpIndex &sp){
     p.lat = {{64.7,   2.300882,  10.447378,  39.1,  50.103201,  23.717925, -39.1, -50.1032, -23.717925,  -2.3009, -10.447345, -64.7}};
     p.toRadians();
     int ocount = 0;
-    for(unsigned int i=0;i<p.lat.size();i++)
-      if(PointOverlaps(p.lon[i],p.lat[i],landmass_merc,sp))
+    for(const auto &v: p.v)
+      if(PointOverlaps(v,landmass_merc,sp))
         ocount++;
 
     std::cerr<<"Fuller count: "<<ocount<<std::endl;
@@ -295,20 +293,59 @@ void Test(){
   AddPolygonToSpIndex(p, sp, 347);
   sp.buildIndex();
 
-  std::cerr<<sp.queryPoint(1250,1270)<<std::endl;
+  std::cerr<<sp.queryPoint(Point2D(1250,1270))<<std::endl;
 
-  assert(sp.queryPoint(1250,1270)==347);
+  assert(sp.queryPoint(Point2D(1250,1270))==347);
+
+  assert(p.containsPoint(Point2D(1250,1270)));
+  assert(p.containsPoint(Point2D(1243,1222)));
+  assert(!p.containsPoint(Point2D(1194,1222)));
+
+  {
+    Point2D ll(-93*DEG_TO_RAD,45*DEG_TO_RAD);
+    ll = WGS84toEPSG3857(ll);
+    std::cout<<"(-93,45) = ("<<std::fixed<<ll.x<<","<<std::fixed<<ll.y<<")"<<std::endl;
+    assert(std::abs(ll.x-(-10352712.6438))<1e-4);
+    assert(std::abs(ll.y-5621521.48619)<1e-4);
+  }
 
   assert(p.containsPoint(1250,1270));
   assert(p.containsPoint(1243,1222));
   assert(!p.containsPoint(1194,1222));
 
   {
-    double x,y;
-    WGS84toEPSG3857(-93*DEG_TO_RAD,45*DEG_TO_RAD,x,y);
-    std::cout<<"(-93,45) = ("<<std::fixed<<x<<","<<std::fixed<<y<<")"<<std::endl;
-    assert(std::abs(x-(-10352712.6438))<1e-4);
-    assert(std::abs(y-5621521.48619)<1e-4);
+    const IcosaXYZ ico;
+    const Point3D A = ico.v[NA];
+    const Point3D AB(
+      ico.v[NB].x-ico.v[NA].x,
+      ico.v[NB].y-ico.v[NA].y,
+      ico.v[NB].z-ico.v[NA].z
+    );
+    const Point3D AC(
+      ico.v[NC].x-ico.v[NA].x,
+      ico.v[NC].y-ico.v[NA].y,
+      ico.v[NC].z-ico.v[NA].z
+    );
+    std::ofstream fout("/z/dgbp_coverage_test");
+    for(int rn=0;rn<=50;rn++)
+    for(int sn=0;sn<=50;sn++){
+      double r = rn/(double)50;
+      double s = sn/(double)50;
+      if(r+s>=1.1)
+        continue;
+      Point3D orient_to(
+        A.x + r*AB.x + s*AC.x,
+        A.y + r*AB.y + s*AC.y,
+        A.z + r*AB.z + s*AC.z
+      );
+      for(int16_t rtheta=0; rtheta<72; rtheta+=1){
+        IcosaXY p;
+        p = p.rotateTheta(rtheta*DEG_TO_RAD).toXYZ().rotateTo(orient_to).toLatLon();
+        //fout<<(p.v[0].y*RAD_TO_DEG)<<" "<<(p.v[0].x*RAD_TO_DEG)<<"\n";
+        for(const auto &i: p.v)
+          fout<<(i.y*RAD_TO_DEG)<<" "<<(i.x*RAD_TO_DEG)<<"\n";
+      }
+    }
   }
 
   std::cerr<<"Passed"<<std::endl;
@@ -341,6 +378,19 @@ std::vector<struct POI> FindPolesOfInterest(
   std::vector<struct POI> pois;
   long count=0;
 
+  const IcosaXYZ ico;
+  const Point3D A = ico.v[NA];
+  const Point3D AB(
+    ico.v[NB].x-ico.v[NA].x,
+    ico.v[NB].y-ico.v[NA].y,
+    ico.v[NB].z-ico.v[NA].z
+  );
+  const Point3D AC(
+    ico.v[NC].x-ico.v[NA].x,
+    ico.v[NC].y-ico.v[NA].y,
+    ico.v[NC].z-ico.v[NA].z
+  );
+
   Timer tmr;
   #pragma omp parallel for default(none) schedule(static) shared(pois,std::cerr,sp,landmass_merc) reduction(+:count)
   for(int16_t rlat  =0; rlat  <(int)(63.4*DIV); rlat  +=(int)(PRECISION*DIV)) //(pi()/2-IEL)*180/pi()
@@ -367,24 +417,20 @@ std::vector<struct POI> FindPolesOfInterest(
   return pois;
 }
 
-void DistancesToPoles(std::vector<struct POI> &pois){
+void DistancesToIcosaXYs(std::vector<struct POI> &pois){
   std::cerr<<"Reading WGS84 shapefile..."<<std::endl;
   Polygons landmass_wgs84;
   ReadShapefile(FILE_WGS84_LANDMASS, "land_polygons", landmass_wgs84);
 
   PointCloud pc;
 
-  for(auto &p: landmass_wgs84)
-    p.toRadians();
+  for(auto &ll: landmass_wgs84)
+    ll.toRadians();
 
   std::cerr<<"Adding polygon points to PointCloud..."<<std::endl;
-  for(const auto &poly: landmass_wgs84){
-    for(const auto &p: poly.exterior){
-      double xr, yr, zr;
-      LatLonToXYZ(p.y, p.x, 1, xr, yr, zr);
-      pc.addPoint(xr,yr,zr);
-    }
-  }
+  for(const auto &poly: landmass_wgs84)
+  for(const auto &ll: poly.exterior)
+    pc.addPoint(ll.toXYZ(1));
 
   std::cerr<<"Building kd-tree..."<<std::endl;
   pc.buildIndex();

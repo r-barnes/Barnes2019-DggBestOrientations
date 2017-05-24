@@ -37,12 +37,12 @@ void PointCloud::buildIndex() {
   index->buildIndex();
 }
 
-void PointCloud::addPoint(double x, double y, double z) {
-  pts.emplace_back(x,y,z);
+void PointCloud::addPoint(const Point3D &xyz) {
+  pts.push_back(xyz);
 }
 
-const Point3D& PointCloud::queryPoint(double x, double y, double z) const {
-  double query_pt[3] = {x,y,z};
+const Point3D& PointCloud::queryPoint(const Point3D &xyz) const {
+  double query_pt[3] = {xyz.x,xyz.y,xyz.z};
   const size_t num_results = 1;
   size_t ret_index;
   double out_dist_sqr;
