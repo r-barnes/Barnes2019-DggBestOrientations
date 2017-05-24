@@ -3,6 +3,7 @@
 #include "Polygon.hpp"
 #include "SpIndex.hpp"
 #include "PointCloud.hpp"
+#include "Icosa.hpp"
 #include "GeoStuff.hpp"
 #include <GeographicLib/Geodesic.hpp>
 #include <GeographicLib/GeodesicLine.hpp>
@@ -35,12 +36,15 @@
 
 const double DEG_TO_RAD = M_PI/180.0;
 const double RAD_TO_DEG = 180.0/M_PI;
-const double IEL        = std::atan(0.5); //Icosahedron equatorial latitudes
-const double IES        = 36*M_PI/180;    //Icosahedron equatorial spacing
 
 //1/10th of a degree grid spacing
 const double PRECISION  = 0.1;    
 const double DIV        = 10.0;
+
+//Neighbouring vertices of icosahedron used for generating rotations
+const int NA = 0;
+const int NB = 2;
+const int NC = 4;
 
 //1 degree grid spacing
 //const double PRECISION  = 1;  
@@ -56,112 +60,6 @@ class Timer {
   void reset() { beg_ = clock_::now(); }
   double elapsed() const { 
     return std::chrono::duration_cast<second_> (clock_::now() - beg_).count(); 
-  }
-};
-
-template<class T>
-void ToRadians(T &vec){
-  for(auto &v: vec)
-    v *= DEG_TO_RAD;
-}
-
-template<class T>
-void ToDegrees(T &vec){
-  for(auto &v: vec)
-    v *= RAD_TO_DEG;
-}
-
-void LatLonToXYZ(
-  const double lat,
-  const double lon,
-  const double radius,
-  double &x,
-  double &y,
-  double &z
-){
-  x = radius * std::cos(lon) * std::cos(lat);
-  y = radius * std::sin(lon) * std::cos(lat);
-  z = radius * std::sin(lat);
-}
-
-void XYZtoLatLon(
-  const double x,
-  const double y,
-  const double z,
-  double &lat,
-  double &lon
-){
-  double radius = x*x + y*y + z*z;
-  lat = std::asin(z/radius);
-  lon = std::atan2(y,x);
-}
-
-//https://gis.stackexchange.com/questions/10808/lon-lat-transformation
-void RotatePoint(const double rlat, const double rlon, const double rtheta, double &lat, double &lon){
-  lon += M_PI+rtheta;                                    //Move [0,360] and add theta
-  lon  = std::fmod(2*M_PI+std::fmod(lon,2*M_PI),2*M_PI); //Map back to [0,360]
-  lon -= M_PI;                                           //Move back to [-180,180] system
-
-  double xr, yr, zr;
-  LatLonToXYZ(lat, lon, 1, xr, yr, zr);
-  double x =  std::cos(rlat)*std::cos(rlon)*xr + std::sin(rlon)*yr + std::sin(rlat)*std::cos(rlon)*zr;
-  double y = -std::cos(rlat)*std::sin(rlon)*xr + std::cos(rlon)*yr - std::sin(rlat)*std::sin(rlon)*zr;
-  double z = -std::sin(rlat)*xr + std::cos(rlat)*zr;
-  XYZtoLatLon(x,y,z, lat, lon);
-}
-
-class Pole {
- public:
-  std::array<double,12> lon = {{     0,      0,-5*IES,-4*IES,-3*IES, -2*IES,-1*IES,   0, 1*IES,  2*IES,3*IES,4*IES}};
-  std::array<double,12> lat = {{M_PI/2,-M_PI/2,   IEL,  -IEL,   IEL,   -IEL,   IEL,-IEL,   IEL,   -IEL,  IEL, -IEL}};
-
-  Pole(){}
-
-  Pole(double rlat, double rlon, double rtheta){
-    rotatePole(rlat,rlon,rtheta);
-  }
-
-  void rotatePole(double rlat, double rlon, double rtheta){
-    for(unsigned int i=0;i<lon.size();i++)
-      RotatePoint(rlat, rlon, rtheta, lat[i], lon[i]);
-  }
-
-  void toMercator(){
-    ToMercator(lon,lat);
-  }
-
-  void toRadians(){
-    ToRadians(lat);
-    ToRadians(lon);
-  }
-
-  void print() const {
-    auto templon = lon;
-    auto templat = lat;
-    for(unsigned int i=0;i<lon.size();i++)
-      std::cout<<std::fixed<<std::setw(10)<<templat[i]<<" "<<std::fixed<<std::setw(10)<<templon[i]<<" -- "<<std::setw(10)<<std::fixed<<templat[i]*RAD_TO_DEG<<" "<<std::setw(10)<<std::fixed<<templon[i]*RAD_TO_DEG<<std::endl;
-  }
-
-  std::vector<int> neighbors() const {
-    std::vector<int> ret;
-    double dist = std::numeric_limits<double>::infinity();
-    //Find nearest vertex that isn't itself
-    for(unsigned int i=1;i<lon.size();i++)
-      dist = std::min(dist,GeoDistanceHaversine(lon[0],lat[0],lon[i],lat[i]));
-    //Increase by 10% to account for floating point errors
-    dist *= 1.1;
-    for(unsigned int i=0;  i<lon.size();i++)
-    for(unsigned int j=i+1;j<lon.size();j++)
-      if(GeoDistanceHaversine(lon[i],lat[i],lon[j],lat[j])<dist){ //Pole is about as close as any close pole
-        ret.emplace_back(i);
-        ret.emplace_back(j);
-      }
-    return ret;
-  }
-
-  double neighborDistance() const {
-    auto n = neighbors();
-    return GeoDistanceHaversine(lon[n[0]],lat[n[0]],lon[n[1]],lat[n[1]]); 
   }
 };
 
@@ -241,10 +139,24 @@ void AddPolygonToSpIndex(const Polygon &poly, SpIndex &sp, const int id){
 
 void TestWithData(const Polygons &landmass_merc, const SpIndex &sp){
   {
-    Pole p;
+    IcosaXY p;
     //Fuller's orientation
-    p.lon = {{10.53620,  -5.24539,  58.15771, 122.3    ,-143.47849, -67.13233, -57.7    ,  36.5215 , 112.86767, 174.7546 ,-121.84229,-169.4638}};
-    p.lat = {{64.7,   2.300882,  10.447378,  39.1,  50.103201,  23.717925, -39.1, -50.1032, -23.717925,  -2.3009, -10.447345, -64.7}};
+    p.v = {{
+      {  10.53620,  64.7     },
+      {  -5.24539,   2.300882},
+      {  58.15771,  10.447378},
+      { 122.3    ,  39.1     },
+      {-143.47849,  50.103201},
+      { -67.13233,  23.717925},
+      { -57.7    , -39.1     },
+      {  36.5215 , -50.1032  },
+      { 112.86767, -23.717925},
+      { 174.7546 ,  -2.3009  },
+      {-121.84229, -10.447345},
+      {-169.4638 , -64.7     }
+    }};
+    //p.lon = {{10.53620,  -5.24539,  58.15771, 122.3    ,-143.47849, -67.13233, -57.7    ,  36.5215 , 112.86767, 174.7546 ,-121.84229,-169.4638}};
+    //p.lat = {{64.7,   2.300882,  10.447378,  39.1,  50.103201,  23.717925, -39.1, -50.1032, -23.717925,  -2.3009, -10.447345, -64.7}};
     p.toRadians();
     int ocount = 0;
     for(const auto &v: p.v)
@@ -260,19 +172,30 @@ void Test(){
   std::cerr<<"Running tests..."<<std::endl;
 
   {
-    Pole p;
-    p.rotatePole(22.8*DEG_TO_RAD,3.6*DEG_TO_RAD,45.6*DEG_TO_RAD);
+    std::cerr<<"Ico 2D coords in XYZ"<<std::endl;
+    IcosaXY p;
+    p.toXYZ().print();
+  }
+
+  {
+    std::cerr<<"IcosaXY"<<std::endl;
+    IcosaXY p;
+    p.rotate(22.8*DEG_TO_RAD,3.6*DEG_TO_RAD,45.6*DEG_TO_RAD);
     p.print();
     p.toMercator();
     p.print();
   }
 
   {
-    std::cerr<<"Neighbors:"<<std::endl;
-    Pole p;
+    std::cerr<<"IcosoXY Neighbors:"<<std::endl;
+    IcosaXY p;
     const auto n = p.neighbors();
     for(unsigned int i=0;i<n.size();i+=2)
       std::cerr<<n[i]<<"-"<<n[i+1]<<std::endl;
+    //Ensure neighbours are actually all neighbours
+    const auto dist = GeoDistanceHaversine(p.v[NA],p.v[NB]);
+    assert(std::abs(GeoDistanceHaversine(p.v[NA],p.v[NC])-dist)<1e-6);
+    assert(std::abs(GeoDistanceHaversine(p.v[NB],p.v[NC])-dist)<1e-6);
   }
 
   SpIndex sp;
@@ -281,8 +204,8 @@ void Test(){
   for(double x=0;x<1000;x+=100)
     sp.addBox(x,y,x+100,y+100,id++);
 
-  assert(sp.queryPoint(350,350)==33);
-  assert(sp.queryPoint(750,550)==57);
+  assert(sp.queryPoint(Point2D(350,350))==33);
+  assert(sp.queryPoint(Point2D(750,550))==57);
 
   Polygon p;
   p.exterior.emplace_back(1200,1200);
@@ -309,9 +232,18 @@ void Test(){
     assert(std::abs(ll.y-5621521.48619)<1e-4);
   }
 
-  assert(p.containsPoint(1250,1270));
-  assert(p.containsPoint(1243,1222));
-  assert(!p.containsPoint(1194,1222));
+  //TODO
+  {
+    //Describes a regular icosahedron with edges of length 2
+    IcosaXYZ ico;
+    ico.rotateTo(Point3D(0,0,1));
+    auto ixy = ico.toLatLon();
+    //std::cerr<<"Before rotation"<<std::endl;
+    //ixy.print();
+    //ixy.rotate(-26.565051*DEG_TO_RAD,-90*DEG_TO_RAD,0);
+    std::cerr<<"After rotation"<<std::endl;
+    ixy.print();
+  }
 
   {
     const IcosaXYZ ico;
@@ -370,7 +302,7 @@ class POI {
   }
 };
 
-std::vector<struct POI> FindPolesOfInterest(
+std::vector<struct POI> FindOrientationsOfInterest(
   const Polygons &landmass_merc,
   const SpIndex &sp
 ){
@@ -392,19 +324,32 @@ std::vector<struct POI> FindPolesOfInterest(
   );
 
   Timer tmr;
-  #pragma omp parallel for default(none) schedule(static) shared(pois,std::cerr,sp,landmass_merc) reduction(+:count)
-  for(int16_t rlat  =0; rlat  <(int)(63.4*DIV); rlat  +=(int)(PRECISION*DIV)) //(pi()/2-IEL)*180/pi()
-  for(int16_t rlon  =0; rlon  <(int)(72.0*DIV); rlon  +=(int)(PRECISION*DIV))
-  for(int16_t rtheta=0; rtheta<(int)(72.0*DIV); rtheta+=(int)(PRECISION*DIV)){
-    count++;
-    Pole p(rlat/DIV*DEG_TO_RAD, rlon/DIV*DEG_TO_RAD, rtheta/DIV*DEG_TO_RAD);
-    std::bitset<12> overlaps = 0;
-    for(unsigned int i=0;i<p.lat.size();i++)
-      if(PointOverlaps(p.lon[i],p.lat[i],landmass_merc,sp))
-        overlaps.set(i);
-    if(overlaps==0 || overlaps.count()>=8){
-      #pragma omp critical
-      pois.emplace_back(overlaps,rlat,rlon,rtheta);
+  //#pragma omp parallel for default(none) schedule(static) shared(pois,std::cerr,sp,landmass_merc) reduction(+:count)
+  for(int rn=0;rn<=100;rn++)
+  for(int sn=0;sn<=100;sn++){
+    int r = rn;
+    int s = sn;
+    if(r+s>=1){
+      r = 1-r;
+      s = 1-s;
+    }
+    Point3D orient_to(
+      A.x + r/100.0 * AB.x + s/100.0 * AC.x,
+      A.y + r/100.0 * AB.y + s/100.0 * AC.y,
+      A.z + r/100.0 * AB.z + s/100.0 * AC.z
+    );
+    for(int16_t rtheta=0; rtheta<(int)(72.0*DIV); rtheta+=(int)(PRECISION*DIV)){
+      count++;
+      IcosaXY p;
+      p = p.rotateTheta(rtheta).toXYZ().rotateTo(orient_to).toLatLon();
+      std::bitset<12> overlaps = 0;
+      for(unsigned int i=0;i<p.v.size();i++)
+        if(PointOverlaps(p.v[i],landmass_merc,sp))
+          overlaps.set(i);
+      if(overlaps==0 || overlaps.count()>=8){
+        #pragma omp critical
+        pois.emplace_back(overlaps,r,s,rtheta);
+      }
     }
   }
 
@@ -440,16 +385,13 @@ void DistancesToIcosaXYs(std::vector<struct POI> &pois){
   std::cerr<<"Calculating distances to poles..."<<std::endl;
   #pragma omp parallel for default(none) shared(pois,pc)
   for(unsigned int pn=0;pn<pois.size();pn++){
-    Pole p(pois[pn].rlat/DIV*DEG_TO_RAD, pois[pn].rlon/DIV*DEG_TO_RAD, pois[pn].rtheta/DIV*DEG_TO_RAD);
+    IcosaXY p(pois[pn].rlat/DIV*DEG_TO_RAD, pois[pn].rlon/DIV*DEG_TO_RAD, pois[pn].rtheta/DIV*DEG_TO_RAD);
 
-    for(unsigned int j=0;j<p.lat.size();j++){
-      double xr,yr,zr;
-      LatLonToXYZ(p.lat[j],p.lon[j],1,xr,yr,zr);
-      const auto cp = pc.queryPoint(xr,yr,zr); //Closest point
-      double plat,plon;
-      XYZtoLatLon(cp.x,cp.y,cp.z,plat,plon);
-      auto dist = GeoDistanceFlatEarth(plon,plat,p.lon[j],p.lat[j]);
-      if(pois[pn].overlaps.test(j))
+    for(unsigned int i=0;i<p.v.size();i++){
+      const auto cp = pc.queryPoint(p.v[i].toXYZ(1)); //Closest point
+      auto llc      = cp.toLatLon();
+      auto dist     = GeoDistanceFlatEarth(llc,p.v[i]);
+      if(pois[pn].overlaps.test(i))
         dist = -dist;
       pois[pn].mindist = std::min(pois[pn].mindist,dist);
       pois[pn].maxdist = std::max(pois[pn].maxdist,dist);
@@ -468,25 +410,26 @@ void EdgeOverlaps(
   Timer tmr;
   std::cerr<<"Calculating edge overlaps..."<<std::endl;
   const GeographicLib::Geodesic geod(GeographicLib::Constants::WGS84_a(), GeographicLib::Constants::WGS84_f());
-  const auto neighbors = Pole().neighbors();
-  const double ndist   = Pole().neighborDistance()*1000;  //Approximate spacing between vertices in metres
+  const auto neighbors = IcosaXY().neighbors();
+  const double ndist   = IcosaXY().neighborDistance()*1000;  //Approximate spacing between vertices in metres
   const double spacing = 10e3;                            //Spacing between points = 10km
   const int    num_pts = int(std::ceil(ndist / spacing)); //The number of intervals
   #pragma omp parallel for default(none) shared(pois,landmass_merc,sp)
   for(unsigned int pn=0;pn<pois.size();pn++){
-    Pole p(pois[pn].rlat/DIV*DEG_TO_RAD, pois[pn].rlon/DIV*DEG_TO_RAD, pois[pn].rtheta/DIV*DEG_TO_RAD);
+    IcosaXY p(pois[pn].rlat/DIV*DEG_TO_RAD, pois[pn].rlon/DIV*DEG_TO_RAD, pois[pn].rtheta/DIV*DEG_TO_RAD);
     for(unsigned int n=0;n<neighbors.size();n++){
       const GeographicLib::GeodesicLine line = geod.InverseLine(
-        p.lat[n]*RAD_TO_DEG,
-        p.lon[n]*RAD_TO_DEG,
-        p.lat[n+1]*RAD_TO_DEG,
-        p.lon[n+1]*RAD_TO_DEG
+        p.v[n].y*RAD_TO_DEG,
+        p.v[n].x*RAD_TO_DEG,
+        p.v[n+1].y*RAD_TO_DEG,
+        p.v[n+1].x*RAD_TO_DEG
       );
       const double da = line.Arc() / num_pts;
       for(int i=0;i<=num_pts;i++) {
-        double lat, lon;
-        line.ArcPosition(i * da, lat, lon);
-        pois[pn].edge_overlaps += PointOverlaps(lon*DEG_TO_RAD,lat*DEG_TO_RAD,landmass_merc,sp);
+        Point2D temp;
+        line.ArcPosition(i * da, temp.y, temp.x);
+        temp.toRadians();
+        pois[pn].edge_overlaps += PointOverlaps(temp,landmass_merc,sp);
       }
     }
   }
@@ -520,9 +463,9 @@ int main(int argc, char **argv){
 
   TestWithData(landmass_merc,sp);
 
-  auto pois = FindPolesOfInterest(landmass_merc,sp);
+  auto pois = FindOrientationsOfInterest(landmass_merc,sp);
 
-  DistancesToPoles(pois);
+  DistancesToIcosaXYs(pois);
 
   EdgeOverlaps(landmass_merc, sp, pois);
 
@@ -554,16 +497,16 @@ int main(int argc, char **argv){
     std::ofstream fout(FILE_OUTPUT_VERT);
     fout<<"Num,Cluster,Lat,Lon,OnLand\n";
     for(unsigned int pn=0;pn<pois.size();pn++){
-      Pole pole(pois[pn].rlat/DIV*DEG_TO_RAD,pois[pn].rlon/DIV*DEG_TO_RAD,pois[pn].rtheta/DIV*DEG_TO_RAD);
-      for(unsigned int i=0;i<pole.lat.size();i++)
+      IcosaXY p(pois[pn].rlat/DIV*DEG_TO_RAD,pois[pn].rlon/DIV*DEG_TO_RAD,pois[pn].rtheta/DIV*DEG_TO_RAD);
+      for(unsigned int i=0;i<p.v.size();i++)
         fout<<pn                    <<","
             <<pois[pn].cluster      <<","
-            <<pole.lat[i]*RAD_TO_DEG<<","
-            <<pole.lon[i]*RAD_TO_DEG<<","
+            <<p.v[i].y*RAD_TO_DEG<<","
+            <<p.v[i].x*RAD_TO_DEG<<","
             <<pois[pn].overlaps.test(i)
             <<"\n";
     }
   }
 
-
+  return 0;
 }
