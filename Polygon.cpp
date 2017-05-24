@@ -1,9 +1,6 @@
 #include "Polygon.hpp"
 #include <cmath>
 
-const double DEG_TO_RAD = M_PI/180.0;
-const double RAD_TO_DEG = 180.0/M_PI;
-
 double Polygon::minX() const {
   double minx=std::numeric_limits<double>::infinity();
   for(const auto &p: exterior)
