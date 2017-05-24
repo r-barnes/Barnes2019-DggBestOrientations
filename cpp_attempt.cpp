@@ -3,6 +3,7 @@
 #include "Polygon.hpp"
 #include "SpIndex.hpp"
 #include "PointCloud.hpp"
+#include "GeoStuff.hpp"
 #include <GeographicLib/Geodesic.hpp>
 #include <GeographicLib/GeodesicLine.hpp>
 #include <GeographicLib/Constants.hpp>
@@ -45,44 +46,6 @@ const double DIV        = 10.0;
 //const double PRECISION  = 1;  
 //const double DIV        = 1;
 
-// """
-// Calculate the Great Circle distance on Earth between two latitude-longitude
-// points
-// :param lat1 Latitude of Point 1 in degrees
-// :param lon1 Longtiude of Point 1 in degrees
-// :param lat2 Latitude of Point 2 in degrees
-// :param lon2 Longtiude of Point 2 in degrees
-// :returns Distance between the two points in kilometres
-// """
-double GeoDistanceFlatEarth(
-  const double lon1, 
-  const double lat1, 
-  const double lon2,
-  const double lat2 
-){
-  //Flat Earth Approx
-  const double Rearth = 6371; //km
-  const double dlat = lat2-lat1;
-  const double dlon = lon2-lon1;
-  const double mlat = (lat2+lat1)/2;
-  return Rearth*std::sqrt(dlat*dlat + std::pow(std::cos(mlat)*dlon,2));
-}
-
-double GeoDistanceHaversine(
-  const double lon1, 
-  const double lat1, 
-  const double lon2,
-  const double lat2 
-){
-  const double Rearth = 6371; //km
-  const double dlon   = lon2 - lon1;
-  const double dlat   = lat2 - lat1;
-  const double a      = std::pow(std::sin(dlat/2),2) + std::cos(lat1) * std::cos(lat2) * std::pow(std::sin(dlon/2),2);
-  const double c      = 2*std::asin(std::sqrt(a));
-  return Rearth*c;
-}
-
-
 class Timer {
  private:
   typedef std::chrono::high_resolution_clock clock_;
@@ -106,27 +69,6 @@ template<class T>
 void ToDegrees(T &vec){
   for(auto &v: vec)
     v *= RAD_TO_DEG;
-}
-
-//See: https://github.com/proj4js/proj4js/blob/2006b0a06d000308caa3625005f3d5734ef11f61/lib/projections/merc.js
-void WGS84toEPSG3857(
-  const double lon, //Specified in radians
-  const double lat, //Specified in radians
-  double &x,
-  double &y
-){
-  //Radius of sphere lat-lon are assumed to be on (radius of Earth in metres).
-  //This has been chosen to match the OpenStreetMap Mercator projection. Change
-  //with care or point-in-polygon testing may fail.
-  const double radius = 6378137; 
-  x = lon*radius;
-  y = radius*std::log(std::tan(M_PI/4+0.5*lat));
-}
-
-template<class T>
-void ToMercator(T &x, T &y){
-  for(unsigned int i=0;i<x.size();i++)
-    WGS84toEPSG3857(x[i],y[i],x[i],y[i]);
 }
 
 void LatLonToXYZ(
