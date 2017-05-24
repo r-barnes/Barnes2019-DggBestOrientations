@@ -1,11 +1,5 @@
 #include "PointCloud.hpp"
 
-Point3D::Point3D(double x, double y, double z) {
-  this->x = x;
-  this->y = y;
-  this->z = z;
-}
-
 inline size_t PointCloud::kdtree_get_point_count() const {
   return pts.size();
 }

@@ -3,13 +3,7 @@
 
 #include <vector>
 #include <limits>
-
-class Point2D {
- public:
-  double x;
-  double y;
-  Point2D(double x, double y);
-};
+#include "Point.hpp"
 
 class Polygon {
  public:

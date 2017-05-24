@@ -2,12 +2,7 @@
 #define _PointCloud_hpp_
 
 #include "nanoflann.hpp"
-
-class Point3D {
- public:
-  double x,y,z;
-  Point3D(double x, double y, double z);
-};
+#include "Point.hpp"
 
 class PointCloud {
  private:
