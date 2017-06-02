@@ -39,7 +39,7 @@ const double DEG_TO_RAD = M_PI/180.0;
 const double RAD_TO_DEG = 180.0/M_PI;
 
 //1/10th of a degree grid spacing
-const double PRECISION  = 0.1;    
+const double PRECISION  = 0.1;
 const double DIV        = 10.0;
 
 //Neighbouring vertices of icosahedron used for generating rotations
