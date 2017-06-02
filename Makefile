@@ -1,10 +1,27 @@
-export CXX=g++
-export gdconfig=gdal-config
-export GDAL_LIBS=`${gdconfig} --libs` -lGeographic
-#export GDAL_LIBS=/z/gdal/lib/libgdal.a ../../richdem_x86_64/install/lib/libproj.a
-export GDAL_CFLAGS=`${gdconfig} --cflags`
-export ARCH_FLAGS=-march=native -mtune=native #-m32
-export CXXFLAGS=$(GDAL_CFLAGS) $(ARCH_FLAGS) --std=c++11 -g -Wall -ffast-math -fopenmp
+# Declaration of variables
+CC = g++
+CC_FLAGS = -w
 
-main:
-	$(CXX) $(CXXFLAGS) -o dgfinder.exe cpp_attempt.cpp Polygon.cpp SpIndex.cpp PointCloud.cpp Point.cpp Icosa.cpp GeoStuff.cpp $(GDAL_LIBS) -DENV_LAPTOP #-DDEBUG 
+#Libraries
+gdconfig=gdal-config
+GDAL_LIBS=`${gdconfig} --libs` -lGeographic
+GDAL_CFLAGS=`${gdconfig} --cflags`
+ARCH_FLAGS=-march=native -mtune=native #-m32
+CXXFLAGS=$(GDAL_CFLAGS) $(ARCH_FLAGS) --std=c++11 -g -Wall -ffast-math -fopenmp -DENV_LAPTOP 
+ 
+# File names
+EXEC = dgfinder.exe
+SOURCES = $(wildcard *.cpp)
+OBJECTS = $(SOURCES:.cpp=.o)
+ 
+# Main target
+$(EXEC): $(OBJECTS)
+	$(CC) $(CXXFLAGS) $(OBJECTS) -o $(EXEC) $(GDAL_LIBS)
+ 
+# To obtain object files
+%.o: %.cpp
+	$(CC) -c $(CXXFLAGS) $< -o $@ 
+ 
+# To remove generated files
+clean:
+	rm -f $(EXEC) $(OBJECTS)
