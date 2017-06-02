@@ -231,50 +231,35 @@ void Test(){
     assert(std::abs(ll.y-5621521.48619)<1e-4);
   }
 
-  //TODO
   {
-    //Describes a regular icosahedron with edges of length 2
-    IcosaXYZ ico;
-    ico.rotateTo(Point3D(0,0,1));
-    auto ixy = ico.toLatLon();
-    //std::cerr<<"Before rotation"<<std::endl;
-    //ixy.print();
-    //ixy.rotate(-26.565051*DEG_TO_RAD,-90*DEG_TO_RAD,0);
-    std::cerr<<"After rotation"<<std::endl;
-    ixy.print();
-  }
+    const GeographicLib::Geodesic geod(GeographicLib::Constants::WGS84_a(), GeographicLib::Constants::WGS84_f());
+    IcosaXY p;
+    const auto   neighbors = p.neighbors();
+    const double ndist     = IcosaXY().neighborDistance()*1000;  //Approximate spacing between vertices in metres
+    const double spacing   = 10e3;                               //Spacing between points = 10km
+    const int    num_pts   = int(std::ceil(ndist / spacing));    //The number of intervals
 
-  {
-    const IcosaXYZ ico;
-    const Point3D A = ico.v[NA];
-    const Point3D AB(
-      ico.v[NB].x-ico.v[NA].x,
-      ico.v[NB].y-ico.v[NA].y,
-      ico.v[NB].z-ico.v[NA].z
-    );
-    const Point3D AC(
-      ico.v[NC].x-ico.v[NA].x,
-      ico.v[NC].y-ico.v[NA].y,
-      ico.v[NC].z-ico.v[NA].z
-    );
-    std::ofstream fout("/z/dgbp_coverage_test");
-    for(int rn=0;rn<=50;rn++)
-    for(int sn=0;sn<=50;sn++){
-      double r = rn/(double)50;
-      double s = sn/(double)50;
-      if(r+s>=1.1)
-        continue;
-      Point3D orient_to(
-        A.x + r*AB.x + s*AC.x,
-        A.y + r*AB.y + s*AC.y,
-        A.z + r*AB.z + s*AC.z
+    std::cerr<<"GC arcs: "<<(neighbors.size()/2)<<std::endl;
+
+    std::ofstream fout_gc("test_gc_points");
+    const auto dist = GeoDistanceHaversine(p.v[NA],p.v[NB]);
+    //std::cerr<<"GC dist nominal = "<<dist<<std::endl;
+    for(unsigned int n=0;n<neighbors.size();n+=2){
+      const auto &a = p.v[neighbors[n]];
+      const auto &b = p.v[neighbors[n+1]];
+      //std::cerr<<"GC dist diff = "<<std::abs(GeoDistanceHaversine(a,b)-dist)<<std::endl;
+      assert(std::abs(GeoDistanceHaversine(a,b)-dist)<1);
+      const GeographicLib::GeodesicLine line = geod.InverseLine(
+        a.y*RAD_TO_DEG,
+        a.x*RAD_TO_DEG,
+        b.y*RAD_TO_DEG,
+        b.x*RAD_TO_DEG
       );
-      for(int16_t rtheta=0; rtheta<72; rtheta+=1){
-        IcosaXY p;
-        p = p.rotateTheta(rtheta*DEG_TO_RAD).toXYZ().rotateTo(orient_to).toLatLon();
-        //fout<<(p.v[0].y*RAD_TO_DEG)<<" "<<(p.v[0].x*RAD_TO_DEG)<<"\n";
-        for(const auto &i: p.v)
-          fout<<(i.y*RAD_TO_DEG)<<" "<<(i.x*RAD_TO_DEG)<<"\n";
+      const double da = line.Arc() / num_pts;
+      for(int i=0;i<=num_pts;i++) {
+        Point2D temp;
+        line.ArcPosition(i * da, temp.y, temp.x);
+        fout_gc<<temp.y<<" "<<temp.x<<"\n";
       }
     }
   }
