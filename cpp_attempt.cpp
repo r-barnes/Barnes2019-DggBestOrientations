@@ -35,6 +35,9 @@
   this-is-an-error
 #endif
 
+const double Rearth = 6371; //km
+const double pspace = 10;   //km - Desired interpoint spacing
+
 const double DEG_TO_RAD = M_PI/180.0;
 const double RAD_TO_DEG = 180.0/M_PI;
 
@@ -270,18 +273,16 @@ void Test(){
 class POI {
  public:
   std::bitset<12> overlaps      = 0;
-  int16_t         rlat          = 0;
-  int16_t         rlon          = 0;
-  int16_t         rtheta        = 0;
+  Point2D         pole;
+  double          rtheta        = 0;
   double          mindist       = std::numeric_limits<double>::infinity();
   double          maxdist       = -std::numeric_limits<double>::infinity();
   double          avgdist       = 0;
   uint16_t        cluster       = 0;
   int             edge_overlaps = 0;
-  POI(std::bitset<12> overlaps,double rlat,double rlon,double rtheta){
+  POI(std::bitset<12> overlaps, const Point2D &p, double rtheta){
     this->overlaps = overlaps;
-    this->rlat     = rlat;
-    this->rlon     = rlon;
+    this->pole     = p;
     this->rtheta   = rtheta;
   }
 };
@@ -292,48 +293,44 @@ std::vector<struct POI> FindOrientationsOfInterest(
 ){
   std::cerr<<"Finding poles..."<<std::endl;
   std::vector<struct POI> pois;
+  std::vector<Point2D> orientations;
   long count=0;
 
-  const IcosaXYZ ico;
-  const Point3D A = ico.v[NA];
-  const Point3D AB(
-    ico.v[NB].x-ico.v[NA].x,
-    ico.v[NB].y-ico.v[NA].y,
-    ico.v[NB].z-ico.v[NA].z
-  );
-  const Point3D AC(
-    ico.v[NC].x-ico.v[NA].x,
-    ico.v[NC].y-ico.v[NA].y,
-    ico.v[NC].z-ico.v[NA].z
-  );
+  //Number of points to sample
+  const int N = (int)(8*M_PI*Rearth*Rearth/std::sqrt(3)/pspace/pspace);
+
+  //Generate orientations
+  for(int i=0;i<N;i++){
+    Point2D temp (
+      M_PI*(3-std::sqrt(5))*i,
+      std::acos(1-(2.0*i+1.0)/N)
+    );
+    temp.x = std::fmod(temp.x,2*M_PI)-M_PI;
+    temp.y = temp.y-M_PI/2;
+
+    if(!(0 <= temp.x && temp.x<=78*DEG_TO_RAD))
+      continue;
+    if(temp.y<23*DEG_TO_RAD)
+      continue;
+
+    orientations.push_back(temp);
+  }
+
 
   Timer tmr;
-  //#pragma omp parallel for default(none) schedule(static) shared(pois,std::cerr,sp,landmass_merc) reduction(+:count)
-  for(int rn=0;rn<=100;rn++)
-  for(int sn=0;sn<=100;sn++){
-    int r = rn;
-    int s = sn;
-    if(r+s>=1){
-      r = 1-r;
-      s = 1-s;
-    }
-    Point3D orient_to(
-      A.x + r/100.0 * AB.x + s/100.0 * AC.x,
-      A.y + r/100.0 * AB.y + s/100.0 * AC.y,
-      A.z + r/100.0 * AB.z + s/100.0 * AC.z
-    );
-    for(int16_t rtheta=0; rtheta<(int)(72.0*DIV); rtheta+=(int)(PRECISION*DIV)){
-      count++;
-      IcosaXY p;
-      p = p.rotateTheta(rtheta).toXYZ().rotateTo(orient_to).toLatLon();
-      std::bitset<12> overlaps = 0;
-      for(unsigned int i=0;i<p.v.size();i++)
-        if(PointOverlaps(p.v[i],landmass_merc,sp))
-          overlaps.set(i);
-      if(overlaps==0 || overlaps.count()>=8){
-        #pragma omp critical
-        pois.emplace_back(overlaps,r,s,rtheta);
-      }
+  #pragma omp parallel for default(none) schedule(static) shared(orientations,pois,std::cerr,sp,landmass_merc) reduction(+:count)
+  for(unsigned int i=0;i<orientations.size();i++)
+  for(double rtheta=0;rtheta<72.01*DEG_TO_RAD;rtheta+=PRECISION*DEG_TO_RAD){
+    count++;
+    IcosaXY p(orientations[i],rtheta);
+
+    std::bitset<12> overlaps = 0;
+    for(unsigned int i=0;i<p.v.size();i++)
+      if(PointOverlaps(p.v[i],landmass_merc,sp))
+        overlaps.set(i);
+    if(overlaps==0 || overlaps.count()>=8){
+      #pragma omp critical
+      pois.emplace_back(overlaps,orientations[i],rtheta);
     }
   }
 
@@ -369,7 +366,7 @@ void DistancesToIcosaXYs(std::vector<struct POI> &pois){
   std::cerr<<"Calculating distances to poles..."<<std::endl;
   #pragma omp parallel for default(none) shared(pois,pc)
   for(unsigned int pn=0;pn<pois.size();pn++){
-    IcosaXY p(pois[pn].rlat/DIV*DEG_TO_RAD, pois[pn].rlon/DIV*DEG_TO_RAD, pois[pn].rtheta/DIV*DEG_TO_RAD);
+    IcosaXY p(pois[pn].pole,pois[pn].rtheta);
 
     for(unsigned int i=0;i<p.v.size();i++){
       const auto cp = pc.queryPoint(p.v[i].toXYZ(1)); //Closest point
@@ -400,13 +397,15 @@ void EdgeOverlaps(
   const int    num_pts = int(std::ceil(ndist / spacing)); //The number of intervals
   #pragma omp parallel for default(none) shared(pois,landmass_merc,sp)
   for(unsigned int pn=0;pn<pois.size();pn++){
-    IcosaXY p(pois[pn].rlat/DIV*DEG_TO_RAD, pois[pn].rlon/DIV*DEG_TO_RAD, pois[pn].rtheta/DIV*DEG_TO_RAD);
-    for(unsigned int n=0;n<neighbors.size();n++){
+    IcosaXY p(pois[pn].pole, pois[pn].rtheta);
+    for(unsigned int n=0;n<neighbors.size();n+=2){
+      const auto &a = p.v[neighbors[n]];
+      const auto &b = p.v[neighbors[n+1]];
       const GeographicLib::GeodesicLine line = geod.InverseLine(
-        p.v[n].y*RAD_TO_DEG,
-        p.v[n].x*RAD_TO_DEG,
-        p.v[n+1].y*RAD_TO_DEG,
-        p.v[n+1].x*RAD_TO_DEG
+        a.y*RAD_TO_DEG,
+        a.x*RAD_TO_DEG,
+        b.y*RAD_TO_DEG,
+        b.x*RAD_TO_DEG
       );
       const double da = line.Arc() / num_pts;
       for(int i=0;i<=num_pts;i++) {
@@ -467,9 +466,9 @@ int main(int argc, char **argv){
           <<pois[i].cluster             <<","
           <<pois[i].overlaps.to_string()<<","
           <<pois[i].overlaps.count()    <<","
-          <<pois[i].rlat                <<","
-          <<pois[i].rlon                <<","
-          <<pois[i].rtheta              <<","
+          <<(pois[i].pole.y*RAD_TO_DEG) <<","
+          <<(pois[i].pole.x*RAD_TO_DEG) <<","
+          <<(pois[i].rtheta*RAD_TO_DEG) <<","
           <<pois[i].mindist             <<","
           <<pois[i].maxdist             <<","
           <<(pois[i].avgdist/12)        <<","
@@ -481,7 +480,7 @@ int main(int argc, char **argv){
     std::ofstream fout(FILE_OUTPUT_VERT);
     fout<<"Num,Cluster,Lat,Lon,OnLand\n";
     for(unsigned int pn=0;pn<pois.size();pn++){
-      IcosaXY p(pois[pn].rlat/DIV*DEG_TO_RAD,pois[pn].rlon/DIV*DEG_TO_RAD,pois[pn].rtheta/DIV*DEG_TO_RAD);
+      IcosaXY p(pois[pn].pole, pois[pn].rtheta);
       for(unsigned int i=0;i<p.v.size();i++)
         fout<<pn                    <<","
             <<pois[pn].cluster      <<","
