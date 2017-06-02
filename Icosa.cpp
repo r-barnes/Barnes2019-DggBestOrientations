@@ -36,9 +36,19 @@ IcosaXY::IcosaXY(double rlat, double rlon, double rtheta){
   rotate(rlat,rlon,rtheta);
 }
 
-void IcosaXY::rotate(double rlat, double rlon, double rtheta){
-  for(auto &pole: v)
-    pole = RotatePoint(rlat, rlon, rtheta, pole);
+IcosaXY::IcosaXY(const Point2D &p, double rtheta){
+  rotate(p,rtheta);
+}
+
+IcosaXY& IcosaXY::rotate(const Point2D &p, double rtheta){
+  rotateTheta(rtheta);
+  *this = toXYZ().rotateTo(p.toXYZ(1)).toLatLon();
+  return *this;
+}
+
+IcosaXY& IcosaXY::rotate(double rlat, double rlon, double rtheta){
+  Point2D temp(rlon,rlat);
+  return rotate(temp,rtheta);
 }
 
 IcosaXY& IcosaXY::rotateTheta(const double rtheta){
@@ -71,8 +81,8 @@ std::vector<int> IcosaXY::neighbors() const {
   //Find nearest vertex that isn't itself
   for(unsigned int i=1;i<v.size();i++)
     dist = std::min(dist,GeoDistanceHaversine(v[0],v[i]));
-  //Increase by 10% to account for floating point errors
-  dist *= 1.1;
+  //Increase by 5% to account for floating point errors
+  dist *= 1.05;
   for(unsigned int i=0;  i<v.size();i++)
   for(unsigned int j=i+1;j<v.size();j++)
     if(GeoDistanceHaversine(v[i],v[j])<dist){ //IcosaXY is about as close as any close pole
@@ -116,29 +126,55 @@ void IcosaXYZ::print() const {
              <<std::endl;
 }
 
-//https://math.stackexchange.com/questions/180418/calculate-rotation-matrix-to-align-vector-a-to-vector-b-in-3d
+//https://math.stackexchange.com/a/476311/14493
 IcosaXYZ& IcosaXYZ::rotateTo(const Point3D &o){
-  const double x2 = v[0].x;
-  const double y2 = v[0].y;
-  const double z2 = v[0].z;
-  const double x1 = o.x;
-  const double y1 = o.y;
-  const double z1 = o.z;
-  const double a  = ((-x1*y2 + x2*y1)*(x1*y2 - x2*y1) + (-x1*z2 + x2*z1)*(x1*z2 - x2*z1))/(x1*x2 + y1*y2 + z1*z2 + 1) + 1;
-  const double b  = -x1*y2 + x2*y1 + (-x1*z2 + x2*z1)*(y1*z2 - y2*z1)/(x1*x2 + y1*y2 + z1*z2 + 1);
-  const double c  = -x1*z2 + x2*z1 + (-x1*y2 + x2*y1)*(-y1*z2 + y2*z1)/(x1*x2 + y1*y2 + z1*z2 + 1);
-  const double d  = x1*y2 - x2*y1 + (x1*z2 - x2*z1)*(-y1*z2 + y2*z1)/(x1*x2 + y1*y2 + z1*z2 + 1);
-  const double e  = ((-x1*y2 + x2*y1)*(x1*y2 - x2*y1) + (-y1*z2 + y2*z1)*(y1*z2 - y2*z1))/(x1*x2 + y1*y2 + z1*z2 + 1) + 1;
-  const double f  = -y1*z2 + y2*z1 + (x1*y2 - x2*y1)*(-x1*z2 + x2*z1)/(x1*x2 + y1*y2 + z1*z2 + 1);
-  const double g  = x1*z2 - x2*z1 + (x1*y2 - x2*y1)*(y1*z2 - y2*z1)/(x1*x2 + y1*y2 + z1*z2 + 1);
-  const double h  = y1*z2 - y2*z1 + (-x1*y2 + x2*y1)*(x1*z2 - x2*z1)/(x1*x2 + y1*y2 + z1*z2 + 1);
-  const double i  = ((-x1*z2 + x2*z1)*(x1*z2 - x2*z1) + (-y1*z2 + y2*z1)*(y1*z2 - y2*z1))/(x1*x2 + y1*y2 + z1*z2 + 1) + 1;
+  //Icosahedron's North pole
+  const double a1 = v[0].x;
+  const double a2 = v[0].y;
+  const double a3 = v[0].z;
+
+  //Vector defining the new pole
+  const double b1 = o.x;
+  const double b2 = o.y;
+  const double b3 = o.z;
+
+  //B x A
+  double r1 = -a2*b3 + a3*b2;
+  double r2 =  a1*b3 - a3*b1;
+  double r3 = -a1*b2 + a2*b1;
+  const double mr = std::sqrt(r1*r1+r2*r2+r3*r3);
+
+  if(mr==0)
+    return *this;
+
+  r1 /= mr;
+  r2 /= mr;
+  r3 /= mr;
+
+  const double c = a1*b1 + a2*b2 + a3*b3;  //cos theta = B dot A
+  const double s = sqrt(1-c*c);            //= sin theta
+  const double t = 1-c;
+
+  //Rotation Matrix from
+  //Glassner, A.S. (Ed.), 1993. Graphics Gems I, 1st ed. p. 466
+  const double R_a = c + r1*r1*t;
+  const double R_b = r1*r2*t + r3*s;
+  const double R_c = r1*r3*t - r2*s;
+  const double R_d = r1*r2*t - r3*s;
+  const double R_e = c + r2*r2*t;
+  const double R_f = r1*s + r2*r3*t;
+  const double R_g = r1*r3*t + r2*s;
+  const double R_h = -r1*s + r2*r3*t;
+  const double R_i = c + r3*r3*t;
+
+  //Rotate each pole
   for(auto &p: v)
     p = Point3D(
-      a*p.x+b*p.y+c*p.z,
-      d*p.x+e*p.y+f*p.z,
-      g*p.x+h*p.y+i*p.z
+      R_a*p.x+R_b*p.y+R_c*p.z,
+      R_d*p.x+R_e*p.y+R_f*p.z,
+      R_g*p.x+R_h*p.y+R_i*p.z
     );
+
   return *this;
 }
 

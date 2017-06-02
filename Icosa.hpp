@@ -30,7 +30,9 @@ class IcosaXY{
 
   IcosaXY();
   IcosaXY(double rlat, double rlon, double rtheta);
-  void rotate(double rlat, double rlon, double rtheta);
+  IcosaXY(const Point2D &p, double rtheta);
+  IcosaXY& rotate(const Point2D &p, double rtheta);
+  IcosaXY& rotate(double rlat, double rlon, double rtheta);
   IcosaXY& rotateTheta(const double rtheta);
   void toMercator();
   void toRadians();
@@ -44,18 +46,18 @@ class IcosaXYZ {
  public:
   //These values are a direct translation of those for IcosaXY
   std::array<Point3D,12> v = {{
-    { 0.0000000000,  0.0000000000,  1.0000000000},
-    { 0.0000000000,  0.0000000000, -1.0000000000},
-    {-0.8944271910, -0.0000000000,  0.4472135955},
-    {-0.7236067977, -0.5257311121, -0.4472135955},
-    {-0.2763932023, -0.8506508084,  0.4472135955},
-    { 0.2763932023, -0.8506508084, -0.4472135955},
-    { 0.7236067977, -0.5257311121,  0.4472135955},
-    { 0.8944271910,  0.0000000000, -0.4472135955},
-    { 0.7236067977,  0.5257311121,  0.4472135955},
-    { 0.2763932023,  0.8506508084, -0.4472135955},
-    {-0.2763932023,  0.8506508084,  0.4472135955},
-    {-0.7236067977,  0.5257311121, -0.4472135955}
+    {std::nan(""), std::nan(""), std::nan("")},
+    {std::nan(""), std::nan(""), std::nan("")},
+    {std::nan(""), std::nan(""), std::nan("")},
+    {std::nan(""), std::nan(""), std::nan("")},
+    {std::nan(""), std::nan(""), std::nan("")},
+    {std::nan(""), std::nan(""), std::nan("")},
+    {std::nan(""), std::nan(""), std::nan("")},
+    {std::nan(""), std::nan(""), std::nan("")},
+    {std::nan(""), std::nan(""), std::nan("")},
+    {std::nan(""), std::nan(""), std::nan("")},
+    {std::nan(""), std::nan(""), std::nan("")},
+    {std::nan(""), std::nan(""), std::nan("")}
   }};
 
   IcosaXYZ();
