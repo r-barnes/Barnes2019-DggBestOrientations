@@ -5,6 +5,7 @@
 #include "PointCloud.hpp"
 #include "Icosa.hpp"
 #include "GeoStuff.hpp"
+#include "Point.hpp"
 #include <GeographicLib/Geodesic.hpp>
 #include <GeographicLib/GeodesicLine.hpp>
 #include <GeographicLib/Constants.hpp>
