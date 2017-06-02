@@ -217,8 +217,6 @@ void Test(){
   AddPolygonToSpIndex(p, sp, 347);
   sp.buildIndex();
 
-  std::cerr<<sp.queryPoint(Point2D(1250,1270))<<std::endl;
-
   assert(sp.queryPoint(Point2D(1250,1270))==347);
 
   assert(p.containsPoint(Point2D(1250,1270)));
