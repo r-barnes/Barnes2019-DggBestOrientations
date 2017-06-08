@@ -19,9 +19,10 @@ Point2D::Point2D(double x, double y) {
 
 
 
-void Point2D::toRadians() {
+Point2D& Point2D::toRadians() {
   x *= DEG_TO_RAD;
   y *= DEG_TO_RAD;
+  return *this;
 }
 
 TEST_CASE("Point2D: Conversion to Radians"){
@@ -33,9 +34,10 @@ TEST_CASE("Point2D: Conversion to Radians"){
 
 
 
-void Point2D::toDegrees() {
+Point2D& Point2D::toDegrees() {
   x *= RAD_TO_DEG;
   y *= RAD_TO_DEG;
+  return *this;
 }
 
 TEST_CASE("Point2D: Conversion to Degrees"){

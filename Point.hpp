@@ -11,8 +11,8 @@ class Point2D {
   double y;
   Point2D();
   Point2D(double x, double y);
-  void toRadians();
-  void toDegrees();
+  Point2D& toRadians();
+  Point2D& toDegrees();
   Point3D toXYZ(const double radius) const;
   template <class Archive>
   void serialize( Archive & ar ) {
