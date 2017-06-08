@@ -6,6 +6,7 @@
 #include "Icosa.hpp"
 #include "GeoStuff.hpp"
 #include "Point.hpp"
+#include "POI.hpp"
 #include <GeographicLib/Geodesic.hpp>
 #include <GeographicLib/GeodesicLine.hpp>
 #include <GeographicLib/Constants.hpp>
@@ -19,7 +20,6 @@
 #include <cassert>
 #include <fstream>
 #include <chrono>
-#include <bitset>
 
 #ifdef ENV_XSEDE
   const std::string FILE_WGS84_LANDMASS = "/home/rbarnes1/scratch/dgg_best/land-polygons-complete-4326/land_polygons.shp";
@@ -36,7 +36,7 @@
 #endif
 
 const double Rearth = 6371; //km
-const double pspace = 10;   //km - Desired interpoint spacing
+const double pspace = 10;  //km - Desired interpoint spacing
 
 const double DEG_TO_RAD = M_PI/180.0;
 const double RAD_TO_DEG = 180.0/M_PI;
@@ -142,6 +142,7 @@ void AddPolygonToSpIndex(const Polygon &poly, SpIndex &sp, const int id){
 }
 
 void TestWithData(const Polygons &landmass_merc, const SpIndex &sp){
+  std::cerr<<"Running data-based tests..."<<std::endl;
   {
     IcosaXY p;
     //Fuller's orientation
@@ -170,6 +171,8 @@ void TestWithData(const Polygons &landmass_merc, const SpIndex &sp){
     std::cerr<<"Fuller count: "<<ocount<<std::endl;
     assert(ocount==0);
   }
+
+  std::cerr<<"Passed"<<std::endl;
 }
 
 void Test(){
@@ -267,32 +270,34 @@ void Test(){
     }
   }
 
+  {
+    POICollection poic;
+    poic.addPOI(std::bitset<12>(), Point2D(-93*DEG_TO_RAD,45*DEG_TO_RAD), 0);
+    poic.buildIndex();
+    assert(poic.size()==1);
+    auto result = poic.query(0);
+    assert(result.size()==0);
+  }
+
+  {
+    POICollection poic;
+    poic.addPOI(std::bitset<12>(), Point2D(-93*DEG_TO_RAD,45*DEG_TO_RAD), 0);
+    poic.addPOI(std::bitset<12>(), Point2D(-93*DEG_TO_RAD,45*DEG_TO_RAD), 72.0*DEG_TO_RAD);
+    poic.buildIndex();
+    assert(poic.size()==2);
+    auto result = poic.query(0);
+    assert(result[0]==1);
+  }
+
   std::cerr<<"Passed"<<std::endl;
 }
 
-class POI {
- public:
-  std::bitset<12> overlaps      = 0;
-  Point2D         pole;
-  double          rtheta        = 0;
-  double          mindist       = std::numeric_limits<double>::infinity();
-  double          maxdist       = -std::numeric_limits<double>::infinity();
-  double          avgdist       = 0;
-  uint16_t        cluster       = 0;
-  int             edge_overlaps = 0;
-  POI(std::bitset<12> overlaps, const Point2D &p, double rtheta){
-    this->overlaps = overlaps;
-    this->pole     = p;
-    this->rtheta   = rtheta;
-  }
-};
-
-std::vector<struct POI> FindOrientationsOfInterest(
+POICollection FindOrientationsOfInterest(
   const Polygons &landmass_merc,
   const SpIndex &sp
 ){
   std::cerr<<"Finding poles..."<<std::endl;
-  std::vector<struct POI> pois;
+  POICollection poic;
   std::vector<Point2D> orientations;
   long count=0;
 
@@ -318,7 +323,7 @@ std::vector<struct POI> FindOrientationsOfInterest(
 
 
   Timer tmr;
-  #pragma omp parallel for default(none) schedule(static) shared(orientations,pois,std::cerr,sp,landmass_merc) reduction(+:count)
+  #pragma omp parallel for default(none) schedule(static) shared(orientations,poic,std::cerr,sp,landmass_merc) reduction(+:count)
   for(unsigned int i=0;i<orientations.size();i++)
   for(double rtheta=0;rtheta<72.01*DEG_TO_RAD;rtheta+=PRECISION*DEG_TO_RAD){
     count++;
@@ -330,7 +335,7 @@ std::vector<struct POI> FindOrientationsOfInterest(
         overlaps.set(i);
     if(overlaps==0 || overlaps.count()>=8){
       #pragma omp critical
-      pois.emplace_back(overlaps,orientations[i],rtheta);
+      poic.addPOI(overlaps,orientations[i],rtheta);
     }
   }
 
@@ -338,12 +343,12 @@ std::vector<struct POI> FindOrientationsOfInterest(
   std::cout << "Time taken = " << t <<"s"<< std::endl;
 
   std::cerr<<"Checked = "<<count<<std::endl;
-  std::cerr<<"Found "<<pois.size()<<" poles of interest."<<std::endl;
+  std::cerr<<"Found "<<poic.size()<<" poles of interest."<<std::endl;
 
-  return pois;
+  return poic;
 }
 
-void DistancesToIcosaXYs(std::vector<struct POI> &pois){
+void DistancesToIcosaXYs(POICollection &poic){
   std::cerr<<"Reading WGS84 shapefile..."<<std::endl;
   Polygons landmass_wgs84;
   ReadShapefile(FILE_WGS84_LANDMASS, "land_polygons", landmass_wgs84);
@@ -364,19 +369,19 @@ void DistancesToIcosaXYs(std::vector<struct POI> &pois){
   Timer tmr;
 
   std::cerr<<"Calculating distances to poles..."<<std::endl;
-  #pragma omp parallel for default(none) shared(pois,pc)
-  for(unsigned int pn=0;pn<pois.size();pn++){
-    IcosaXY p(pois[pn].pole,pois[pn].rtheta);
+  #pragma omp parallel for default(none) shared(poic,pc)
+  for(unsigned int pn=0;pn<poic.size();pn++){
+    IcosaXY p(poic[pn].pole,poic[pn].rtheta);
 
     for(unsigned int i=0;i<p.v.size();i++){
       const auto cp = pc.queryPoint(p.v[i].toXYZ(1)); //Closest point
       auto llc      = cp.toLatLon();
       auto dist     = GeoDistanceFlatEarth(llc,p.v[i]);
-      if(pois[pn].overlaps.test(i))
+      if(poic[pn].overlaps.test(i))
         dist = -dist;
-      pois[pn].mindist = std::min(pois[pn].mindist,dist);
-      pois[pn].maxdist = std::max(pois[pn].maxdist,dist);
-      pois[pn].avgdist += dist;
+      poic[pn].mindist = std::min(poic[pn].mindist,dist);
+      poic[pn].maxdist = std::max(poic[pn].maxdist,dist);
+      poic[pn].avgdist += dist;
     }
   }
 
@@ -386,7 +391,7 @@ void DistancesToIcosaXYs(std::vector<struct POI> &pois){
 void EdgeOverlaps(
   const Polygons &landmass_merc,
   const SpIndex &sp,
-  std::vector<POI> &pois
+  POICollection &poic
 ){
   Timer tmr;
   std::cerr<<"Calculating edge overlaps..."<<std::endl;
@@ -395,9 +400,9 @@ void EdgeOverlaps(
   const double ndist   = IcosaXY().neighborDistance()*1000;  //Approximate spacing between vertices in metres
   const double spacing = 10e3;                            //Spacing between points = 10km
   const int    num_pts = int(std::ceil(ndist / spacing)); //The number of intervals
-  #pragma omp parallel for default(none) shared(pois,landmass_merc,sp)
-  for(unsigned int pn=0;pn<pois.size();pn++){
-    IcosaXY p(pois[pn].pole, pois[pn].rtheta);
+  #pragma omp parallel for default(none) shared(poic,landmass_merc,sp)
+  for(unsigned int pn=0;pn<poic.size();pn++){
+    IcosaXY p(poic[pn].pole, poic[pn].rtheta);
     for(unsigned int n=0;n<neighbors.size();n+=2){
       const auto &a = p.v[neighbors[n]];
       const auto &b = p.v[neighbors[n+1]];
@@ -412,11 +417,117 @@ void EdgeOverlaps(
         Point2D temp;
         line.ArcPosition(i * da, temp.y, temp.x);
         temp.toRadians();
-        pois[pn].edge_overlaps += PointOverlaps(temp,landmass_merc,sp);
+        poic[pn].edge_overlaps += PointOverlaps(temp,landmass_merc,sp);
       }
     }
   }
   std::cout << "Time taken = " << tmr.elapsed() <<"s"<< std::endl;
+}
+
+//CHEESE
+template<class T>
+std::vector<size_t> Dominants(
+  const POICollection &poic,
+  T dom_checker
+){
+  std::vector<size_t> dominates(poic.size());
+  for(unsigned int i=0;i<dominates.size();i++)
+    dominates[i] = i;
+
+  for(unsigned int i=0;i<poic.size();i++){
+    if(dominates[i]!=i)                                   //Skip those already dominated
+      continue;
+    auto closest_n = poic.query(i);
+    if(closest_n.size()==0)
+      std::cerr<<"Nothing closest!"<<std::endl;
+    for(const auto &n: closest_n){
+      if(dominates[n]==n && dom_checker(poic[i],poic[n])) //Is n not already dominated? Does i dominate n?
+        dominates[n]=i;                                   //Make i dominate n.second
+    }
+  }
+
+  return dominates;
+}
+
+std::ofstream& PrintPOI(std::ofstream& fout, const POICollection &poic, const int i){
+  fout<<i<<","
+//          <<pois[i].cluster             <<","
+      <<poic[i].overlaps.to_string()<<","
+      <<poic[i].overlaps.count()    <<","
+      <<(poic[i].pole.y*RAD_TO_DEG) <<","
+      <<(poic[i].pole.x*RAD_TO_DEG) <<","
+      <<(poic[i].rtheta*RAD_TO_DEG) <<","
+      <<poic[i].mindist             <<","
+      <<poic[i].maxdist             <<","
+      <<(poic[i].avgdist/12)        <<","
+      <<poic[i].edge_overlaps
+      <<"\n";
+  return fout;
+}
+
+std::ofstream& PrintPOICoordinates(std::ofstream& fout, const POICollection &poic, const int pn){
+  IcosaXY p(poic[pn].pole, poic[pn].rtheta);
+  for(unsigned int i=0;i<p.v.size();i++)
+    fout<<pn                    <<","
+//            <<poic[pn].cluster      <<","
+        <<p.v[i].y*RAD_TO_DEG<<","
+        <<p.v[i].x*RAD_TO_DEG<<","
+        <<poic[pn].overlaps.test(i)
+        <<"\n";
+  return fout;
+}
+
+void DetermineDominants(POICollection &poic){
+  Timer tmr;
+
+  std::cerr<<"Determining dominants..."<<std::endl;
+  std::cerr<<"Building POI kd-tree index..."<<std::endl;
+
+  {
+    Timer tmr;
+    poic.buildIndex();
+    std::cerr<<"Finished. Time = "<<tmr.elapsed()<<std::endl;
+  }
+
+  std::cerr<<"Using tree to search for dominants..."<<std::endl;
+  {
+    std::ofstream fout_td("test_dom");
+    auto dom_checker = [](const POI &a, const POI &b){
+      return a.mindist>b.mindist;
+    };
+    auto result = Dominants(poic, dom_checker);
+    int count   = 0;
+    for(unsigned int p=0;p<poic.size();p++){
+      if(p!=result[p])
+        continue;
+      count++;
+      PrintPOI(fout_td, poic, p);
+    }
+    std::cerr<<"Dominants found = "<<count<<std::endl;
+  }
+
+  // {
+  //   auto dom_checker = [](const POI &a, const POI &b){
+  //     return a.maxdist>b.maxdist;
+  //   };
+  //   auto result = Dominants(poic, dom_checker);
+  // }
+
+  // {
+  //   auto dom_checker = [](const POI &a, const POI &b){
+  //     return a.avgdist>b.avgdist;
+  //   };
+  //   auto result = Dominants(poic, dom_checker);
+  // }
+
+  // {
+  //   auto dom_checker = [](const POI &a, const POI &b){
+  //     return a.edge_overlaps<b.edge_overlaps;
+  //   };
+  //   auto result = Dominants(poic, dom_checker);
+  // }
+
+  std::cerr<<"Time taken = "<<tmr.elapsed()<<std::endl;
 }
 
 int main(int argc, char **argv){
@@ -424,71 +535,55 @@ int main(int argc, char **argv){
 
   std::cerr<<"PRECISION = "<<PRECISION<<std::endl;
 
-  Polygons landmass_merc;
-  {
-    std::cerr<<"Reading Mercator split shapefile..."<<std::endl;
-    Timer tmr;
-    ReadShapefile(FILE_MERC_LANDMASS, "land_polygons", landmass_merc);
-    std::cerr<<"Read "<<landmass_merc.size()<<" polygons."<<std::endl;
-    std::cerr<<"Time taken = "<<tmr.elapsed()<<std::endl;
+  POICollection poic;
+  if(!poic.load("poic.save")){
+
+    Polygons landmass_merc;
+    {
+      std::cerr<<"Reading Mercator split shapefile..."<<std::endl;
+      Timer tmr;
+      ReadShapefile(FILE_MERC_LANDMASS, "land_polygons", landmass_merc);
+      std::cerr<<"Read "<<landmass_merc.size()<<" polygons."<<std::endl;
+      std::cerr<<"Time taken = "<<tmr.elapsed()<<std::endl;
+    }
+
+    SpIndex sp;
+    {
+      std::cerr<<"Building index..."<<std::endl;
+      Timer tmr;
+      for(int64_t i=0;(unsigned)i<landmass_merc.size();i++)
+        AddPolygonToSpIndex(landmass_merc[i], sp, i);
+      sp.buildIndex();
+      std::cerr<<"Index built."<<std::endl;
+      std::cerr<<"Time taken = "<<tmr.elapsed()<<std::endl;
+    }
+
+    TestWithData(landmass_merc,sp);
+
+    poic = FindOrientationsOfInterest(landmass_merc,sp);
+
+    DistancesToIcosaXYs(poic);
+
+    EdgeOverlaps(landmass_merc, sp, poic);
+
+    poic.save("poic.save");
   }
 
-  SpIndex sp;
-  {
-    std::cerr<<"Building index..."<<std::endl;
-    Timer tmr;
-    for(int64_t i=0;(unsigned)i<landmass_merc.size();i++)
-      AddPolygonToSpIndex(landmass_merc[i], sp, i);
-    sp.buildIndex();
-    std::cerr<<"Index built."<<std::endl;
-    std::cerr<<"Time taken = "<<tmr.elapsed()<<std::endl;
-  }
-
-  TestWithData(landmass_merc,sp);
-
-  auto pois = FindOrientationsOfInterest(landmass_merc,sp);
-
-  DistancesToIcosaXYs(pois);
-
-  EdgeOverlaps(landmass_merc, sp, pois);
-
-  std::cerr<<"Sorting poles of interest..."<<std::endl;
-  std::sort(pois.begin(),pois.end(), [](const POI &a, const POI &b){
-    return a.mindist>b.mindist;
-  });
+  DetermineDominants(poic);
 
   std::cerr<<"Writing output..."<<std::endl;
   {
     std::ofstream fout(FILE_OUTPUT_ROT);
     fout<<"Num,Cluster,Overlaps,OverlapCount,Lat,Lon,Theta,MinDistance,MaxDistance,AvgDistance,EdgeOverlaps\n";
-    for(unsigned int i=0;i<pois.size();i++)
-      fout<<i<<","
-          <<pois[i].cluster             <<","
-          <<pois[i].overlaps.to_string()<<","
-          <<pois[i].overlaps.count()    <<","
-          <<(pois[i].pole.y*RAD_TO_DEG) <<","
-          <<(pois[i].pole.x*RAD_TO_DEG) <<","
-          <<(pois[i].rtheta*RAD_TO_DEG) <<","
-          <<pois[i].mindist             <<","
-          <<pois[i].maxdist             <<","
-          <<(pois[i].avgdist/12)        <<","
-          <<pois[i].edge_overlaps
-          <<"\n";
+    for(unsigned int i=0;i<poic.size();i++)
+      PrintPOI(fout,poic,i);
   }
 
   {
     std::ofstream fout(FILE_OUTPUT_VERT);
     fout<<"Num,Cluster,Lat,Lon,OnLand\n";
-    for(unsigned int pn=0;pn<pois.size();pn++){
-      IcosaXY p(pois[pn].pole, pois[pn].rtheta);
-      for(unsigned int i=0;i<p.v.size();i++)
-        fout<<pn                    <<","
-            <<pois[pn].cluster      <<","
-            <<p.v[i].y*RAD_TO_DEG<<","
-            <<p.v[i].x*RAD_TO_DEG<<","
-            <<pois[pn].overlaps.test(i)
-            <<"\n";
-    }
+    for(unsigned int pn=0;pn<poic.size();pn++)
+      PrintPOICoordinates(fout, poic, pn);
   }
 
   return 0;

@@ -4,6 +4,8 @@
 #include <iostream>
 #include <limits>
 
+#include <cereal/types/array.hpp>
+
 const double DEG_TO_RAD = M_PI/180.0;
 const double RAD_TO_DEG = 180.0/M_PI;
 
@@ -103,6 +105,9 @@ IcosaXYZ IcosaXY::toXYZ() const {
     temp.v[i] = v[i].toXYZ(1);
   return temp;
 }
+
+
+
 
 
 IcosaXYZ::IcosaXYZ(){}

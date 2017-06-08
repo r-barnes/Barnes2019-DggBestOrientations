@@ -42,3 +42,4 @@ Point2D Point3D::toLatLon() const {
     std::asin(z/radius)
   );
 }
+
