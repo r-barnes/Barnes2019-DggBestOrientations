@@ -49,6 +49,9 @@ TEST_CASE("Point2D: Conversion to Degrees"){
 
 
 
+
+
+
 Point3D Point2D::toXYZ(const double radius) const {
   auto ret = Point3D(
     radius * std::cos(x+M_PI) * std::sin(M_PI-(y+M_PI/2)),
@@ -143,3 +146,6 @@ TEST_CASE("Point 3D: toLatLon"){
     CHECK(p3.y==doctest::Approx(45*DEG_TO_RAD).epsilon(0.005));
   }
 }
+
+
+
