@@ -8,7 +8,7 @@ POI::POI(const std::bitset<12> &overlaps, const Point2D &p, double rtheta){
   this->overlaps = overlaps;
   this->pole     = p;
   this->rtheta   = rtheta;
-  ico3d          = IcosaXY(p,rtheta).toXYZ();
+  ico3d          = IcosaXY(p,rtheta).toXYZ(6371); //Radius of Earth in km
 }
 
 unsigned int POI::size() const {

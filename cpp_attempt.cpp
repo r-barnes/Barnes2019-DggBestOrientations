@@ -181,7 +181,7 @@ void Test(){
   {
     std::cerr<<"Ico 2D coords in XYZ"<<std::endl;
     IcosaXY p;
-    p.toXYZ().print();
+    p.toXYZ(1).print();
   }
 
   {

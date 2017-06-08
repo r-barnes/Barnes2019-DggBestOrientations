@@ -41,7 +41,7 @@ class IcosaXY{
   void print() const;
   std::vector<int> neighbors() const;
   double neighborDistance() const;
-  IcosaXYZ toXYZ() const;
+  IcosaXYZ toXYZ(const double radius) const;
 
   template <class Archive>
   void serialize( Archive & ar ){

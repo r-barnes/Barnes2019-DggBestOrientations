@@ -44,7 +44,7 @@ IcosaXY::IcosaXY(const Point2D &p, double rtheta){
 
 IcosaXY& IcosaXY::rotate(const Point2D &p, double rtheta){
   rotateTheta(rtheta);
-  *this = toXYZ().rotateTo(p.toXYZ(1)).toLatLon();
+  *this = toXYZ(1).rotateTo(p.toXYZ(1)).toLatLon();
   return *this;
 }
 
@@ -99,10 +99,10 @@ double IcosaXY::neighborDistance() const {
   return GeoDistanceHaversine(v[n[0]], v[n[1]]);
 }
 
-IcosaXYZ IcosaXY::toXYZ() const {
+IcosaXYZ IcosaXY::toXYZ(const double radius) const {
   IcosaXYZ temp;
   for(unsigned int i=0;i<v.size();i++)
-    temp.v[i] = v[i].toXYZ(1);
+    temp.v[i] = v[i].toXYZ(radius);
   return temp;
 }
 
