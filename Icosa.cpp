@@ -3,34 +3,12 @@
 #include <iomanip>
 #include <iostream>
 #include <limits>
+#include "doctest.h"
 
 #include <cereal/types/array.hpp>
 
 const double DEG_TO_RAD = M_PI/180.0;
 const double RAD_TO_DEG = 180.0/M_PI;
-
-//https://gis.stackexchange.com/questions/10808/lon-lat-transformation
-Point2D RotatePoint(const double rlat, const double rlon, const double rtheta, Point2D ll){
-  ll.x += M_PI+rtheta;                                       //Move [0,360] and add theta
-  ll.x  = std::fmod(2*M_PI+std::fmod(ll.x,2*M_PI),2*M_PI); //Map back to [0,360]
-  ll.x -= M_PI;                                              //Move back to [-180,180] system
-
-  auto pr = ll.toXYZ(1);
-  Point3D p(
-     std::cos(rlat)*std::cos(rlon)*pr.x + std::sin(rlon)*pr.y + std::sin(rlat)*std::cos(rlon)*pr.z,
-    -std::cos(rlat)*std::sin(rlon)*pr.x + std::cos(rlon)*pr.y - std::sin(rlat)*std::sin(rlon)*pr.z,
-    -std::sin(rlat)*pr.x + std::cos(rlat)*pr.z
-  );
-  return p.toLatLon();
-}
-
-Point3D RotatePoint(const double rlat, const double rlon, const double rtheta, Point3D p3){
-  return Point3D(
-     std::cos(rlat)*std::cos(rlon)*p3.x + std::sin(rlon)*p3.y + std::sin(rlat)*std::cos(rlon)*p3.z,
-    -std::cos(rlat)*std::sin(rlon)*p3.x + std::cos(rlon)*p3.y - std::sin(rlat)*std::sin(rlon)*p3.z,
-    -std::sin(rlat)*p3.x + std::cos(rlat)*p3.z
-  );
-}
 
 IcosaXY::IcosaXY(){}
 
@@ -112,10 +90,6 @@ IcosaXYZ IcosaXY::toXYZ(const double radius) const {
 
 IcosaXYZ::IcosaXYZ(){}
 
-IcosaXYZ::IcosaXYZ(double rlat, double rlon, double rtheta){
-  rotate(rlat,rlon,rtheta);
-}
-
 IcosaXY IcosaXYZ::toLatLon() const {
   IcosaXY temp;
   for(unsigned int i=0;i<v.size();i++)
@@ -181,11 +155,6 @@ IcosaXYZ& IcosaXYZ::rotateTo(const Point3D &o){
     );
 
   return *this;
-}
-
-void IcosaXYZ::rotate(double rlat, double rlon, double rtheta){
-  for(auto &pole: v)
-    pole = RotatePoint(rlat, rlon, rtheta, pole);
 }
 
 std::vector<int> IcosaXYZ::neighbors() const {

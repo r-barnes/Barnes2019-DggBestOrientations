@@ -68,11 +68,9 @@ class IcosaXYZ {
   }};
 
   IcosaXYZ();
-  IcosaXYZ(double rlat, double rlon, double rtheta);
   IcosaXY toLatLon() const;
   void print() const;
   IcosaXYZ& rotateTo(const Point3D &o);
-  void rotate(double rlat, double rlon, double rtheta);
   std::vector<int> neighbors() const;
 
   template <class Archive>
