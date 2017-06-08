@@ -230,7 +230,7 @@ void Test(){
   assert(!p.containsPoint(Point2D(1194,1222)));
 
   {
-    Point2D ll(-93*DEG_TO_RAD,45*DEG_TO_RAD);
+    Point2D ll(-93,45).toRadians();
     ll = WGS84toEPSG3857(ll);
     std::cout<<"(-93,45) = ("<<std::fixed<<ll.x<<","<<std::fixed<<ll.y<<")"<<std::endl;
     assert(std::abs(ll.x-(-10352712.6438))<1e-4);
@@ -272,17 +272,20 @@ void Test(){
 
   {
     POICollection poic;
-    poic.addPOI(std::bitset<12>(), Point2D(-93*DEG_TO_RAD,45*DEG_TO_RAD), 0);
+    poic.addPOI(std::bitset<12>(), Point2D(-93,45).toRadians(), 0);
     poic.buildIndex();
     assert(poic.size()==1);
     auto result = poic.query(0);
     assert(result.size()==0);
+    std::cerr<<"x-val: "<<poic[0].ico3d.v[0].x<<std::endl;
+    std::cerr<<"y-val: "<<poic[0].ico3d.v[0].y<<std::endl;
+    std::cerr<<"z-val: "<<poic[0].ico3d.v[0].z<<std::endl;
   }
 
   {
     POICollection poic;
-    poic.addPOI(std::bitset<12>(), Point2D(-93*DEG_TO_RAD,45*DEG_TO_RAD), 0);
-    poic.addPOI(std::bitset<12>(), Point2D(-93*DEG_TO_RAD,45*DEG_TO_RAD), 72.0*DEG_TO_RAD);
+    poic.addPOI(std::bitset<12>(), Point2D(-93,45).toRadians(), 0);
+    poic.addPOI(std::bitset<12>(), Point2D(-93,45).toRadians(), 72.0*DEG_TO_RAD);
     poic.buildIndex();
     assert(poic.size()==2);
     auto result = poic.query(0);
