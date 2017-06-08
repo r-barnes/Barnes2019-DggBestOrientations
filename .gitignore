@@ -2,3 +2,6 @@
 data/
 temp/
 *.o
+*.gcov
+*.gcda
+*.gcno
