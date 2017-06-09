@@ -30,14 +30,14 @@ class IcosaXY{
     { 4*IES,    -IEL}
   }};
 
-  IcosaXY();
+  IcosaXY() = default;
   IcosaXY(double rlat, double rlon, double rtheta);
   IcosaXY(const Point2D &p, double rtheta);
   IcosaXY& rotate(const Point2D &p, double rtheta);
   IcosaXY& rotate(double rlat, double rlon, double rtheta);
   IcosaXY& rotateTheta(const double rtheta);
-  void toMercator();
-  void toRadians();
+  IcosaXY& toMercator();
+  IcosaXY& toRadians();
   void print() const;
   std::vector<int> neighbors() const;
   double neighborDistance() const;
@@ -49,8 +49,15 @@ class IcosaXY{
   }
 };
 
+
+
 class IcosaXYZ {
+ private:
+
  public:
+  IcosaXYZ() = default; //TODO: Make private?
+  friend class IcosaXY;
+
   //These values are a direct translation of those for IcosaXY
   std::array<Point3D,12> v = {{
     {std::nan(""), std::nan(""), std::nan("")},
@@ -67,7 +74,6 @@ class IcosaXYZ {
     {std::nan(""), std::nan(""), std::nan("")}
   }};
 
-  IcosaXYZ();
   IcosaXY toLatLon() const;
   void print() const;
   IcosaXYZ& rotateTo(const Point3D &o);

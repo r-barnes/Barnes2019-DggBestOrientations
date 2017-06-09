@@ -3,14 +3,13 @@
 #include <iomanip>
 #include <iostream>
 #include <limits>
+#include <cassert>
 #include "doctest.h"
 
 #include <cereal/types/array.hpp>
 
 const double DEG_TO_RAD = M_PI/180.0;
 const double RAD_TO_DEG = 180.0/M_PI;
-
-IcosaXY::IcosaXY(){}
 
 IcosaXY::IcosaXY(double rlat, double rlon, double rtheta){
   rotate(rlat,rlon,rtheta);
@@ -20,41 +19,83 @@ IcosaXY::IcosaXY(const Point2D &p, double rtheta){
   rotate(p,rtheta);
 }
 
+
+
 IcosaXY& IcosaXY::rotate(const Point2D &p, double rtheta){
   rotateTheta(rtheta);
   *this = toXYZ(1).rotateTo(p.toXYZ(1)).toLatLon();
   return *this;
 }
 
+TEST_CASE("rotate"){
+  const auto a = IcosaXY();
+  const auto p = IcosaXY().rotate(Point2D(0,90).toRadians(),0);
+  for(unsigned int i=0;i<a.v.size();i++){
+    CHECK(a.v[i].x==doctest::Approx(p.v[i].x));
+    CHECK(a.v[i].y==doctest::Approx(p.v[i].y));
+  }
+}
+
+
+
 IcosaXY& IcosaXY::rotate(double rlat, double rlon, double rtheta){
   Point2D temp(rlon,rlat);
   return rotate(temp,rtheta);
 }
 
+
+
 IcosaXY& IcosaXY::rotateTheta(const double rtheta){
-  for(auto &p: v){
-    p.x += M_PI+rtheta;                                    //Move [0,360] and add theta
-    p.x  = std::fmod(2*M_PI+std::fmod(p.x,2*M_PI),2*M_PI); //Map back to [0,360]
-    p.x -= M_PI;                                           //Move back to [-180,180] system
-  }
+  if(rtheta==0)
+    return *this;
+  
+  assert(std::abs(v[0].y-M_PI/2)<1e-6); //Can only rotate when icosahedron is North-South aligned
+
+  for(auto &p: v)
+    p.rotateTheta(rtheta);
   return *this;
 }
 
-void IcosaXY::toMercator(){
-  for(auto &p: v)
-    p = WGS84toEPSG3857(p);
+TEST_CASE("rotateTheta"){
+  IcosaXY().rotateTheta(23*DEG_TO_RAD);
 }
 
-void IcosaXY::toRadians(){
+
+
+IcosaXY& IcosaXY::toMercator(){
+  for(auto &p: v)
+    p = WGS84toEPSG3857(p);
+  return *this;
+}
+
+TEST_CASE("toMercator"){
+  auto p = IcosaXY().toMercator();
+  (void)p;
+}
+
+
+
+IcosaXY& IcosaXY::toRadians(){
   for(auto &p: v)
     p.toRadians();
+  return *this;
 }
+
+TEST_CASE("toRadians"){
+  auto p = IcosaXY().toRadians();
+  (void)p;
+}
+
+
 
 void IcosaXY::print() const {
   for(const auto &p: v)
     std::cerr<<std::fixed<<std::setw(10)<<p.y<<" "<<std::fixed<<std::setw(10)<<p.x<<" -- "<<std::setw(10)<<std::fixed<<p.y*RAD_TO_DEG<<" "<<std::setw(10)<<std::fixed<<p.x*RAD_TO_DEG<<std::endl;
 }
 
+
+
+//Return neighbours in a N1a,N1b,N2a,N2b,... format
 std::vector<int> IcosaXY::neighbors() const {
   std::vector<int> ret;
   double dist = std::numeric_limits<double>::infinity();
@@ -72,10 +113,37 @@ std::vector<int> IcosaXY::neighbors() const {
   return ret;
 }
 
+TEST_CASE("neighbors"){
+  const auto n = IcosaXY().neighbors();
+  CHECK(n.size()==2*30); //I should have 30 edges represented by 60 neighbour pairs
+  
+  std::vector< std::vector<int> > ncheck(12);
+  for(unsigned int ni=0;ni<n.size();ni+=2){
+    ncheck.at(n.at(ni)).emplace_back(n.at(ni+1));
+    ncheck.at(n.at(ni+1)).emplace_back(n.at(ni));
+  }
+
+  //Each vertex should have 5 neighbours
+  for(const auto &ni: ncheck)
+    CHECK(ni.size()==5);
+}
+
+
+
 double IcosaXY::neighborDistance() const {
-  auto n = neighbors();
+  const auto n = neighbors();
   return GeoDistanceHaversine(v[n[0]], v[n[1]]);
 }
+
+TEST_CASE("neighborDistance"){
+  IcosaXY icoxy;
+  const auto n     = icoxy.neighbors();
+  const auto ndist = icoxy.neighborDistance();
+  for(unsigned int i=0;i<n.size();i+=2)
+    CHECK(GeoDistanceHaversine(icoxy.v[n.at(i)],icoxy.v[n.at(i+1)])==doctest::Approx(ndist));
+}
+
+
 
 IcosaXYZ IcosaXY::toXYZ(const double radius) const {
   IcosaXYZ temp;
@@ -84,11 +152,16 @@ IcosaXYZ IcosaXY::toXYZ(const double radius) const {
   return temp;
 }
 
+TEST_CASE("toXYZ"){
+  auto a = IcosaXY();
+  auto p = IcosaXY().toXYZ(1).toLatLon();
+  for(unsigned int i=0;i<a.v.size();i++){
+    CHECK(a.v[i].x==doctest::Approx(p.v[i].x));
+    CHECK(a.v[i].y==doctest::Approx(p.v[i].y));
+  }
+}
 
 
-
-
-IcosaXYZ::IcosaXYZ(){}
 
 IcosaXY IcosaXYZ::toLatLon() const {
   IcosaXY temp;
@@ -96,6 +169,17 @@ IcosaXY IcosaXYZ::toLatLon() const {
     temp.v[i] = v[i].toLatLon();
   return temp;
 }
+
+TEST_CASE("IcosaXYZ::toLatLon"){
+  const auto a = IcosaXY();
+  const auto p = IcosaXY().toXYZ(1).toLatLon();
+  for(unsigned int i=0;i<a.v.size();i++){
+    CHECK(a.v[i].x==doctest::Approx(p.v[i].x));
+    CHECK(a.v[i].y==doctest::Approx(p.v[i].y));
+  }
+}
+
+
 
 void IcosaXYZ::print() const {
   for(const auto &p: v)
@@ -107,55 +191,28 @@ void IcosaXYZ::print() const {
 
 //https://math.stackexchange.com/a/476311/14493
 IcosaXYZ& IcosaXYZ::rotateTo(const Point3D &o){
-  //Icosahedron's North pole
-  const double a1 = v[0].x;
-  const double a2 = v[0].y;
-  const double a3 = v[0].z;
-
-  //Vector defining the new pole
-  const double b1 = o.x;
-  const double b2 = o.y;
-  const double b3 = o.z;
-
-  //B x A
-  double r1 = -a2*b3 + a3*b2;
-  double r2 =  a1*b3 - a3*b1;
-  double r3 = -a1*b2 + a2*b1;
-  const double mr = std::sqrt(r1*r1+r2*r2+r3*r3);
-
-  if(mr==0)
-    return *this;
-
-  r1 /= mr;
-  r2 /= mr;
-  r3 /= mr;
-
-  const double c = a1*b1 + a2*b2 + a3*b3;  //cos theta = B dot A
-  const double s = sqrt(1-c*c);            //= sin theta
-  const double t = 1-c;
-
-  //Rotation Matrix from
-  //Glassner, A.S. (Ed.), 1993. Graphics Gems I, 1st ed. p. 466
-  const double R_a = c + r1*r1*t;
-  const double R_b = r1*r2*t + r3*s;
-  const double R_c = r1*r3*t - r2*s;
-  const double R_d = r1*r2*t - r3*s;
-  const double R_e = c + r2*r2*t;
-  const double R_f = r1*s + r2*r3*t;
-  const double R_g = r1*r3*t + r2*s;
-  const double R_h = -r1*s + r2*r3*t;
-  const double R_i = c + r3*r3*t;
+  Rotator r(v[0],o);
 
   //Rotate each pole
   for(auto &p: v)
-    p = Point3D(
-      R_a*p.x+R_b*p.y+R_c*p.z,
-      R_d*p.x+R_e*p.y+R_f*p.z,
-      R_g*p.x+R_h*p.y+R_i*p.z
-    );
+    p = r(p);
 
   return *this;
 }
+
+TEST_CASE("rotateTo"){
+  SUBCASE("theta rotation"){
+    const auto a = IcosaXY();
+    auto r = IcosaXY().rotate(90*DEG_TO_RAD,0,45); //Rotate forward
+    r.rotate(90*DEG_TO_RAD,0,-45);                 //Rotate back
+    for(unsigned int i=0;i<a.v.size();i++){
+      CHECK(a.v[i].x==doctest::Approx(r.v[i].x));
+      CHECK(a.v[i].y==doctest::Approx(r.v[i].y));
+    }
+  }
+}
+
+
 
 std::vector<int> IcosaXYZ::neighbors() const {
   std::vector<int> ret;
@@ -172,4 +229,21 @@ std::vector<int> IcosaXYZ::neighbors() const {
       ret.emplace_back(j);
     }
   return ret;
+}
+
+
+
+TEST_CASE("neighbors"){
+  const auto n = IcosaXY().toXYZ(1).neighbors();
+  CHECK(n.size()==2*30); //I should have 30 edges represented by 60 neighbour pairs
+  
+  std::vector< std::vector<int> > ncheck(12);
+  for(unsigned int ni=0;ni<n.size();ni+=2){
+    ncheck.at(n.at(ni)).emplace_back(n.at(ni+1));
+    ncheck.at(n.at(ni+1)).emplace_back(n.at(ni));
+  }
+
+  //Each vertex should have 5 neighbours
+  for(const auto &ni: ncheck)
+    CHECK(ni.size()==5);
 }
