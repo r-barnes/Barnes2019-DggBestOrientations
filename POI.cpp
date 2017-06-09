@@ -3,6 +3,12 @@
 #include <unordered_map>
 #include <iostream>
 #include <fstream>
+#include "doctest.h"
+
+const double DEG_TO_RAD = M_PI/180.0;
+const double RAD_TO_DEG = 180.0/M_PI;
+
+
 
 POI::POI(const std::bitset<12> &overlaps, const Point2D &p, double rtheta){
   this->overlaps = overlaps;
@@ -14,6 +20,8 @@ POI::POI(const std::bitset<12> &overlaps, const Point2D &p, double rtheta){
 unsigned int POI::size() const {
   return dim;
 }
+
+
 
 
 
@@ -142,16 +150,8 @@ std::vector<size_t> POICollection::query(const unsigned int qpn) const {
   }
   std::sort(closest_n.begin(),closest_n.end(), [&](const size_t a, const size_t b){return distances[a]<distances[b];});
 
-  if(closest_n.size()>0)
-    std::cerr<<"Closest = "<<distances[closest_n[0]]<<std::endl;
-
   if(closest_n.size()>10)
     closest_n.resize(10);
-
-  //TODO
-  for(auto &x: closest_n)
-    std::cerr<<x<<" "<<distances[x]<<"\n";
-  std::cerr<<"\n\n"<<std::endl;
 
   return closest_n;
 }
@@ -171,23 +171,72 @@ bool POICollection::load(std::string filename) {
   return true;
 }
 
+TEST_CASE("POICollection: Load and Save"){
+  const auto a = POI(std::bitset<12>(), Point2D(-93.1,45.1).toRadians(), 1*DEG_TO_RAD);
+  const auto b = POI(std::bitset<12>(), Point2D(176,-10.1).toRadians(), 7*DEG_TO_RAD);
+  const auto c = POI(std::bitset<12>(), Point2D(72.4,89.3).toRadians(), 34*DEG_TO_RAD);
+  const auto d = POI(std::bitset<12>(), Point2D(-103.2,-41.2).toRadians(), 98*DEG_TO_RAD);
 
+  {
+    POICollection poic;
+    poic.addPOI(a);
+    poic.addPOI(b);
+    poic.addPOI(c);
+    poic.addPOI(d);
+    poic.save("ztest_poic");
+  }
 
-TEST_CASE("POICollection: No result"){
-  POICollection poic;
-  poic.addPOI(std::bitset<12>(), Point2D(-93,45).toRadians(), 0);
-  poic.buildIndex();
-  CHECK(poic.size()==1);
-  auto result = poic.query(0);
-  CHECK(result.size()==0);
+  // {
+  //   POICollection poic;
+  //   poic.load("ztest_poic");
+  //   CHECK(poic[0]==a);
+  //   CHECK(poic[1]==a);
+  //   CHECK(poic[2]==a);
+  //   CHECK(poic[3]==a);
+  // }
 }
 
-TEST_CASE("POICollection: One result"){
+
+
+TEST_CASE("POICollection"){
   POICollection poic;
   poic.addPOI(std::bitset<12>(), Point2D(-93,45).toRadians(), 0);
-  poic.addPOI(std::bitset<12>(), Point2D(-93,45).toRadians(), 72.0*DEG_TO_RAD);
-  poic.buildIndex();
-  CHECK(poic.size()==2);
-  auto result = poic.query(0);
-  CHECK(result[0]==1);
+
+  SUBCASE("No result"){
+    poic.buildIndex();
+    CHECK(poic.size()==1);
+    auto result = poic.query(0);
+    CHECK(result.size()==0);
+  }
+
+  SUBCASE("One result"){
+    poic.addPOI(std::bitset<12>(), Point2D(-93,45).toRadians(), 72.0*DEG_TO_RAD);
+    poic.buildIndex();
+    CHECK(poic.size()==2);
+    auto result = poic.query(0);
+    CHECK(result[0]==1);
+  }
+
+  SUBCASE("One result: build index twice"){
+    poic.addPOI(std::bitset<12>(), Point2D(-93,45).toRadians(), 72.0*DEG_TO_RAD);
+    poic.buildIndex();
+    poic.buildIndex();
+    CHECK(poic.size()==2);
+    auto result = poic.query(0);
+    CHECK(result[0]==1);
+  }
+
+  SUBCASE("Check more"){
+    poic.addPOI(std::bitset<12>(), Point2D(-93.1,45.1).toRadians(), 0*DEG_TO_RAD);
+    poic.addPOI(std::bitset<12>(), Point2D(-93.2,45.1).toRadians(), 0*DEG_TO_RAD);
+    poic.addPOI(std::bitset<12>(), Point2D(-93.1,45.2).toRadians(), 0*DEG_TO_RAD);
+    poic.addPOI(std::bitset<12>(), Point2D(-93.2,45.2).toRadians(), 0*DEG_TO_RAD);
+    poic.addPOI(std::bitset<12>(), Point2D(-93.2,45.2).toRadians(), 36*DEG_TO_RAD);
+    poic.addPOI(std::bitset<12>(), Point2D(23,-23.2).toRadians(), 36*DEG_TO_RAD);
+    poic.buildIndex();
+    CHECK(poic.size()==7);
+    auto result = poic.query(0);
+    CHECK(result.size()==4);
+    CHECK(result[0]==1);
+  }
 }
