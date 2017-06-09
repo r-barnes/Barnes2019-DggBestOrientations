@@ -9,10 +9,11 @@ class Point2D {
  public:
   double x;
   double y;
-  Point2D();
+  Point2D() = default;
   Point2D(double x, double y);
   Point2D& toRadians();
   Point2D& toDegrees();
+  Point2D& rotateTheta(const double rtheta);
   Point3D toXYZ(const double radius) const;
   template <class Archive>
   void serialize( Archive & ar ) {
@@ -25,10 +26,28 @@ class Point3D {
   double x,y,z;
   Point3D(double x, double y, double z);
   Point2D toLatLon() const;
+  double dot(const Point3D &b) const;
   template <class Archive>
   void serialize( Archive & ar ){
     ar(x,y,z);
   }
+};
+
+class Rotator {
+ private:
+  double mr;
+  double R_a;
+  double R_b;
+  double R_c;
+  double R_d;
+  double R_e;
+  double R_f;
+  double R_g;
+  double R_h;
+  double R_i;
+ public:
+  Rotator(const Point3D &oldv, const Point3D &newv);
+  Point3D operator()(const Point3D &p) const;
 };
 
 #endif
