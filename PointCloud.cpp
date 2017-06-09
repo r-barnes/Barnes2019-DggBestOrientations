@@ -1,4 +1,5 @@
 #include "PointCloud.hpp"
+#include "doctest.h"
 
 inline size_t PointCloud::kdtree_get_point_count() const {
   return pts.size();
@@ -50,4 +51,20 @@ const Point3D& PointCloud::queryPoint(const Point3D &xyz) const {
   resultSet.init(&ret_index, &out_dist_sqr);
   index->findNeighbors(resultSet, &query_pt[0], nanoflann::SearchParams(10));
   return pts[ret_index];
+}
+
+TEST_CASE("PointCloud"){
+  PointCloud pc;
+  auto a = Point3D(1,0,0);
+  pc.addPoint(a);
+  pc.addPoint(Point3D(0,1,0));
+  pc.addPoint(Point3D(0,0,1));
+  pc.buildIndex();
+  pc.buildIndex(); //Build twice to test success of rebuild
+  auto fp = pc.queryPoint(Point3D(0.8,0.1,-0.05));
+
+  //Should return Point
+  CHECK(fp.x==a.x);
+  CHECK(fp.y==a.y);
+  CHECK(fp.z==0);
 }

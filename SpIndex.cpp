@@ -70,6 +70,7 @@ TEST_CASE("SpIndex"){
   sp.buildIndex();
 
   CHECK(sp.queryPoint(Point2D(1250,1270))==347);
+  CHECK(sp.queryPoint(Point2D(2750,3379))==-1);
 
   CHECK(p.containsPoint(Point2D(1250,1270)));
   CHECK(p.containsPoint(Point2D(1243,1222)));

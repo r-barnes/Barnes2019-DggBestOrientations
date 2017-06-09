@@ -1,5 +1,6 @@
 #include "Polygon.hpp"
 #include <cmath>
+#include "doctest.h"
 
 double Polygon::minX() const {
   double minx=std::numeric_limits<double>::infinity();
@@ -51,4 +52,27 @@ bool Polygon::containsPoint(const Point2D &xy) const {
        c = !c;
   }
   return c;
+}
+
+
+
+TEST_CASE("Polygon"){
+  Polygon p;
+  Point2D a(-93,45);
+  Point2D b(-93,50);
+  Point2D c(-90,50);
+  Point2D d(-90,45);
+  p.exterior.push_back(a);
+  p.exterior.push_back(b);
+  p.exterior.push_back(c);
+  p.exterior.push_back(d);
+  p.toRadians();
+  b.toRadians();
+  CHECK(p.exterior[1].x==doctest::Approx(b.x));
+  CHECK(p.exterior[1].y==doctest::Approx(b.y));
+  p.toDegrees();
+  CHECK(p.exterior[2].x==doctest::Approx(c.x));
+  CHECK(p.exterior[2].y==doctest::Approx(c.y));
+  p.containsPoint(Point2D(-92,47));
+  p.containsPoint(Point2D(-94,47));
 }
