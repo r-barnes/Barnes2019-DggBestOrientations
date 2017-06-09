@@ -25,7 +25,7 @@ Rotator::Rotator(const Point3D &oldv, const Point3D &newv){
   double r1 = -a2*b3 + a3*b2;
   double r2 =  a1*b3 - a3*b1;
   double r3 = -a1*b2 + a2*b1;
-  double mr = std::sqrt(r1*r1+r2*r2+r3*r3);
+  mr        = std::sqrt(r1*r1+r2*r2+r3*r3); //mr used in operator()
 
   if(mr==0)
     return;
