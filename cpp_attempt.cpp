@@ -133,14 +133,6 @@ bool PointOverlaps(
   return false;
 }
 
-void AddPolygonToSpIndex(const Polygon &poly, SpIndex &sp, const int id){
-  const int xmin = poly.minX();
-  const int ymin = poly.minY();
-  const int xmax = poly.maxX();
-  const int ymax = poly.maxY();
-  sp.addBoxDeferred(xmin,ymin,xmax,ymax,id);
-}
-
 void TestWithData(const Polygons &landmass_merc, const SpIndex &sp){
   std::cerr<<"Running data-based tests..."<<std::endl;
   {
@@ -178,56 +170,9 @@ void TestWithData(const Polygons &landmass_merc, const SpIndex &sp){
 void Test(){
   std::cerr<<"Running tests..."<<std::endl;
 
-  {
-    std::cerr<<"Ico 2D coords in XYZ"<<std::endl;
-    IcosaXY p;
-    p.toXYZ(1).print();
-  }
 
-  {
-    std::cerr<<"IcosaXY"<<std::endl;
-    IcosaXY p;
-    p.rotate(22.8*DEG_TO_RAD,3.6*DEG_TO_RAD,45.6*DEG_TO_RAD);
-    p.print();
-    p.toMercator();
-    p.print();
-  }
 
-  {
-    std::cerr<<"IcosoXY Neighbors:"<<std::endl;
-    IcosaXY p;
-    const auto n = p.neighbors();
-    for(unsigned int i=0;i<n.size();i+=2)
-      std::cerr<<n[i]<<"-"<<n[i+1]<<std::endl;
-    //Ensure neighbours are actually all neighbours
-    const auto dist = GeoDistanceHaversine(p.v[NA],p.v[NB]);
-    assert(std::abs(GeoDistanceHaversine(p.v[NA],p.v[NC])-dist)<1e-6);
-    assert(std::abs(GeoDistanceHaversine(p.v[NB],p.v[NC])-dist)<1e-6);
-  }
 
-  SpIndex sp;
-  int id=0;
-  for(double y=0;y<1000;y+=100)
-  for(double x=0;x<1000;x+=100)
-    sp.addBox(x,y,x+100,y+100,id++);
-
-  assert(sp.queryPoint(Point2D(350,350))==33);
-  assert(sp.queryPoint(Point2D(750,550))==57);
-
-  Polygon p;
-  p.exterior.emplace_back(1200,1200);
-  p.exterior.emplace_back(1200,1300);
-  p.exterior.emplace_back(1300,1300);
-  p.exterior.emplace_back(1300,1200);
-
-  AddPolygonToSpIndex(p, sp, 347);
-  sp.buildIndex();
-
-  assert(sp.queryPoint(Point2D(1250,1270))==347);
-
-  assert(p.containsPoint(Point2D(1250,1270)));
-  assert(p.containsPoint(Point2D(1243,1222)));
-  assert(!p.containsPoint(Point2D(1194,1222)));
 
   {
     Point2D ll(-93,45).toRadians();

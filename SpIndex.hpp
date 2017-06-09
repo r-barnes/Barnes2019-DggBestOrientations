@@ -4,6 +4,7 @@
 #include <boost/geometry.hpp>
 #include <boost/geometry/index/rtree.hpp>
 #include "Point.hpp"
+#include "Polygon.hpp"
 
 class SpIndex {
  private:
@@ -15,11 +16,12 @@ class SpIndex {
   rtree_t rtree;
 
  public:
-  SpIndex();
   void addBox(const int xmin, const int ymin, const int xmax, const int ymax, const int id);
   void addBoxDeferred(const int xmin, const int ymin, const int xmax, const int ymax, const int id);
   int queryPoint(const Point2D &xy) const;
   void buildIndex();
 };
+
+void AddPolygonToSpIndex(const Polygon &poly, SpIndex &sp, const int id);
 
 #endif
