@@ -27,7 +27,7 @@ class POI {
   uint32_t            avgdist_n     = 0;
   uint32_t            edge_n        = 0;
   POI()                             = default;
-  POI(const std::bitset<dim> &overlaps, const Point2D &p, double rtheta);
+  POI(const std::bitset<dim> &overlaps0, const Point2D &pole0, double rtheta0);
   unsigned int size() const;
 
   template <class Archive>

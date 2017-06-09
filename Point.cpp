@@ -108,9 +108,9 @@ TEST_CASE("Point2D: Constructor"){
   Point2D p;
 }
 
-Point2D::Point2D(double x, double y) {
-  this->x = x;
-  this->y = y;
+Point2D::Point2D(double x0, double y0) {
+  x = x0;
+  y = y0;
 }
 
 
@@ -214,10 +214,10 @@ TEST_CASE("Point 2D: toXYZ"){
 
 
 
-Point3D::Point3D(double x, double y, double z) {
-  this->x = x;
-  this->y = y;
-  this->z = z;
+Point3D::Point3D(double x0, double y0, double z0) {
+  x = x0;
+  y = y0;
+  z = z0;
 }
 
 Point2D Point3D::toLatLon() const {

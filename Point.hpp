@@ -10,7 +10,7 @@ class Point2D {
   double x;
   double y;
   Point2D() = default;
-  Point2D(double x, double y);
+  Point2D(double x0, double y0);
   Point2D& toRadians();
   Point2D& toDegrees();
   Point2D& rotateTheta(const double rtheta);
@@ -24,7 +24,7 @@ class Point2D {
 class Point3D {
  public:
   double x,y,z;
-  Point3D(double x, double y, double z);
+  Point3D(double x0, double y0, double z0);
   Point2D toLatLon() const;
   double dot(const Point3D &b) const;
   template <class Archive>

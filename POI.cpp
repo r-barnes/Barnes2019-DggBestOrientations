@@ -10,11 +10,11 @@ const double RAD_TO_DEG = 180.0/M_PI;
 
 
 
-POI::POI(const std::bitset<12> &overlaps, const Point2D &p, double rtheta){
-  this->overlaps = overlaps;
-  this->pole     = p;
-  this->rtheta   = rtheta;
-  ico3d          = IcosaXY(p,rtheta).toXYZ(6371); //Radius of Earth in km
+POI::POI(const std::bitset<12> &overlaps0, const Point2D &pole0, double rtheta0){
+  overlaps = overlaps0;
+  pole     = pole0;
+  rtheta   = rtheta0;
+  ico3d    = IcosaXY(pole,rtheta).toXYZ(6371); //Radius of Earth in km
 }
 
 unsigned int POI::size() const {
