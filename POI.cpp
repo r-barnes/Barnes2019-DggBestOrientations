@@ -170,3 +170,24 @@ bool POICollection::load(std::string filename) {
   archive(*this);
   return true;
 }
+
+
+
+TEST_CASE("POICollection: No result"){
+  POICollection poic;
+  poic.addPOI(std::bitset<12>(), Point2D(-93,45).toRadians(), 0);
+  poic.buildIndex();
+  CHECK(poic.size()==1);
+  auto result = poic.query(0);
+  CHECK(result.size()==0);
+}
+
+TEST_CASE("POICollection: One result"){
+  POICollection poic;
+  poic.addPOI(std::bitset<12>(), Point2D(-93,45).toRadians(), 0);
+  poic.addPOI(std::bitset<12>(), Point2D(-93,45).toRadians(), 72.0*DEG_TO_RAD);
+  poic.buildIndex();
+  CHECK(poic.size()==2);
+  auto result = poic.query(0);
+  CHECK(result[0]==1);
+}

@@ -203,28 +203,6 @@ void Test(){
     }
   }
 
-  {
-    POICollection poic;
-    poic.addPOI(std::bitset<12>(), Point2D(-93,45).toRadians(), 0);
-    poic.buildIndex();
-    assert(poic.size()==1);
-    auto result = poic.query(0);
-    assert(result.size()==0);
-    std::cerr<<"x-val: "<<poic[0].ico3d.v[0].x<<std::endl;
-    std::cerr<<"y-val: "<<poic[0].ico3d.v[0].y<<std::endl;
-    std::cerr<<"z-val: "<<poic[0].ico3d.v[0].z<<std::endl;
-  }
-
-  {
-    POICollection poic;
-    poic.addPOI(std::bitset<12>(), Point2D(-93,45).toRadians(), 0);
-    poic.addPOI(std::bitset<12>(), Point2D(-93,45).toRadians(), 72.0*DEG_TO_RAD);
-    poic.buildIndex();
-    assert(poic.size()==2);
-    auto result = poic.query(0);
-    assert(result[0]==1);
-  }
-
   std::cerr<<"Passed"<<std::endl;
 }
 
