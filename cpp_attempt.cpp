@@ -170,18 +170,6 @@ void TestWithData(const Polygons &landmass_merc, const SpIndex &sp){
 void Test(){
   std::cerr<<"Running tests..."<<std::endl;
 
-
-
-
-
-  {
-    Point2D ll(-93,45).toRadians();
-    ll = WGS84toEPSG3857(ll);
-    std::cout<<"(-93,45) = ("<<std::fixed<<ll.x<<","<<std::fixed<<ll.y<<")"<<std::endl;
-    assert(std::abs(ll.x-(-10352712.6438))<1e-4);
-    assert(std::abs(ll.y-5621521.48619)<1e-4);
-  }
-
   {
     const GeographicLib::Geodesic geod(GeographicLib::Constants::WGS84_a(), GeographicLib::Constants::WGS84_f());
     IcosaXY p;
