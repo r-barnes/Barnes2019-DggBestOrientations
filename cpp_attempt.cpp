@@ -453,7 +453,7 @@ void DetermineDominants(POICollection &poic){
   std::cerr<<"Time taken = "<<tmr.elapsed()<<std::endl;
 }
 
-int main(int argc, char **argv){
+int main(){
   Test();
 
   std::cerr<<"PRECISION = "<<PRECISION<<std::endl;
