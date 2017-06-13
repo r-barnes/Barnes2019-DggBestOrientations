@@ -407,9 +407,9 @@ void DetermineDominants(POICollection &poic){
   std::cerr<<"Building POI kd-tree index..."<<std::endl;
 
   {
-    Timer tmr;
+    Timer tmr_bi;
     poic.buildIndex();
-    std::cerr<<"Finished. Time = "<<tmr.elapsed()<<std::endl;
+    std::cerr<<"Finished. Time = "<<tmr_bi.elapsed()<<std::endl;
   }
 
   std::cerr<<"Using tree to search for dominants..."<<std::endl;
