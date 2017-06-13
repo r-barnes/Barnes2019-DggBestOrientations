@@ -14,14 +14,29 @@ POI::POI(const std::bitset<12> &overlaps0, const Point2D &pole0, double rtheta0)
   overlaps = overlaps0;
   pole     = pole0;
   rtheta   = rtheta0;
-  ico3d    = IcosaXY(pole,rtheta).toXYZ(6371); //Radius of Earth in km
+  _ico2d   = IcosaXY(pole,rtheta);
+  _ico3d   = _ico2d.toXYZ(6371); //Radius of Earth in km
 }
+
+
 
 unsigned int POI::size() const {
   return dim;
 }
 
+TEST_CASE("POI::size"){
+  POI poi;
+  CHECK(poi.size()==poi.ico3d().v.size());
+  CHECK(poi.size()==poi.ico2d().v.size());
+}
 
+const IcosaXYZ& POI::ico3d() const{
+  return _ico3d;
+}
+
+const IcosaXY&  POI::ico2d() const{
+  return _ico2d;
+}
 
 
 
@@ -32,9 +47,9 @@ inline size_t POICollection::kdtree_get_point_count() const {
 
 // Returns the distance between the vector "p1[0:size-1]" and the data point with index "idx_p2" stored in the class:
 inline double POICollection::kdtree_distance(const double *p1, const size_t idx_p2, size_t /*size*/) const {
-  const double d0 = p1[0]-pois[idx_p2/12].ico3d.v[idx_p2%12].x;
-  const double d1 = p1[1]-pois[idx_p2/12].ico3d.v[idx_p2%12].y;
-  const double d2 = p1[2]-pois[idx_p2/12].ico3d.v[idx_p2%12].z;
+  const double d0 = p1[0]-pois[idx_p2/12].ico3d().v[idx_p2%12].x;
+  const double d1 = p1[1]-pois[idx_p2/12].ico3d().v[idx_p2%12].y;
+  const double d2 = p1[2]-pois[idx_p2/12].ico3d().v[idx_p2%12].z;
   return d0*d0+d1*d1+d2*d2;
 }
 
@@ -43,11 +58,11 @@ inline double POICollection::kdtree_distance(const double *p1, const size_t idx_
 //  "if/else's" are actually solved at compile time.
 inline double POICollection::kdtree_get_pt(const size_t idx, int dim) const {
   if (dim==0)
-    return pois[idx/12].ico3d.v[idx%12].x;
+    return pois[idx/12].ico3d().v[idx%12].x;
   else if (dim==1)
-    return pois[idx/12].ico3d.v[idx%12].y;
+    return pois[idx/12].ico3d().v[idx%12].y;
   else
-    return pois[idx/12].ico3d.v[idx%12].z;
+    return pois[idx/12].ico3d().v[idx%12].z;
 }
 
 // Optional bounding-box computation: return false to default to a standard bbox computation loop.
@@ -75,7 +90,7 @@ POI& POICollection::operator[](unsigned int i){
   return pois[i];
 }
 
-const POI& POICollection::operator[](unsigned int i) const{
+const POI& POICollection::operator[](unsigned int i) const {
   return pois[i];
 }
 
@@ -98,13 +113,13 @@ std::vector<size_t> POICollection::query(const Point3D &qp) const {
 }
 
 std::vector<size_t> POICollection::query(const unsigned int qpn) const {
-  const auto &qp = pois[qpn];
-  const auto qp2d = qp.ico3d.toLatLon();
+  const auto &qp   = pois[qpn];
+  const auto &qp2d = qp.ico2d();
 
   //For each 3D point of the query POI, find its nearest neighbours in 3-space
   std::vector< std::vector<size_t> > results(POI::dim);
   for(unsigned int i=0;i<POI::dim;i++)
-    results[i] = query(qp.ico3d.v[i]);
+    results[i] = query(qp.ico3d().v[i]);
 
   //Look at the neighbours of each point and determine how many times each
   //neighbour is seen total.
@@ -124,19 +139,14 @@ std::vector<size_t> POICollection::query(const unsigned int qpn) const {
     else
       ++it;
 
-  //Convert all of the poles to their 2D form so we can get their distances
-  std::unordered_map<size_t,IcosaXY> ico2ds;
-  for(const auto &x: counts)
-    ico2ds[x.first] = pois[x.first].ico3d.toLatLon();
-
   //For those that remain, sum their distances to the query point
   std::unordered_map<size_t,double> distances;
   for(unsigned int i=0;i<results.size();i++)
   for(const auto &x: results[i]){
     if(counts.count(x/12)==0)
       continue;
-    auto dist = GeoDistanceHaversine(ico2ds[x/12].v[x%12], qp2d.v[i]);
-    if(dist>200)
+    auto dist = GeoDistanceHaversine(pois[x/12].ico2d().v[x%12], qp2d.v[i]);
+    if(dist>100)
       distances[x/12] += std::numeric_limits<double>::infinity();
     else
       distances[x/12] += GeoDistanceHaversine(ico2ds[x/12].v[x%12], qp2d.v[i]);
@@ -186,14 +196,17 @@ TEST_CASE("POICollection: Load and Save"){
     poic.save("ztest_poic");
   }
 
-  // {
-  //   POICollection poic;
-  //   poic.load("ztest_poic");
-  //   CHECK(poic[0]==a);
-  //   CHECK(poic[1]==a);
-  //   CHECK(poic[2]==a);
-  //   CHECK(poic[3]==a);
-  // }
+  {
+    POICollection poic;
+    CHECK(poic.load("asdfasfjkwefjewifj")==false);
+    CHECK(poic.load("ztest_poic")==true);
+    CHECK(poic[0].pole.x==a.pole.x);
+    CHECK(poic[1].pole.x==b.pole.x);
+    CHECK(poic[2].pole.x==c.pole.x);
+    CHECK(poic[3].pole.x==d.pole.x);
+    CHECK(poic[0].ico3d().v[3].x==a.ico3d().v[3].x);
+    CHECK(poic[0].ico2d().v[5].y==a.ico2d().v[5].y);
+  }
 }
 
 
@@ -201,6 +214,10 @@ TEST_CASE("POICollection: Load and Save"){
 TEST_CASE("POICollection"){
   POICollection poic;
   poic.addPOI(std::bitset<12>(), Point2D(-93,45).toRadians(), 0);
+
+  SUBCASE("Indexing"){
+    CHECK(&poic[0] == &poic.pois[0]);
+  }
 
   SUBCASE("No result"){
     poic.buildIndex();

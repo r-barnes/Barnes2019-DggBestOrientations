@@ -12,11 +12,13 @@
 #include <cereal/types/bitset.hpp>
 
 class POI {
+ private:
+  IcosaXYZ _ico3d;
+  IcosaXY  _ico2d;
  public:
   static const unsigned int dim = 12;
   std::bitset<dim>    overlaps      = 0;
   Point2D             pole;
-  IcosaXYZ            ico3d;
   double              rtheta        = 0;
   double              mindist       = std::numeric_limits<double>::infinity();
   double              maxdist       = -std::numeric_limits<double>::infinity();
@@ -30,12 +32,14 @@ class POI {
   POI(const std::bitset<dim> &overlaps0, const Point2D &pole0, double rtheta0);
   unsigned int size() const;
 
+  const IcosaXYZ& ico3d() const;
+  const IcosaXY&  ico2d() const;
+
   template <class Archive>
   void serialize( Archive & ar ){
     ar(
       overlaps,
       pole,
-      ico3d,
       rtheta,
       mindist,
       maxdist,
@@ -46,6 +50,8 @@ class POI {
       avgdist_n,
       edge_n
     );
+    _ico2d = IcosaXY(pole,rtheta);
+    _ico3d = _ico2d.toXYZ(6371); //Radius of Earth in km
   }
 };
 
