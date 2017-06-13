@@ -149,7 +149,7 @@ std::vector<size_t> POICollection::query(const unsigned int qpn) const {
     if(dist>100)
       distances[x/12] += std::numeric_limits<double>::infinity();
     else
-      distances[x/12] += GeoDistanceHaversine(ico2ds[x/12].v[x%12], qp2d.v[i]);
+      distances[x/12] += dist;
   }
 
   //Put all neighbours which are close enough into the vector
