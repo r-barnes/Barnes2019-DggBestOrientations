@@ -167,6 +167,32 @@ void TestWithData(const Polygons &landmass_merc, const SpIndex &sp){
   std::cerr<<"Passed"<<std::endl;
 }
 
+std::vector<Point2D> GenerateOrientations(){
+  std::vector<Point2D> orientations;
+
+  //Number of points to sample
+  const int N = (int)(8*M_PI*Rearth*Rearth/std::sqrt(3)/pspace/pspace);
+
+  //Generate orientations
+  for(int i=0;i<N;i++){
+    Point2D temp (
+      M_PI*(3-std::sqrt(5))*i,
+      std::acos(1-(2.0*i+1.0)/N)
+    );
+    temp.x = std::fmod(temp.x,2*M_PI)-M_PI;
+    temp.y = temp.y-M_PI/2;
+
+    if(!(0 <= temp.x && temp.x<=78*DEG_TO_RAD))
+      continue;
+    if(temp.y<23*DEG_TO_RAD)
+      continue;
+
+    orientations.push_back(temp);
+  }
+
+  return orientations;
+}
+
 void Test(){
   std::cerr<<"Running tests..."<<std::endl;
 
@@ -212,33 +238,14 @@ POICollection FindOrientationsOfInterest(
 ){
   std::cerr<<"Finding poles..."<<std::endl;
   POICollection poic;
-  std::vector<Point2D> orientations;
-  long count=0;
-
-  //Number of points to sample
-  const int N = (int)(8*M_PI*Rearth*Rearth/std::sqrt(3)/pspace/pspace);
-
-  //Generate orientations
-  for(int i=0;i<N;i++){
-    Point2D temp (
-      M_PI*(3-std::sqrt(5))*i,
-      std::acos(1-(2.0*i+1.0)/N)
-    );
-    temp.x = std::fmod(temp.x,2*M_PI)-M_PI;
-    temp.y = temp.y-M_PI/2;
-
-    if(!(0 <= temp.x && temp.x<=78*DEG_TO_RAD))
-      continue;
-    if(temp.y<23*DEG_TO_RAD)
-      continue;
-
-    orientations.push_back(temp);
-  }
-
+  
+  const auto orientations = GenerateOrientations();
+  
+  long count = 0;
 
   Timer tmr;
-  #pragma omp parallel for default(none) schedule(static) shared(orientations,poic,std::cerr,sp,landmass_merc) reduction(+:count)
-  for(unsigned int i=0;i<orientations.size();i++)
+  #pragma omp parallel for default(none) schedule(static) shared(poic,std::cerr,sp,landmass_merc) reduction(+:count)
+  for(unsigned int oi=0;oi<orientations.size();oi++)
   for(double rtheta=0;rtheta<72.01*DEG_TO_RAD;rtheta+=PRECISION*DEG_TO_RAD){
     count++;
     IcosaXY p(orientations[i],rtheta);
