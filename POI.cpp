@@ -100,15 +100,29 @@ unsigned int POICollection::size() const {
 
 std::vector<size_t> POICollection::query(const Point3D &qp) const {
   double query_pt[3] = {qp.x,qp.y,qp.z};
-  const size_t num_results = 10000;
-  size_t ret_index[num_results];
-  double out_dist_sqr[num_results];
-  nanoflann::KNNResultSet<double> resultSet(num_results);
-  resultSet.init(ret_index, out_dist_sqr);
-  index->findNeighbors(resultSet, &query_pt[0], nanoflann::SearchParams(10));
-  std::vector<size_t> temp(ret_index, ret_index+num_results);
-  if(size()<num_results)
-    temp.resize(size());
+
+  //const size_t num_results = 10000;
+  //size_t ret_index[num_results];
+  //double out_dist_sqr[num_results];
+  //nanoflann::KNNResultSet<double> resultSet(num_results);
+  //resultSet.init(ret_index, out_dist_sqr);
+  //index->findNeighbors(resultSet, &query_pt[0], nanoflann::SearchParams(10));
+  //std::vector<size_t> temp(ret_index, ret_index+num_results);
+  //if(size()<num_results)
+  //  temp.resize(size());
+
+  std::vector<std::pair<size_t, double> > matches;
+  nanoflann::SearchParams params;
+
+  index->radiusSearch(query_pt, 100*100, matches, params);
+  std::sort(matches.begin(),matches.end(),[&](const std::pair<size_t, double> &a, const std::pair<size_t, double> &b){return a.second<b.second;});
+  //std::cerr<<"Found "<<matches.size()<<" in radius."<<std::endl;
+  //std::cerr<<"Smallest = "<<matches.front().second<<", Largest="<<matches.back().second<<std::endl;
+
+  std::vector<size_t> temp(matches.size());
+  for(const auto &m: matches)
+    temp.emplace_back(m.first);
+
   return temp;
 }
 
