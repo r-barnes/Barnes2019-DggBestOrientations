@@ -123,7 +123,7 @@ std::vector<size_t> POICollection::query(const unsigned int qpn) const {
 
   //Look at the neighbours of each point and determine how many times each
   //neighbour is seen total.
-  std::unordered_map<size_t,uint8_t> counts;
+  std::unordered_map<size_t,uint8_t> counts(10000);
   for(const auto &r: results)
   for(const auto &x: r){
     if(x/12!=qpn)
@@ -140,7 +140,7 @@ std::vector<size_t> POICollection::query(const unsigned int qpn) const {
       ++it;
 
   //For those that remain, sum their distances to the query point
-  std::unordered_map<size_t,double> distances;
+  std::unordered_map<size_t,double> distances(10000);
   for(unsigned int i=0;i<results.size();i++)
   for(const auto &x: results[i]){
     if(counts.count(x/12)==0)
