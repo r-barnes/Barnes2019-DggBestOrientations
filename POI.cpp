@@ -155,7 +155,7 @@ std::vector<size_t> POICollection::query(const unsigned int qpn) const {
   //Put all neighbours which are close enough into the vector
   std::vector<size_t> closest_n;
   for(const auto &nd: distances){
-    if(nd.second/12<=200)
+    if(nd.second/12<=100)
       closest_n.emplace_back(nd.first);
   }
   std::sort(closest_n.begin(),closest_n.end(), [&](const size_t a, const size_t b){return distances[a]<distances[b];});
