@@ -355,12 +355,14 @@ std::vector<size_t> Dominants(
   for(unsigned int i=0;i<dominates.size();i++)
     dominates[i] = i;
 
+  #pragma omp parallel for
   for(unsigned int i=0;i<poic.size();i++){
     if(dominates[i]!=i)                                   //Skip those already dominated
       continue;
     auto closest_n = poic.query(i);
     if(closest_n.size()==0)
       std::cerr<<"Nothing closest!"<<std::endl;
+    #pragma omp critical
     for(const auto &n: closest_n){
       if(dominates[n]==n && dom_checker(poic[i],poic[n])) //Is n not already dominated? Does i dominate n?
         dominates[n]=i;                                   //Make i dominate n.second
