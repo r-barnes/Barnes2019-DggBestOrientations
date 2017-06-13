@@ -248,15 +248,15 @@ POICollection FindOrientationsOfInterest(
   for(unsigned int oi=0;oi<orientations.size();oi++)
   for(double rtheta=0;rtheta<72.01*DEG_TO_RAD;rtheta+=PRECISION*DEG_TO_RAD){
     count++;
-    IcosaXY p(orientations[i],rtheta);
+    IcosaXY p(orientations[oi],rtheta);
 
     std::bitset<12> overlaps = 0;
-    for(unsigned int i=0;i<p.v.size();i++)
-      if(PointOverlaps(p.v[i],landmass_merc,sp))
-        overlaps.set(i);
+    for(unsigned int pi=0;pi<p.v.size();pi++)
+      if(PointOverlaps(p.v[pi],landmass_merc,sp))
+        overlaps.set(pi);
     if(overlaps==0 || overlaps.count()>=8){
       #pragma omp critical
-      poic.addPOI(overlaps,orientations[i],rtheta);
+      poic.addPOI(overlaps,orientations[oi],rtheta);
     }
   }
 
