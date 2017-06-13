@@ -197,6 +197,27 @@ void Test(){
   std::cerr<<"Running tests..."<<std::endl;
 
   {
+    const auto orientations = GenerateOrientations();
+
+    int mincount = std::numeric_limits<int>::max();
+    int maxcount = std::numeric_limits<int>::lowest();
+    Timer tmr;
+    #pragma omp parallel for default(none) schedule(static) reduction(min:mincount) reduction(max:maxcount)
+    for(unsigned int oi=0;oi<orientations.size();oi++)
+    for(double rtheta=0;rtheta<72.01*DEG_TO_RAD;rtheta+=PRECISION*DEG_TO_RAD){
+      IcosaXYZ p = IcosaXY(orientations[oi],rtheta).toXYZ(1);
+      int count  = 0;
+      for(const auto &v: p.v)
+        if(v.y>=0 && v.z>=0)
+          count++;
+      mincount = std::min(count,mincount);
+      maxcount = std::max(count,maxcount);
+    }
+    std::cerr<<"Min count = "<<mincount<<std::endl;
+    std::cerr<<"Max count = "<<maxcount<<std::endl;
+  }
+
+  {
     const GeographicLib::Geodesic geod(GeographicLib::Constants::WGS84_a(), GeographicLib::Constants::WGS84_f());
     IcosaXY p;
     const auto   neighbors = p.neighbors();
