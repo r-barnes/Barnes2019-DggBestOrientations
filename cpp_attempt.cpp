@@ -7,6 +7,7 @@
 #include "GeoStuff.hpp"
 #include "Point.hpp"
 #include "POI.hpp"
+#include "Timer.hpp"
 #include <GeographicLib/Geodesic.hpp>
 #include <GeographicLib/GeodesicLine.hpp>
 #include <GeographicLib/Constants.hpp>
@@ -19,7 +20,6 @@
 #include <iomanip>
 #include <cassert>
 #include <fstream>
-#include <chrono>
 
 #ifdef ENV_XSEDE
   const std::string FILE_WGS84_LANDMASS = "/home/rbarnes1/scratch/dgg_best/land-polygons-complete-4326/land_polygons.shp";
@@ -53,19 +53,6 @@ const int NC = 4;
 //1 degree grid spacing
 //const double PRECISION  = 1;  
 //const double DIV        = 1;
-
-class Timer {
- private:
-  typedef std::chrono::high_resolution_clock clock_;
-  typedef std::chrono::duration<double, std::ratio<1> > second_;
-  std::chrono::time_point<clock_> beg_;
- public:
-  Timer() : beg_(clock_::now()) {}
-  void reset() { beg_ = clock_::now(); }
-  double elapsed() const { 
-    return std::chrono::duration_cast<second_> (clock_::now() - beg_).count(); 
-  }
-};
 
 void ReadShapefile(std::string filename, std::string layername, Polygons &geometries){
   GDALAllRegister();
