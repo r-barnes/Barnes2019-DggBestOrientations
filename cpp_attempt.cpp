@@ -322,10 +322,6 @@ TEST_CASE("POIindex"){
   poic.emplace_back(std::bitset<12>(), Point2D(23,-23.2).toRadians(), 36*DEG_TO_RAD);
   auto oneighbors = FindNearbyOrientations(poic);
   CHECK(oneighbors[0].size()==5);
-  std::cerr<<"oneighbors = ";
-  for(const auto &x: oneighbors[7])
-    std::cerr<<x<<" ";
-  std::cerr<<std::endl;
   CHECK(oneighbors[7].size()==0);
 }
 
