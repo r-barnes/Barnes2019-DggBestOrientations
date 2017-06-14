@@ -88,39 +88,6 @@ bool PointOverlaps(const Point2D &ll, const IndexedShapefile &landmass){
   return false;
 }
 
-TEST_CASE("Test with data [data]"){
-  const auto landmass = IndexedShapefile(FILE_MERC_LANDMASS,"land_polygons");
-
-  SUBCASE("Check that Fuller orientation has no overlaps"){
-    IcosaXY p;
-    //Fuller's orientation
-    p.v = {{
-      {  10.53620,  64.7     },
-      {  -5.24539,   2.300882},
-      {  58.15771,  10.447378},
-      { 122.3    ,  39.1     },
-      {-143.47849,  50.103201},
-      { -67.13233,  23.717925},
-      { -57.7    , -39.1     },
-      {  36.5215 , -50.1032  },
-      { 112.86767, -23.717925},
-      { 174.7546 ,  -2.3009  },
-      {-121.84229, -10.447345},
-      {-169.4638 , -64.7     }
-    }};
-    //p.lon = {{10.53620,  -5.24539,  58.15771, 122.3    ,-143.47849, -67.13233, -57.7    ,  36.5215 , 112.86767, 174.7546 ,-121.84229,-169.4638}};
-    //p.lat = {{64.7,   2.300882,  10.447378,  39.1,  50.103201,  23.717925, -39.1, -50.1032, -23.717925,  -2.3009, -10.447345, -64.7}};
-    p.toRadians();
-    int ocount = 0;
-    for(const auto &v: p.v)
-      if(PointOverlaps(v,landmass))
-        ocount++;
-
-    std::cerr<<"Fuller count: "<<ocount<<std::endl;
-    assert(ocount==0);
-  }
-}
-
 
 
 std::vector<Point2D> GenerateOrientations(){
@@ -151,30 +118,6 @@ std::vector<Point2D> GenerateOrientations(){
 
   return orientations;
 }
-
-//Determine the number of orientations in one quadrant of the 3-space
-TEST_CASE("Counting orientations [expensive]"){
-  const auto orientations = GenerateOrientations();
-
-  int mincount = std::numeric_limits<int>::max();
-  int maxcount = std::numeric_limits<int>::lowest();
-  Timer tmr;
-  #pragma omp parallel for default(none) schedule(static) reduction(min:mincount) reduction(max:maxcount)
-  for(unsigned int oi=0;oi<orientations.size();oi++)
-  for(double rtheta=0;rtheta<72.01*DEG_TO_RAD;rtheta+=PRECISION*DEG_TO_RAD){
-    IcosaXYZ p = IcosaXY(orientations[oi],rtheta).toXYZ(1);
-    int count  = 0;
-    for(const auto &v: p.v)
-      if(v.y>=0 && v.z>=0)
-        count++;
-    mincount = std::min(count,mincount);
-    maxcount = std::max(count,maxcount);
-  }
-  CHECK(mincount==2);
-  CHECK(maxcount==3);
-}
-
-
 
 POICollection FindOrientationsOfInterest(const IndexedShapefile &landmass){
   std::cerr<<"Finding poles..."<<std::endl;
@@ -430,7 +373,98 @@ void DetermineDominants(POICollection &poic, const norientations_t &norientation
   // }
 
   std::cerr<<"Time taken = "<<tmr.elapsed()<<std::endl;
-}*/
+}
+
+
+
+TEST_CASE("Test with data [expensive]"){
+  const auto landmass = IndexedShapefile(FILE_MERC_LANDMASS,"land_polygons");
+
+  SUBCASE("Check that Fuller orientation has no overlaps"){
+    IcosaXY p;
+    //Fuller's orientation
+    p.v = {{
+      {  10.53620,  64.7     },
+      {  -5.24539,   2.300882},
+      {  58.15771,  10.447378},
+      { 122.3    ,  39.1     },
+      {-143.47849,  50.103201},
+      { -67.13233,  23.717925},
+      { -57.7    , -39.1     },
+      {  36.5215 , -50.1032  },
+      { 112.86767, -23.717925},
+      { 174.7546 ,  -2.3009  },
+      {-121.84229, -10.447345},
+      {-169.4638 , -64.7     }
+    }};
+    //p.lon = {{10.53620,  -5.24539,  58.15771, 122.3    ,-143.47849, -67.13233, -57.7    ,  36.5215 , 112.86767, 174.7546 ,-121.84229,-169.4638}};
+    //p.lat = {{64.7,   2.300882,  10.447378,  39.1,  50.103201,  23.717925, -39.1, -50.1032, -23.717925,  -2.3009, -10.447345, -64.7}};
+    p.toRadians();
+    int ocount = 0;
+    for(const auto &v: p.v)
+      if(PointOverlaps(v,landmass))
+        ocount++;
+
+    std::cerr<<"Fuller count: "<<ocount<<std::endl;
+    assert(ocount==0);
+  }
+
+  SUBCASE("EdgeOverlapHelper"){
+    auto a = Point2D(-93,45).toRadians();
+    auto b = Point2D(-104.9903, 39.7392).toRadians();
+    CHECK(EdgeOverlapHelper(landmass,a,b,100)==101);
+  }
+}
+
+//Determine the number of orientations in one quadrant of the 3-space
+TEST_CASE("Counting orientations [expensive]"){
+  const auto orientations = GenerateOrientations();
+
+  int mincount = std::numeric_limits<int>::max();
+  int maxcount = std::numeric_limits<int>::lowest();
+  Timer tmr;
+  #pragma omp parallel for default(none) schedule(static) reduction(min:mincount) reduction(max:maxcount)
+  for(unsigned int oi=0;oi<orientations.size();oi++)
+  for(double rtheta=0;rtheta<72.01*DEG_TO_RAD;rtheta+=PRECISION*DEG_TO_RAD){
+    IcosaXYZ p = IcosaXY(orientations[oi],rtheta).toXYZ(1);
+    int count  = 0;
+    for(const auto &v: p.v)
+      if(v.y>=0 && v.z>=0)
+        count++;
+    mincount = std::min(count,mincount);
+    maxcount = std::max(count,maxcount);
+  }
+  CHECK(mincount==2);
+  CHECK(maxcount==3);
+}
+
+TEST_CASE("POIindex: Load and Save"){
+  const auto a = POI(std::bitset<12>(), Point2D(-93.1,45.1).toRadians(), 1*DEG_TO_RAD);
+  const auto b = POI(std::bitset<12>(), Point2D(176,-10.1).toRadians(), 7*DEG_TO_RAD);
+  const auto c = POI(std::bitset<12>(), Point2D(72.4,89.3).toRadians(), 34*DEG_TO_RAD);
+  const auto d = POI(std::bitset<12>(), Point2D(-103.2,-41.2).toRadians(), 98*DEG_TO_RAD);
+
+  {
+    POICollection poic;
+    poic.push_back(a);
+    poic.push_back(b);
+    poic.push_back(c);
+    poic.push_back(d);
+    SaveToArchive(poic, "ztest_poic");
+  }
+
+  {
+    POICollection poic;
+    CHECK(LoadFromArchive(poic,"asdfasfjkwefjewifj")==false);
+    CHECK(LoadFromArchive(poic,"ztest_poic")==true);
+    CHECK(poic[0].pole.x==a.pole.x);
+    CHECK(poic[1].pole.x==b.pole.x);
+    CHECK(poic[2].pole.x==c.pole.x);
+    CHECK(poic[3].pole.x==d.pole.x);
+  }
+}
+
+
 
 #ifdef DOCTEST_CONFIG_DISABLE
 
