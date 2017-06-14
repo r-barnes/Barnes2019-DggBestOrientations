@@ -330,15 +330,11 @@ std::vector< std::vector<size_t> > FindNearbyOrientations(const POICollection &p
   POIindex poii(poic);
   std::cerr<<"Time = "<<tmr_bi.elapsed()<<std::endl;
 
-  std::vector< std::vector<size_t> > oneighbors;
-  oneighbors.reserve(poic.size());
+  std::vector< std::vector<size_t> > oneighbors(poic.size());
   
   #pragma omp parallel for
-  for(unsigned int i=0;i<poic.size();i++){
-    const auto temp = poii.query(i);
-    #pragma omp critical
-    oneighbors.push_back(temp);
-  }
+  for(unsigned int i=0;i<poic.size();i++)
+    oneighbors[i] = poii.query(i);
 
   std::cerr<<"Finished. Time = "<<tmr_bi.elapsed()<<std::endl;
 
