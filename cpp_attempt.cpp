@@ -193,8 +193,7 @@ POICollection FindOrientationsOfInterest(const IndexedShapefile &landmass){
 
 void DistancesToIcosaXYs(POICollection &poic){
   std::cerr<<"Reading WGS84 shapefile..."<<std::endl;
-  Polygons landmass_wgs84;
-  ReadShapefile(FILE_WGS84_LANDMASS, "land_polygons", landmass_wgs84);
+  Polygons landmass_wgs84 = ReadShapefile(FILE_WGS84_LANDMASS, "land_polygons");
 
   PointCloud pc;
 
