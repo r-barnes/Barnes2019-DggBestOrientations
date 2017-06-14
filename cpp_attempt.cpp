@@ -57,6 +57,23 @@ typedef std::vector< std::vector<unsigned int> > norientations_t;
 //const double PRECISION  = 1;  
 //const double DIV        = 1;
 
+template<class T>
+bool LoadFromArchive(T &poic, std::string filename){
+  std::ifstream os(filename, std::ios::binary);
+  if(!os.good())
+    return false;
+  cereal::BinaryInputArchive archive( os );
+  archive(poic);
+  return true;
+}
+
+template<class T>
+void SaveToArchive(const T &poic, std::string filename){
+  std::ofstream os(filename, std::ios::binary);
+  cereal::BinaryOutputArchive archive( os );
+  archive(poic);
+}
+
 bool PointOverlaps(const Point2D &ll, const IndexedShapefile &landmass){
   if(ll.y>83.7*DEG_TO_RAD) //The island "83-42" as at 83.7N so anything north of this is on water
     return false;
@@ -421,11 +438,9 @@ int main(){
   std::cerr<<"PRECISION = "<<PRECISION<<std::endl;
 
   POICollection poic;
-  if(!LoadPOICollection(poic,"poic.save")){
+  if(!LoadFromArchive(poic,"poic.save")){
 
     auto landmass = IndexedShapefile(FILE_MERC_LANDMASS,"land_polygons");
-
-    TestWithData(landmass);
 
     poic = FindOrientationsOfInterest(landmass);
 
@@ -433,10 +448,16 @@ int main(){
 
     EdgeOverlaps(landmass, poic);
 
-    SavePOICollection(poic, "poic.save");
+    SaveToArchive(poic, "poic.save");
   }
 
-  DetermineDominants(poic);
+  norientations_t norientations;
+  if(!LoadFromArchive(norientations,"norientations.save")){
+    norientations = FindNearbyOrientations(poic);
+    SaveToArchive(norientations, "norientations.save");
+  }
+
+  DetermineDominants(poic, norientations);
 
   std::cerr<<"Writing output..."<<std::endl;
   {

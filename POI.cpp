@@ -165,51 +165,6 @@ std::vector<unsigned int> POIindex::query(const unsigned int qpn) const {
 
 
 
-bool LoadPOICollection(POICollection &poic, std::string filename){
-  std::ifstream os(filename, std::ios::binary);
-  if(!os.good())
-    return false;
-  cereal::BinaryInputArchive archive( os );
-  archive(poic);
-  return true;
-}
-
-void SavePOICollection(const POICollection &poic, std::string filename){
-  std::ofstream os(filename, std::ios::binary);
-  cereal::BinaryOutputArchive archive( os );
-  archive(poic);
-}
-
-
-TEST_CASE("POIindex: Load and Save"){
-  const auto a = POI(std::bitset<12>(), Point2D(-93.1,45.1).toRadians(), 1*DEG_TO_RAD);
-  const auto b = POI(std::bitset<12>(), Point2D(176,-10.1).toRadians(), 7*DEG_TO_RAD);
-  const auto c = POI(std::bitset<12>(), Point2D(72.4,89.3).toRadians(), 34*DEG_TO_RAD);
-  const auto d = POI(std::bitset<12>(), Point2D(-103.2,-41.2).toRadians(), 98*DEG_TO_RAD);
-
-  {
-    POICollection poic;
-    poic.push_back(a);
-    poic.push_back(b);
-    poic.push_back(c);
-    poic.push_back(d);
-    SavePOICollection(poic, "ztest_poic");
-  }
-
-  {
-    POICollection poic;
-    CHECK(LoadPOICollection(poic,"asdfasfjkwefjewifj")==false);
-    CHECK(LoadPOICollection(poic,"ztest_poic")==true);
-    CHECK(poic[0].pole.x==a.pole.x);
-    CHECK(poic[1].pole.x==b.pole.x);
-    CHECK(poic[2].pole.x==c.pole.x);
-    CHECK(poic[3].pole.x==d.pole.x);
-  }
-}
-
-
-
-
 TEST_CASE("POIindex"){
   POICollection poic;
   poic.emplace_back(std::bitset<12>(), Point2D(-93,45).toRadians(), 0);
