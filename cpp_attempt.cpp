@@ -8,6 +8,7 @@
 #include "Point.hpp"
 #include "POI.hpp"
 #include "Timer.hpp"
+#include "IndexedShapefile.hpp"
 #include <GeographicLib/Geodesic.hpp>
 #include <GeographicLib/GeodesicLine.hpp>
 #include <GeographicLib/Constants.hpp>
@@ -53,27 +54,24 @@ const int NC = 4;
 //const double PRECISION  = 1;  
 //const double DIV        = 1;
 
-bool PointOverlaps(
-  const Point2D &ll,
-  const Polygons &landmass_merc,
-  const SpIndex &sp
-){
+bool PointOverlaps(const Point2D &ll, const IndexedShapefile &landmass){
   if(ll.y>83.7*DEG_TO_RAD) //The island "83-42" as at 83.7N so anything north of this is on water
     return false;
   if(ll.y<-80*DEG_TO_RAD)  //The southmost extent of water is ~79.5S, so anything south of this is on land
     return true;
   auto xy = WGS84toEPSG3857(ll);
-  const auto pid = sp.queryPoint(xy);
+  const auto pid = landmass.sp.queryPoint(xy);
   if(pid==-1)
     return false;
-  if(landmass_merc.at(pid).containsPoint(xy))
+  if(landmass.polys.at(pid).containsPoint(xy))
     return true;
   return false;
 }
 
-void TestWithData(const Polygons &landmass_merc, const SpIndex &sp){
-  std::cerr<<"Running data-based tests..."<<std::endl;
-  {
+TEST_CASE("Test with data [data]"){
+  const auto landmass = IndexedShapefile(FILE_MERC_LANDMASS,"land_polygons");
+
+  SUBCASE("Check that Fuller orientation has no overlaps"){
     IcosaXY p;
     //Fuller's orientation
     p.v = {{
@@ -95,7 +93,7 @@ void TestWithData(const Polygons &landmass_merc, const SpIndex &sp){
     p.toRadians();
     int ocount = 0;
     for(const auto &v: p.v)
-      if(PointOverlaps(v,landmass_merc,sp))
+      if(PointOverlaps(v,landmass))
         ocount++;
 
     std::cerr<<"Fuller count: "<<ocount<<std::endl;
@@ -190,11 +188,7 @@ void Test(){
 
   std::cerr<<"Passed"<<std::endl;
 }
-
-POICollection FindOrientationsOfInterest(
-  const Polygons &landmass_merc,
-  const SpIndex &sp
-){
+POICollection FindOrientationsOfInterest(const IndexedShapefile &landmass){
   std::cerr<<"Finding poles..."<<std::endl;
   POICollection poic;
   
@@ -203,7 +197,7 @@ POICollection FindOrientationsOfInterest(
   long count = 0;
 
   Timer tmr;
-  #pragma omp parallel for default(none) schedule(static) shared(poic,std::cerr,sp,landmass_merc) reduction(+:count)
+  #pragma omp parallel for default(none) schedule(static) shared(poic,std::cerr,landmass) reduction(+:count)
   for(unsigned int oi=0;oi<orientations.size();oi++)
   for(double rtheta=0;rtheta<72.01*DEG_TO_RAD;rtheta+=PRECISION*DEG_TO_RAD){
     count++;
@@ -211,7 +205,7 @@ POICollection FindOrientationsOfInterest(
 
     std::bitset<12> overlaps = 0;
     for(unsigned int pi=0;pi<p.v.size();pi++)
-      if(PointOverlaps(p.v[pi],landmass_merc,sp))
+      if(PointOverlaps(p.v[pi],landmass))
         overlaps.set(pi);
     if(overlaps==0 || overlaps.count()>=8){
       #pragma omp critical
@@ -268,11 +262,7 @@ void DistancesToIcosaXYs(POICollection &poic){
   std::cout << "Time taken = " << tmr.elapsed() <<"s"<< std::endl;
 }
 
-void EdgeOverlaps(
-  const Polygons &landmass_merc,
-  const SpIndex &sp,
-  POICollection &poic
-){
+void EdgeOverlaps(const IndexedShapefile &landmass, POICollection &poic){
   Timer tmr;
   std::cerr<<"Calculating edge overlaps..."<<std::endl;
   const GeographicLib::Geodesic geod(GeographicLib::Constants::WGS84_a(), GeographicLib::Constants::WGS84_f());
@@ -280,7 +270,8 @@ void EdgeOverlaps(
   const double ndist   = IcosaXY().neighborDistance()*1000;  //Approximate spacing between vertices in metres
   const double spacing = 10e3;                            //Spacing between points = 10km
   const int    num_pts = int(std::ceil(ndist / spacing)); //The number of intervals
-  #pragma omp parallel for default(none) shared(poic,landmass_merc,sp)
+  std::cerr<<"Using "<<num_pts<<" with a "<<spacing<<"m spacing to cover "<<ndist<<"m inter-neighbour distance."<<std::endl;
+  #pragma omp parallel for default(none) shared(poic,landmass)
   for(unsigned int pn=0;pn<poic.size();pn++){
     IcosaXY p(poic[pn].pole, poic[pn].rtheta);
     for(unsigned int n=0;n<neighbors.size();n+=2){
@@ -297,7 +288,7 @@ void EdgeOverlaps(
         Point2D temp;
         line.ArcPosition(i * da, temp.y, temp.x);
         temp.toRadians();
-        poic[pn].edge_overlaps += PointOverlaps(temp,landmass_merc,sp);
+        poic[pn].edge_overlaps += PointOverlaps(temp,landmass);
       }
     }
   }
@@ -466,37 +457,19 @@ int main(){
   std::cerr<<"PRECISION = "<<PRECISION<<std::endl;
 
   POICollection poic;
-  if(!poic.load("poic.save")){
+  if(!LoadPOICollection(poic,"poic.save")){
 
-    Polygons landmass_merc;
-    {
-      std::cerr<<"Reading Mercator split shapefile..."<<std::endl;
-      Timer tmr;
-      ReadShapefile(FILE_MERC_LANDMASS, "land_polygons", landmass_merc);
-      std::cerr<<"Read "<<landmass_merc.size()<<" polygons."<<std::endl;
-      std::cerr<<"Time taken = "<<tmr.elapsed()<<std::endl;
-    }
+    auto landmass = IndexedShapefile(FILE_MERC_LANDMASS,"land_polygons");
 
-    SpIndex sp;
-    {
-      std::cerr<<"Building index..."<<std::endl;
-      Timer tmr;
-      for(int64_t i=0;(unsigned)i<landmass_merc.size();i++)
-        AddPolygonToSpIndex(landmass_merc[i], sp, i);
-      sp.buildIndex();
-      std::cerr<<"Index built."<<std::endl;
-      std::cerr<<"Time taken = "<<tmr.elapsed()<<std::endl;
-    }
+    TestWithData(landmass);
 
-    TestWithData(landmass_merc,sp);
-
-    poic = FindOrientationsOfInterest(landmass_merc,sp);
+    poic = FindOrientationsOfInterest(landmass);
 
     DistancesToIcosaXYs(poic);
 
-    EdgeOverlaps(landmass_merc, sp, poic);
+    EdgeOverlaps(landmass, poic);
 
-    poic.save("poic.save");
+    SavePOICollection(poic, "poic.save");
   }
 
   DetermineDominants(poic);
