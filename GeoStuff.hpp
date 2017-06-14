@@ -2,6 +2,7 @@
 #define _geostuff_hpp_
 
 #include "Point.hpp"
+#include "Polygon.hpp"
 
 double GeoDistanceFlatEarth(const Point2D &a, const Point2D &b);
 
@@ -13,5 +14,7 @@ template<class T>
 void ToMercator(T &pts);
 
 double EuclideanDistance(const Point3D &a, const Point3D &b);
+
+Polygons ReadShapefile(std::string filename, std::string layername);
 
 #endif

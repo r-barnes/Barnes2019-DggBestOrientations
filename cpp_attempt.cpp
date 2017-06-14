@@ -11,7 +11,6 @@
 #include <GeographicLib/Geodesic.hpp>
 #include <GeographicLib/GeodesicLine.hpp>
 #include <GeographicLib/Constants.hpp>
-#include <ogrsf_frmts.h>
 #include <iostream>
 #include <vector>
 #include <stdexcept>
@@ -53,54 +52,6 @@ const int NC = 4;
 //1 degree grid spacing
 //const double PRECISION  = 1;  
 //const double DIV        = 1;
-
-void ReadShapefile(std::string filename, std::string layername, Polygons &geometries){
-  GDALAllRegister();
-  GDALDataset *poDS;
-  poDS = (GDALDataset*) GDALOpenEx(filename.c_str(), GDAL_OF_VECTOR, NULL, NULL, NULL);
-  if( poDS == NULL ){
-    std::cerr<<"Failed to open '"<<filename<<"'!"<<std::endl;
-    exit( 1 );
-  }
-
-  OGRLayer *poLayer;
-  poLayer = poDS->GetLayerByName(layername.c_str());
-  OGRFeature *poFeature;
-  poLayer->ResetReading();
-  while( (poFeature = poLayer->GetNextFeature()) != NULL ){
-    /*OGRFeatureDefn *poFDefn = poLayer->GetLayerDefn();
-    int iField;
-    for( iField = 0; iField < poFDefn->GetFieldCount(); iField++ ){
-      OGRFieldDefn *poFieldDefn = poFDefn->GetFieldDefn( iField );
-      if( poFieldDefn->GetType() == OFTInteger )
-          printf( "%d,", poFeature->GetFieldAsInteger( iField ) );
-      else if( poFieldDefn->GetType() == OFTInteger64 )
-          printf( CPL_FRMT_GIB ",", poFeature->GetFieldAsInteger64( iField ) );
-      else if( poFieldDefn->GetType() == OFTReal )
-          printf( "%.3f,", poFeature->GetFieldAsDouble(iField) );
-      else if( poFieldDefn->GetType() == OFTString )
-          printf( "%s,", poFeature->GetFieldAsString(iField) );
-      else
-          printf( "%s,", poFeature->GetFieldAsString(iField) );
-    }*/
-    OGRGeometry *poGeometry;
-    poGeometry = poFeature->GetGeometryRef();
-    if (poGeometry==NULL){
-      //Pass
-    } else if( wkbFlatten(poGeometry->getGeometryType()) == wkbPolygon ){
-      OGRPolygon *poly = (OGRPolygon *) poGeometry;
-      auto extring = poly->getExteriorRing();
-      //Ignore interior rings for now: they're probably lakes
-      geometries.emplace_back();
-      for(int i=0;i<extring->getNumPoints();i++)
-        geometries.back().exterior.emplace_back(extring->getX(i),extring->getY(i));
-    } else {
-      std::cerr<<"Unrecognised geometry of type: "<<wkbFlatten(poGeometry->getGeometryType())<<std::endl;
-    }
-    OGRFeature::DestroyFeature( poFeature );
-  }
-  GDALClose( poDS );
-}
 
 bool PointOverlaps(
   const Point2D &ll,
