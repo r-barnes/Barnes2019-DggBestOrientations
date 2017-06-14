@@ -192,14 +192,33 @@ void DistancesToIcosaXYs(POICollection &poic){
   std::cout << "Time taken = " << tmr.elapsed() <<"s"<< std::endl;
 }
 
+//Maximum value returned is num_pts+1
+unsigned int EdgeOverlapHelper(const IndexedShapefile &landmass, const Point2D &a, const Point2D &b, const int num_pts){
+  static const GeographicLib::Geodesic geod(GeographicLib::Constants::WGS84_a(), GeographicLib::Constants::WGS84_f());
+  unsigned int edge_overlaps = 0;
+  const GeographicLib::GeodesicLine line = geod.InverseLine(
+    a.y*RAD_TO_DEG,
+    a.x*RAD_TO_DEG,
+    b.y*RAD_TO_DEG,
+    b.x*RAD_TO_DEG
+  );
+  const double da = line.Arc() / num_pts;
+  for(int i=0;i<=num_pts;i++) {
+    Point2D temp;
+    line.ArcPosition(i * da, temp.y, temp.x);
+    temp.toRadians();
+    edge_overlaps += PointOverlaps(temp,landmass);
+  }
+  return edge_overlaps;
+}
+
 void EdgeOverlaps(const IndexedShapefile &landmass, POICollection &poic){
   Timer tmr;
   std::cerr<<"Calculating edge overlaps..."<<std::endl;
-  const GeographicLib::Geodesic geod(GeographicLib::Constants::WGS84_a(), GeographicLib::Constants::WGS84_f());
-  const auto neighbors = IcosaXY().neighbors();
-  const double ndist   = IcosaXY().neighborDistance()*1000;  //Approximate spacing between vertices in metres
-  const double spacing = 10e3;                            //Spacing between points = 10km
-  const int    num_pts = int(std::ceil(ndist / spacing)); //The number of intervals
+  const auto   neighbors = IcosaXY().neighbors();
+  const double ndist     = IcosaXY().neighborDistance()*1000; //Approximate spacing between vertices in metres
+  const double spacing   = 10e3;                              //Spacing between points = 10km
+  const int    num_pts   = int(std::ceil(ndist / spacing));   //The number of intervals
   std::cerr<<"Using "<<num_pts<<" with a "<<spacing<<"m spacing to cover "<<ndist<<"m inter-neighbour distance."<<std::endl;
   #pragma omp parallel for default(none) shared(poic,landmass)
   for(unsigned int pn=0;pn<poic.size();pn++){
@@ -207,19 +226,7 @@ void EdgeOverlaps(const IndexedShapefile &landmass, POICollection &poic){
     for(unsigned int n=0;n<neighbors.size();n+=2){
       const auto &a = p.v[neighbors[n]];
       const auto &b = p.v[neighbors[n+1]];
-      const GeographicLib::GeodesicLine line = geod.InverseLine(
-        a.y*RAD_TO_DEG,
-        a.x*RAD_TO_DEG,
-        b.y*RAD_TO_DEG,
-        b.x*RAD_TO_DEG
-      );
-      const double da = line.Arc() / num_pts;
-      for(int i=0;i<=num_pts;i++) {
-        Point2D temp;
-        line.ArcPosition(i * da, temp.y, temp.x);
-        temp.toRadians();
-        poic[pn].edge_overlaps += PointOverlaps(temp,landmass);
-      }
+      poic[pn].edge_overlaps = EdgeOverlapHelper(landmass, a, b, num_pts);
     }
   }
   std::cout << "Time taken = " << tmr.elapsed() <<"s"<< std::endl;
