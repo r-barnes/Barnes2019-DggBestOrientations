@@ -215,7 +215,7 @@ POICollection FindOrientationsOfInterest(
         overlaps.set(pi);
     if(overlaps==0 || overlaps.count()>=8){
       #pragma omp critical
-      poic.addPOI(overlaps,orientations[oi],rtheta);
+      poic.emplace_back(overlaps,orientations[oi],rtheta);
     }
   }
 
@@ -314,11 +314,13 @@ std::vector<size_t> Dominants(
   for(unsigned int i=0;i<dominates.size();i++)
     dominates[i] = i;
 
+  POIindex poii(poic);
+
   #pragma omp parallel for
   for(unsigned int i=0;i<poic.size();i++){
     if(dominates[i]!=i)                                   //Skip those already dominated
       continue;
-    auto closest_n = poic.query(i);
+    auto closest_n = poii.query(i);
     if(closest_n.size()==0)
       std::cerr<<"Nothing closest!"<<std::endl;
     #pragma omp critical
@@ -359,19 +361,65 @@ std::ofstream& PrintPOICoordinates(std::ofstream& fout, const POICollection &poi
   return fout;
 }
 
+std::vector< std::vector<size_t> > FindNearbyOrientations(const POICollection &poic){
+  Timer tmr;
+  
+  std::cerr<<"Finding nearby orientations..."<<std::endl;
+  
+  Timer tmr_bi;
+  std::cerr<<"Building kd-tree"<<std::endl;
+  POIindex poii(poic);
+  std::cerr<<"Time = "<<tmr_bi.elapsed()<<std::endl;
+
+  std::vector< std::vector<size_t> > oneighbors;
+  oneighbors.reserve(poic.size());
+  
+  #pragma omp parallel for
+  for(unsigned int i=0;i<poic.size();i++){
+    const auto temp = poii.query(i);
+    #pragma omp critical
+    oneighbors.push_back(temp);
+  }
+
+  std::cerr<<"Finished. Time = "<<tmr_bi.elapsed()<<std::endl;
+
+  return oneighbors;
+}
+
+TEST_CASE("POIindex"){
+  POICollection poic;
+  poic.emplace_back(std::bitset<12>(), Point2D(-93,45).toRadians(), 0);
+  poic.emplace_back(std::bitset<12>(), Point2D(-93.1,45.1).toRadians(), 0*DEG_TO_RAD);
+  poic.emplace_back(std::bitset<12>(), Point2D(-93.1,45.1).toRadians(), 72*DEG_TO_RAD);
+  poic.emplace_back(std::bitset<12>(), Point2D(-93.2,45.1).toRadians(), 0*DEG_TO_RAD);
+  poic.emplace_back(std::bitset<12>(), Point2D(-93.1,45.2).toRadians(), 0*DEG_TO_RAD);
+  poic.emplace_back(std::bitset<12>(), Point2D(-93.2,45.2).toRadians(), 0*DEG_TO_RAD);
+  poic.emplace_back(std::bitset<12>(), Point2D(-93.2,45.2).toRadians(), 36*DEG_TO_RAD);
+  poic.emplace_back(std::bitset<12>(), Point2D(23,-23.2).toRadians(), 36*DEG_TO_RAD);
+  auto oneighbors = FindNearbyOrientations(poic);
+  CHECK(oneighbors[0].size()==5);
+  std::cerr<<"oneighbors = ";
+  for(const auto &x: oneighbors[7])
+    std::cerr<<x<<" ";
+  std::cerr<<std::endl;
+  CHECK(oneighbors[7].size()==0);
+}
+
+
+/*
 void DetermineDominants(POICollection &poic){
   Timer tmr;
 
   std::cerr<<"Determining dominants..."<<std::endl;
+
   std::cerr<<"Building POI kd-tree index..."<<std::endl;
+  Timer tmr_bi;
+  POIindex poii(poic);
+  std::cerr<<"Finished. Time = "<<tmr_bi.elapsed()<<std::endl;
 
-  {
-    Timer tmr_bi;
-    poic.buildIndex();
-    std::cerr<<"Finished. Time = "<<tmr_bi.elapsed()<<std::endl;
-  }
+  std::cerr<<"Using tree to find nearby orientations..."<<std::endl;  
 
-  std::cerr<<"Using tree to search for dominants..."<<std::endl;
+
   {
     std::ofstream fout_td("test_dom");
     auto dom_checker = [](const POI &a, const POI &b){

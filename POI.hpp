@@ -4,6 +4,7 @@
 #include "Point.hpp"
 #include "nanoflann.hpp"
 #include "Icosa.hpp"
+#include <memory>
 #include <limits>
 #include <bitset>
 #include <string>
@@ -12,9 +13,6 @@
 #include <cereal/types/bitset.hpp>
 
 class POI {
- private:
-  IcosaXYZ _ico3d;
-  IcosaXY  _ico2d;
  public:
   static const unsigned int dim = 12;
   std::bitset<dim>    overlaps      = 0;
@@ -30,10 +28,6 @@ class POI {
   uint32_t            edge_n        = 0;
   POI()                             = default;
   POI(const std::bitset<dim> &overlaps0, const Point2D &pole0, double rtheta0);
-  unsigned int size() const;
-
-  const IcosaXYZ& ico3d() const;
-  const IcosaXY&  ico2d() const;
 
   template <class Archive>
   void serialize( Archive & ar ){
@@ -50,25 +44,28 @@ class POI {
       avgdist_n,
       edge_n
     );
-    _ico2d = IcosaXY(pole,rtheta);
-    _ico3d = _ico2d.toXYZ(6371); //Radius of Earth in km
   }
 };
 
 
 
-class POICollection {
+class POIindex {
  private:
   typedef nanoflann::KDTreeSingleIndexAdaptor<
-    nanoflann::L2_Simple_Adaptor<double, POICollection > ,
-    POICollection,
+    nanoflann::L2_Simple_Adaptor<double, POIindex > ,
+    POIindex,
     3 /* dim */
   > my_kd_tree_t;
 
-  my_kd_tree_t *index = NULL;
+  std::unique_ptr<my_kd_tree_t> index;
+
+  std::vector<Point3D> p3ds;
+  std::vector<Point2D> p2ds;
+  std::vector<unsigned int> pidx;
 
  public:
-  std::vector<POI> pois;
+  POIindex(const std::vector<POI> &pois);
+  ~POIindex();
 
   // Must return the number of data points
   inline size_t kdtree_get_point_count() const;
@@ -87,26 +84,13 @@ class POICollection {
   template <class BBOX>
   bool kdtree_get_bbox(BBOX& /* bb */) const;
 
-  void buildIndex();
-
-  void addPOI(const std::bitset<12> &overlaps, const Point2D &p, double rtheta);
-  void addPOI(const POI &poi);
-
-  POI& operator[](unsigned int i);
-  const POI& operator[](unsigned int i) const;
-  unsigned int size() const;
-
   std::vector<size_t> query(const Point3D &qp) const;
   std::vector<size_t> query(const unsigned int qpn) const;
-
-  template <class Archive>
-  void serialize( Archive & ar ) {
-    ar(pois);
-  }
-
-  void save(std::string filename) const;
-  bool load(std::string filename);
 };
 
+typedef std::vector<POI> POICollection;
+
+bool LoadPOICollection(POICollection &poic, std::string filename);
+void SavePOICollection(const POICollection &poic, std::string filename);
 
 #endif
