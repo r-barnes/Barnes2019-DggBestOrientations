@@ -5,3 +5,4 @@ temp/
 *.gcov
 *.gcda
 *.gcno
+notes/
