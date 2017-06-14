@@ -20,6 +20,7 @@
 #include <iomanip>
 #include <cassert>
 #include <fstream>
+#include "doctest.h"
 
 #ifdef ENV_XSEDE
   const std::string FILE_WGS84_LANDMASS = "/home/rbarnes1/scratch/dgg_best/land-polygons-complete-4326/land_polygons.shp";
@@ -132,65 +133,30 @@ std::vector<Point2D> GenerateOrientations(){
   return orientations;
 }
 
-void Test(){
-  std::cerr<<"Running tests..."<<std::endl;
+//Determine the number of orientations in one quadrant of the 3-space
+TEST_CASE("Counting orientations [expensive]"){
+  const auto orientations = GenerateOrientations();
 
-  {
-    const auto orientations = GenerateOrientations();
-
-    int mincount = std::numeric_limits<int>::max();
-    int maxcount = std::numeric_limits<int>::lowest();
-    Timer tmr;
-    #pragma omp parallel for default(none) schedule(static) reduction(min:mincount) reduction(max:maxcount)
-    for(unsigned int oi=0;oi<orientations.size();oi++)
-    for(double rtheta=0;rtheta<72.01*DEG_TO_RAD;rtheta+=PRECISION*DEG_TO_RAD){
-      IcosaXYZ p = IcosaXY(orientations[oi],rtheta).toXYZ(1);
-      int count  = 0;
-      for(const auto &v: p.v)
-        if(v.y>=0 && v.z>=0)
-          count++;
-      mincount = std::min(count,mincount);
-      maxcount = std::max(count,maxcount);
-    }
-    std::cerr<<"Min count = "<<mincount<<std::endl;
-    std::cerr<<"Max count = "<<maxcount<<std::endl;
+  int mincount = std::numeric_limits<int>::max();
+  int maxcount = std::numeric_limits<int>::lowest();
+  Timer tmr;
+  #pragma omp parallel for default(none) schedule(static) reduction(min:mincount) reduction(max:maxcount)
+  for(unsigned int oi=0;oi<orientations.size();oi++)
+  for(double rtheta=0;rtheta<72.01*DEG_TO_RAD;rtheta+=PRECISION*DEG_TO_RAD){
+    IcosaXYZ p = IcosaXY(orientations[oi],rtheta).toXYZ(1);
+    int count  = 0;
+    for(const auto &v: p.v)
+      if(v.y>=0 && v.z>=0)
+        count++;
+    mincount = std::min(count,mincount);
+    maxcount = std::max(count,maxcount);
   }
-
-  {
-    const GeographicLib::Geodesic geod(GeographicLib::Constants::WGS84_a(), GeographicLib::Constants::WGS84_f());
-    IcosaXY p;
-    const auto   neighbors = p.neighbors();
-    const double ndist     = IcosaXY().neighborDistance()*1000;  //Approximate spacing between vertices in metres
-    const double spacing   = 10e3;                               //Spacing between points = 10km
-    const int    num_pts   = int(std::ceil(ndist / spacing));    //The number of intervals
-
-    std::cerr<<"GC arcs: "<<(neighbors.size()/2)<<std::endl;
-
-    std::ofstream fout_gc("test_gc_points");
-    const auto dist = GeoDistanceHaversine(p.v[NA],p.v[NB]);
-    //std::cerr<<"GC dist nominal = "<<dist<<std::endl;
-    for(unsigned int n=0;n<neighbors.size();n+=2){
-      const auto &a = p.v[neighbors[n]];
-      const auto &b = p.v[neighbors[n+1]];
-      //std::cerr<<"GC dist diff = "<<std::abs(GeoDistanceHaversine(a,b)-dist)<<std::endl;
-      assert(std::abs(GeoDistanceHaversine(a,b)-dist)<1);
-      const GeographicLib::GeodesicLine line = geod.InverseLine(
-        a.y*RAD_TO_DEG,
-        a.x*RAD_TO_DEG,
-        b.y*RAD_TO_DEG,
-        b.x*RAD_TO_DEG
-      );
-      const double da = line.Arc() / num_pts;
-      for(int i=0;i<=num_pts;i++) {
-        Point2D temp;
-        line.ArcPosition(i * da, temp.y, temp.x);
-        fout_gc<<temp.y<<" "<<temp.x<<"\n";
-      }
-    }
-  }
-
-  std::cerr<<"Passed"<<std::endl;
+  CHECK(mincount==2);
+  CHECK(maxcount==3);
 }
+
+
+
 POICollection FindOrientationsOfInterest(const IndexedShapefile &landmass){
   std::cerr<<"Finding poles..."<<std::endl;
   POICollection poic;
@@ -452,11 +418,11 @@ void DetermineDominants(POICollection &poic){
   // }
 
   std::cerr<<"Time taken = "<<tmr.elapsed()<<std::endl;
-}
+}*/
+
+#ifdef DOCTEST_CONFIG_DISABLE
 
 int main(){
-  Test();
-
   std::cerr<<"PRECISION = "<<PRECISION<<std::endl;
 
   POICollection poic;
@@ -494,3 +460,5 @@ int main(){
 
   return 0;
 }
+
+#endif
