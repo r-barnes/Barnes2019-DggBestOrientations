@@ -69,7 +69,7 @@ inline double POIindex::kdtree_get_pt(const size_t idx, int dim) const {
 template <class BBOX>
 bool POIindex::kdtree_get_bbox(BBOX& /* bb */) const { return false; }
 
-std::vector<size_t> POIindex::query(const Point3D &qp) const {
+std::vector<unsigned int> POIindex::query(const Point3D &qp) const {
   double query_pt[3] = {qp.x,qp.y,qp.z};
 
   //const size_t num_results = 10000;
@@ -90,20 +90,20 @@ std::vector<size_t> POIindex::query(const Point3D &qp) const {
   //std::cerr<<"Found "<<matches.size()<<" in radius."<<std::endl;
   //std::cerr<<"Smallest = "<<matches.front().second<<", Largest="<<matches.back().second<<std::endl;
 
-  std::vector<size_t> temp(matches.size());
+  std::vector<unsigned int> temp(matches.size());
   for(const auto &m: matches)
     temp.emplace_back(m.first);
 
   return temp;
 }
 
-std::vector<size_t> POIindex::query(const unsigned int qpn) const {
+std::vector<unsigned int> POIindex::query(const unsigned int qpn) const {
   //Locate the first point corresponding to qpn, we'll iterate forward to
   //identify the rest
   const size_t fs = std::lower_bound(pidx.begin(), pidx.end(), qpn)-pidx.begin();
 
   //For each 3D point of the query POI, find its nearest neighbours in 3-space
-  std::vector< std::vector<size_t> > results;
+  std::vector< std::vector<unsigned int> > results;
   results.reserve(3); //Can have 2-3 neighbours
   //Iterate through all of the points associated with qpn that we have in the
   //index, finding their nearest neighbours
@@ -145,7 +145,7 @@ std::vector<size_t> POIindex::query(const unsigned int qpn) const {
   }
 
   //Put all neighbours which are close enough into the vector
-  std::vector<size_t> closest_n;
+  std::vector<unsigned int> closest_n;
   for(const auto &nd: distances){
     if(nd.second<std::numeric_limits<double>::infinity())
       closest_n.emplace_back(nd.first);

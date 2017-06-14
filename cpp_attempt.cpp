@@ -51,6 +51,8 @@ const int NA = 0;
 const int NB = 2;
 const int NC = 4;
 
+typedef std::vector< std::vector<unsigned int> > norientations_t;
+
 //1 degree grid spacing
 //const double PRECISION  = 1;  
 //const double DIV        = 1;
@@ -266,6 +268,7 @@ void EdgeOverlaps(const IndexedShapefile &landmass, POICollection &poic){
 //CHEESE
 template<class T>
 std::vector<size_t> Dominants(
+  const norientations_t &orientations,
   const POICollection &poic,
   T dom_checker
 ){
@@ -275,17 +278,16 @@ std::vector<size_t> Dominants(
 
   POIindex poii(poic);
 
-  #pragma omp parallel for
-  for(unsigned int i=0;i<poic.size();i++){
+  #pragma omp parallel for default(none) schedule(static) shared(orientations,std::cerr,poic,dom_checker,dominates)
+  for(unsigned int i=0;i<orientations.size();i++){
     if(dominates[i]!=i)                                   //Skip those already dominated
       continue;
-    auto closest_n = poii.query(i);
-    if(closest_n.size()==0)
+    if(orientations[i].size()==0)
       std::cerr<<"Nothing closest!"<<std::endl;
     #pragma omp critical
-    for(const auto &n: closest_n){
+    for(const auto &n: orientations[i]){
       if(dominates[n]==n && dom_checker(poic[i],poic[n])) //Is n not already dominated? Does i dominate n?
-        dominates[n]=i;                                   //Make i dominate n.second
+        dominates[n] = i;                                 //Make i dominate n.second
     }
   }
 
@@ -320,7 +322,7 @@ std::ofstream& PrintPOICoordinates(std::ofstream& fout, const POICollection &poi
   return fout;
 }
 
-std::vector< std::vector<size_t> > FindNearbyOrientations(const POICollection &poic){
+norientations_t FindNearbyOrientations(const POICollection &poic){
   Timer tmr;
   
   std::cerr<<"Finding nearby orientations..."<<std::endl;
@@ -330,7 +332,7 @@ std::vector< std::vector<size_t> > FindNearbyOrientations(const POICollection &p
   POIindex poii(poic);
   std::cerr<<"Time = "<<tmr_bi.elapsed()<<std::endl;
 
-  std::vector< std::vector<size_t> > oneighbors(poic.size());
+  norientations_t oneighbors(poic.size());
   
   #pragma omp parallel for
   for(unsigned int i=0;i<poic.size();i++)
@@ -361,8 +363,8 @@ TEST_CASE("POIindex"){
 }
 
 
-/*
-void DetermineDominants(POICollection &poic){
+
+void DetermineDominants(POICollection &poic, const norientations_t &norientations){
   Timer tmr;
 
   std::cerr<<"Determining dominants..."<<std::endl;
@@ -372,15 +374,13 @@ void DetermineDominants(POICollection &poic){
   POIindex poii(poic);
   std::cerr<<"Finished. Time = "<<tmr_bi.elapsed()<<std::endl;
 
-  std::cerr<<"Using tree to find nearby orientations..."<<std::endl;  
-
-
+  std::cerr<<"Using tree to find nearby orientations..."<<std::endl;
   {
     std::ofstream fout_td("test_dom");
     auto dom_checker = [](const POI &a, const POI &b){
       return a.mindist>b.mindist;
     };
-    auto result = Dominants(poic, dom_checker);
+    auto result = Dominants(norientations, poic, dom_checker);
     int count   = 0;
     for(unsigned int p=0;p<poic.size();p++){
       if(p!=result[p])

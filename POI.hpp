@@ -84,8 +84,8 @@ class POIindex {
   template <class BBOX>
   bool kdtree_get_bbox(BBOX& /* bb */) const;
 
-  std::vector<size_t> query(const Point3D &qp) const;
-  std::vector<size_t> query(const unsigned int qpn) const;
+  std::vector<unsigned int> query(const Point3D &qp) const;
+  std::vector<unsigned int> query(const unsigned int qpn) const;
 };
 
 typedef std::vector<POI> POICollection;
