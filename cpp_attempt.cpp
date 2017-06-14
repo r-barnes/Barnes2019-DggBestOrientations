@@ -99,17 +99,20 @@ TEST_CASE("Test with data [data]"){
     std::cerr<<"Fuller count: "<<ocount<<std::endl;
     assert(ocount==0);
   }
-
-  std::cerr<<"Passed"<<std::endl;
 }
 
+
+
 std::vector<Point2D> GenerateOrientations(){
+  std::cerr<<"Generating orientations..."<<std::endl;
   std::vector<Point2D> orientations;
 
   //Number of points to sample
   const int N = (int)(8*M_PI*Rearth*Rearth/std::sqrt(3)/pspace/pspace);
 
   //Generate orientations
+  #pragma omp declare reduction (merge : std::vector<Point2D> : omp_out.insert(omp_out.end(), omp_in.begin(), omp_in.end()))
+  #pragma omp parallel for default(none) schedule(static) reduction(merge: orientations)
   for(int i=0;i<N;i++){
     Point2D temp (
       M_PI*(3-std::sqrt(5))*i,
