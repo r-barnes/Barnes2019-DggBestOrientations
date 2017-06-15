@@ -69,32 +69,31 @@ inline double POIindex::kdtree_get_pt(const size_t idx, int dim) const {
 template <class BBOX>
 bool POIindex::kdtree_get_bbox(BBOX& /* bb */) const { return false; }
 
-std::vector<unsigned int> POIindex::query(const Point3D &qp) const {
+std::vector<std::pair<unsigned int, double> > POIindex::query(const Point3D &qp) const {
   double query_pt[3] = {qp.x,qp.y,qp.z};
 
-  //const size_t num_results = 10000;
-  //size_t ret_index[num_results];
-  //double out_dist_sqr[num_results];
-  //nanoflann::KNNResultSet<double> resultSet(num_results);
-  //resultSet.init(ret_index, out_dist_sqr);
-  //index->findNeighbors(resultSet, &query_pt[0], nanoflann::SearchParams(10));
-  //std::vector<size_t> temp(ret_index, ret_index+num_results);
-  //if(size()<num_results)
-  //  temp.resize(size());
+  const size_t num_results = 3000;
+  size_t ret_index[num_results];
+  double out_dist_sqr[num_results];
+  nanoflann::KNNResultSet<double> resultSet(num_results);
+  resultSet.init(ret_index, out_dist_sqr);
+  nanoflann::SearchParams sp{32,0.05,true};
+  index->findNeighbors(resultSet, &query_pt[0], sp);
 
-  std::vector<std::pair<size_t, double> > matches;
-  nanoflann::SearchParams params;
+  std::vector<std::pair<unsigned int, double> > matches;
+  for(unsigned int i=0;i<resultSet.size();i++)
+    matches.emplace_back(ret_index[i], out_dist_sqr[i]);
 
-  index->radiusSearch(query_pt, 100*100, matches, params);
-  std::sort(matches.begin(),matches.end(),[&](const std::pair<size_t, double> &a, const std::pair<size_t, double> &b){return a.second<b.second;});
+  // std::vector<std::pair<size_t, double> > matches;
+  // nanoflann::SearchParams params;
+
+  // index->radiusSearch(query_pt, 100*100, matches, params);
+  // std::sort(matches.begin(),matches.end(),[&](const std::pair<size_t, double> &a, const std::pair<size_t, double> &b){return a.second<b.second;});
+
   //std::cerr<<"Found "<<matches.size()<<" in radius."<<std::endl;
   //std::cerr<<"Smallest = "<<matches.front().second<<", Largest="<<matches.back().second<<std::endl;
 
-  std::vector<unsigned int> temp(matches.size());
-  for(const auto &m: matches)
-    temp.emplace_back(m.first);
-
-  return temp;
+  return matches;
 }
 
 std::vector<unsigned int> POIindex::query(const unsigned int qpn) const {
@@ -103,20 +102,20 @@ std::vector<unsigned int> POIindex::query(const unsigned int qpn) const {
   const size_t fs = std::lower_bound(pidx.begin(), pidx.end(), qpn)-pidx.begin();
 
   //For each 3D point of the query POI, find its nearest neighbours in 3-space
-  std::vector< std::vector<unsigned int> > results;
-  results.reserve(3); //Can have 2-3 neighbours
+  std::vector< std::vector<std::pair<unsigned int, double> > > matches;
+  matches.reserve(3); //Can have 2-3 neighbours
   //Iterate through all of the points associated with qpn that we have in the
   //index, finding their nearest neighbours
   for(unsigned int fi=fs;pidx[fi]==qpn;fi++)
-    results.push_back(query(p3ds[fi]));
+    matches.push_back(query(p3ds[fi]));
 
   //Look at the neighbours of each point and determine how many times each
   //neighbour is seen total. Ignore qpn itself.
   std::unordered_map<size_t,uint8_t> counts(10000);
-  for(const auto &r: results)
+  for(const auto &r: matches)
   for(const auto &x: r){
-    if(pidx[x]!=qpn)
-      counts[pidx[x]]++;
+    if(pidx[x.first]!=qpn)
+      counts[pidx[x.first]]++;
   }
 
   //Neighbours seen near two points represent an actual neighbouring
@@ -133,15 +132,16 @@ std::vector<unsigned int> POIindex::query(const unsigned int qpn) const {
   //For each vertex of qpn that falls in the search zone, get the distances from
   //that vertex to all of its nearest neighbours. However, ignore those
   //neighbours which did not also appear near at least one other vertex of qpn.
-  for(unsigned int i=0;i<results.size();i++)
-  for(const auto &x: results[i]){
-    if(counts.count(pidx[x])==0)
+  for(unsigned int i=0;i<matches.size();i++)
+  for(const auto &x: matches[i]){
+    if(counts.count(pidx[x.first])==0)
       continue;
-    const auto dist = GeoDistanceHaversine(p2ds[x], p2ds[fs+i]);
+    //const auto dist = GeoDistanceHaversine(p2ds[x.first], p2ds[fs+i]);
+    const auto dist = x.second;
     if(dist>100) //Is neighbor too distant? If so, trash the whole orientation
-      distances[pidx[x]] += std::numeric_limits<double>::infinity();
+      distances[pidx[x.first]] += std::numeric_limits<double>::infinity();
     else
-      distances[pidx[x]] += dist;
+      distances[pidx[x.first]] += dist;
   }
 
   //Put all neighbours which are close enough into the vector

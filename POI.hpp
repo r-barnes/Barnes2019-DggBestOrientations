@@ -84,7 +84,7 @@ class POIindex {
   template <class BBOX>
   bool kdtree_get_bbox(BBOX& /* bb */) const;
 
-  std::vector<unsigned int> query(const Point3D &qp) const;
+  std::vector<std::pair<unsigned int, double> > query(const Point3D &qp) const;
   std::vector<unsigned int> query(const unsigned int qpn) const;
 };
 
