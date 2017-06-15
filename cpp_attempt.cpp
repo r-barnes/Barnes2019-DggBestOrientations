@@ -326,15 +326,7 @@ TEST_CASE("POIindex"){
 
 void DetermineDominants(POICollection &poic, const norientations_t &norientations){
   Timer tmr;
-
   std::cerr<<"Determining dominants..."<<std::endl;
-
-  std::cerr<<"Building POI kd-tree index..."<<std::endl;
-  Timer tmr_bi;
-  POIindex poii(poic);
-  std::cerr<<"Finished. Time = "<<tmr_bi.elapsed()<<std::endl;
-
-  std::cerr<<"Using tree to find nearby orientations..."<<std::endl;
   {
     std::ofstream fout_td("test_dom");
     auto dom_checker = [](const POI &a, const POI &b){
