@@ -297,8 +297,8 @@ norientations_t FindNearbyOrientations(const POICollection &poic){
   std::cerr<<"Finding nearby orientations..."<<std::endl;
 
   norientations_t oneighbors(poic.size());
-  
-  #pragma omp parallel for
+
+  #pragma omp parallel for default(none) schedule(static) shared(poic,oneighbors,poii)
   for(unsigned int i=0;i<poic.size();i++)
     oneighbors[i] = poii.query(i);
 
