@@ -234,7 +234,7 @@ void EdgeOverlaps(const IndexedShapefile &landmass, POICollection &poic){
 
 //CHEESE
 template<class T>
-std::vector<size_t> Dominants(
+std::vector<unsigned int> Dominants(
   const norientations_t &orientations,
   const POICollection &poic,
   T dom_checker
@@ -256,7 +256,12 @@ std::vector<size_t> Dominants(
     }
   }
 
-  return dominates;
+  std::vector<unsigned int> ret;
+  for(unsigned int i=0;i<dominates.size();i++)
+    if(dominates[i]==i)
+      ret.push_back(i);
+
+  return ret;
 }
 
 std::ofstream& PrintPOI(std::ofstream& fout, const POICollection &poic, const int i){
@@ -322,47 +327,50 @@ TEST_CASE("POIindex"){
   CHECK(oneighbors[7].size()==0);
 }
 
-
+void PrintOrienations(
+  std::string fileprefix,
+  const POICollection &poic,
+  const std::vector<unsigned int> &to_print
+){
+  std::cerr<<"Printing "<<to_print.size()<<" to '"<<fileprefix<<"'"<<std::endl;
+  {
+    std::ofstream fout(fileprefix+"-rot.csv");
+    for(const auto &x: to_print)
+      PrintPOI(fout, poic, x);
+  }
+  {
+    std::ofstream fout(fileprefix+"-vert.csv");
+    for(const auto &x: to_print)
+      PrintPOICoordinates(fout, poic, x);
+  }
+}
 
 void DetermineDominants(POICollection &poic, const norientations_t &norientations){
   Timer tmr;
   std::cerr<<"Determining dominants..."<<std::endl;
   {
-    std::ofstream fout_td("test_dom");
-    auto dom_checker = [](const POI &a, const POI &b){
-      return a.mindist>b.mindist;
-    };
-    auto result = Dominants(norientations, poic, dom_checker);
-    int count   = 0;
-    for(unsigned int p=0;p<poic.size();p++){
-      if(p!=result[p])
-        continue;
-      count++;
-      PrintPOI(fout_td, poic, p);
-    }
-    std::cerr<<"Dominants found = "<<count<<std::endl;
+    auto dom_checker = [](const POI &a, const POI &b){ return a.mindist>b.mindist; };
+    const auto result = Dominants(norientations, poic, dom_checker);
+    PrintOrienations("out_mindist", poic, result);
   }
 
-  // {
-  //   auto dom_checker = [](const POI &a, const POI &b){
-  //     return a.maxdist>b.maxdist;
-  //   };
-  //   auto result = Dominants(poic, dom_checker);
-  // }
+  {
+    auto dom_checker = [](const POI &a, const POI &b){ return a.maxdist>b.maxdist; };
+    const auto result = Dominants(norientations, poic, dom_checker);
+    PrintOrienations("out_maxdist", poic, result);
+  }
 
-  // {
-  //   auto dom_checker = [](const POI &a, const POI &b){
-  //     return a.avgdist>b.avgdist;
-  //   };
-  //   auto result = Dominants(poic, dom_checker);
-  // }
+  {
+    auto dom_checker = [](const POI &a, const POI &b){ return a.avgdist>b.avgdist; };
+    const auto result = Dominants(norientations, poic, dom_checker);
+    PrintOrienations("out_avgdist", poic, result);
+  }
 
-  // {
-  //   auto dom_checker = [](const POI &a, const POI &b){
-  //     return a.edge_overlaps<b.edge_overlaps;
-  //   };
-  //   auto result = Dominants(poic, dom_checker);
-  // }
+  {
+    auto dom_checker = [](const POI &a, const POI &b){ return a.edge_overlaps<b.edge_overlaps; };
+    const auto result = Dominants(norientations, poic, dom_checker);
+    PrintOrienations("out_edge_overlaps", poic, result);
+  }
 
   std::cerr<<"Time taken = "<<tmr.elapsed()<<std::endl;
 }
