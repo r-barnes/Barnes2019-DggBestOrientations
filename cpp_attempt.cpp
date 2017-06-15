@@ -288,14 +288,13 @@ std::ofstream& PrintPOICoordinates(std::ofstream& fout, const POICollection &poi
 }
 
 norientations_t FindNearbyOrientations(const POICollection &poic){
-  Timer tmr;
-  
-  std::cerr<<"Finding nearby orientations..."<<std::endl;
-  
   Timer tmr_bi;
   std::cerr<<"Building kd-tree"<<std::endl;
   POIindex poii(poic);
   std::cerr<<"Time = "<<tmr_bi.elapsed()<<std::endl;
+
+  Timer tmr;
+  std::cerr<<"Finding nearby orientations..."<<std::endl;
 
   norientations_t oneighbors(poic.size());
   
@@ -303,7 +302,7 @@ norientations_t FindNearbyOrientations(const POICollection &poic){
   for(unsigned int i=0;i<poic.size();i++)
     oneighbors[i] = poii.query(i);
 
-  std::cerr<<"Finished. Time = "<<tmr_bi.elapsed()<<std::endl;
+  std::cerr<<"Time taken = "<<tmr.elapsed()<<std::endl;
 
   return oneighbors;
 }
