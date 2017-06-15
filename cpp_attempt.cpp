@@ -252,7 +252,7 @@ std::vector<size_t> Dominants(
     #pragma omp critical
     for(const auto &n: orientations[i]){
       if(dominates[n]==n && dom_checker(poic[i],poic[n])) //Is n not already dominated? Does i dominate n?
-        dominates[n] = i;                                 //Make i dominate n.second
+        dominates[n] = i;                                 //Make i dominate n
     }
   }
 
