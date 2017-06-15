@@ -247,8 +247,6 @@ std::vector<size_t> Dominants(
 
   #pragma omp parallel for default(none) schedule(static) shared(orientations,std::cerr,poic,dom_checker,dominates)
   for(unsigned int i=0;i<orientations.size();i++){
-    if(dominates[i]!=i)                                   //Skip those already dominated
-      continue;
     if(orientations[i].size()==0)
       std::cerr<<"Nothing closest!"<<std::endl;
     #pragma omp critical
