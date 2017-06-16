@@ -244,8 +244,17 @@ std::vector<unsigned int> Dominants(
   for(unsigned int i=0;i<orientations.size();i++){
     #pragma omp critical
     for(const auto &n: orientations[i]){
-      if(dominates[n]==n && dom_checker(poic[i],poic[n])) //Is n not already dominated? Does i dominate n?
-        dominates[n] = i;                                 //Make i dominate n
+      //n is already dominated
+      if(dominates[n]!=n) 
+        continue;
+      //Don't dominate orientations with differing coverages
+      if(poic[i].overlaps.count()!=poic[n].overlaps.count()) 
+        continue;
+      //If i doesn't dominate n, then it doesn't
+      if(!dom_checker(poic[i],poic[n])) 
+        continue;
+      //Make i dominate n
+      dominates[n] = i;                                 
     }
   }
 
