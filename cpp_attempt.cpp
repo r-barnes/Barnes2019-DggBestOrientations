@@ -44,7 +44,6 @@ const double RAD_TO_DEG = 180.0/M_PI;
 
 //1/10th of a degree grid spacing
 const double PRECISION  = 0.1;
-const double DIV        = 10.0;
 
 //Neighbouring vertices of icosahedron used for generating rotations
 const int NA = 0;
@@ -52,10 +51,6 @@ const int NB = 2;
 const int NC = 4;
 
 typedef std::vector< std::vector<unsigned int> > norientations_t;
-
-//1 degree grid spacing
-//const double PRECISION  = 1;  
-//const double DIV        = 1;
 
 template<class T>
 bool LoadFromArchive(T &poic, std::string filename){
