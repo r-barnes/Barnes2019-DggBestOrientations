@@ -221,7 +221,7 @@ void EdgeOverlaps(const IndexedShapefile &landmass, POICollection &poic){
     for(unsigned int n=0;n<neighbors.size();n+=2){
       const auto &a = p.v[neighbors[n]];
       const auto &b = p.v[neighbors[n+1]];
-      poic[pn].edge_overlaps = EdgeOverlapHelper(landmass, a, b, num_pts);
+      poic[pn].edge_overlaps += EdgeOverlapHelper(landmass, a, b, num_pts);
     }
   }
   std::cout << "Time taken = " << tmr.elapsed() <<"s"<< std::endl;
