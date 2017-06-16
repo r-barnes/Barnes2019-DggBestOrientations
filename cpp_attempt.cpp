@@ -251,7 +251,7 @@ std::vector<unsigned int> Dominants(
 
   std::vector<unsigned int> ret;
   for(unsigned int i=0;i<dominates.size();i++)
-    if(dominates[i]==i)
+    if(dominates[i]==i) //Nothing dominates *this* point
       ret.push_back(i);
 
   return ret;
