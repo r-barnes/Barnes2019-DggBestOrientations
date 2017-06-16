@@ -420,10 +420,79 @@ TEST_CASE("Test with data [expensive]"){
     assert(ocount==0);
   }
 
-  SUBCASE("EdgeOverlapHelper"){
-    auto a = Point2D(-93,45).toRadians();
-    auto b = Point2D(-104.9903, 39.7392).toRadians();
-    CHECK(EdgeOverlapHelper(landmass,a,b,100)==101);
+  SUBCASE("PointOverlaps"){
+    std::vector<Point2D> cities;
+    cities.emplace_back(95.0175,27.4833); //MOHANBARI, INDIA
+    cities.emplace_back(-73.0603,-40.6114); //OSORNO, CHILE
+    cities.emplace_back(92.9786,24.9128); //SILCHAR, INDIA
+    cities.emplace_back(22.3931,62.4625); //KAUHAJOKI, FINLAND
+    cities.emplace_back(14.4228,62.0478); //SVEG, SWEDEN
+    cities.emplace_back(-81.755,26.5361); //FORT MYERS, USA
+    cities.emplace_back(150.988,-33.9244); //SYDNEY, AUSTRALIA
+    cities.emplace_back(-1.09556,52.0408); //TURWESTON, U.K.
+    cities.emplace_back(22.0189,50.11); //RZESZOW, POLAND
+    cities.emplace_back(-77.5983,-9.34722); //ANTA, PERU
+    cities.emplace_back(-1.1775,47.4081); //ANCENIS, FRANCE
+    cities.emplace_back(8.39889,46.9747); //BUOCHS, SWITZERLAND
+    cities.emplace_back(-154.911,59.7536); //ILIAMNA, USA
+    cities.emplace_back(-77.7956,24.6978); //ANDROS TOWN, BAHAMAS
+    cities.emplace_back(-111.348,25.9892); //LORETO, MEXICO
+    cities.emplace_back(25.8225,-17.8217); //LIVINGSTONE, ZAMBIA
+    cities.emplace_back(-71.3439,-17.695); //ILO, PERU
+    cities.emplace_back(-1.52306,43.4683); //BIARRITZ-BAYONNE, FRANCE
+    cities.emplace_back(39.0081,8.71556); //DEBRE ZEIT, ETHIOPIA
+    cities.emplace_back(-59.2278,-37.2372); //TANDIL, ARGENTINA
+    cities.emplace_back(124.611,8.41444); //LADAG, PHILIPPINES
+    cities.emplace_back(86.1486,23.6433); //BOKARO, INDIA
+    cities.emplace_back(-89.0558,13.4406); //SAN SALVADOR, EL SALVADOR
+    cities.emplace_back(30.3986,-29.6489); //PIETERMARITZBURG, SOUTH AFRICA
+    cities.emplace_back(-48.4761,-1.37917); //BELEM, BRAZIL
+    cities.emplace_back(42.5858,16.9011); //GIZAN, SAUDI ARABIA
+    cities.emplace_back(25.6933,61.1439); //VESIVEHMAA, FINLAND
+    cities.emplace_back(48.6325,-13.4847); //AMPAMPAMENA, MADAGASCAR
+    cities.emplace_back(2.85944,30.5711); //EL GOLEA, ALGERIA
+    cities.emplace_back(14.1372,57.2922); //HAGSHULT, SWEDEN
+    cities.emplace_back(-50.6514,-24.3175); //TELEMACO BORBA, BRAZIL
+    cities.emplace_back(15.4394,46.9908); //GRAZ, AUSTRIA
+    cities.emplace_back(94.9292,21.1819); //BAGAN, MYANMAR
+    cities.emplace_back(-86.6847,34.6786); //REDSTONE, USA
+    cities.emplace_back(3.42361,46.5344); //MOULINS, FRANCE
+    cities.emplace_back(-4.96111,51.8331); //HAVERFORDWEST, ENGLAND
+    cities.emplace_back(-61.7892,50.1897); //NATASHQUAN, CANADA
+    cities.emplace_back(-81.3894,35.7411); //HICKORY, USA
+    cities.emplace_back(-3.50333,39.9375); //OCANA, SPAIN
+    cities.emplace_back(-84.5872,42.7786); //LANSING, USA
+    cities.emplace_back(101.743,6.51972); //NARATHIWAT, THAILAND
+    cities.emplace_back(-0.00638889,43.1786); //TARBES, FRANCE
+    cities.emplace_back(33.6247,34.875); //LARNACA, CYPRUS
+    cities.emplace_back(21.3097,45.1467); //VRSAC, YUGOSLAVIA
+    cities.emplace_back(-103.603,35.1828); //TUCUMCARI, USA
+    cities.emplace_back(-94.3672,35.3364); //FORT SMITH, USA
+    cities.emplace_back(19.3981,51.7219); //LODZ, POLAND
+    cities.emplace_back(14.1875,48.2331); //LINZ, AUSTRIA
+    cities.emplace_back(128.881,27.8361); //TOKUNOSHIMA, JAPAN
+    cities.emplace_back(7.66722,53.5478); //WITTMUNDHAFEN, GERMANY
+    for(auto &x: cities)
+      x.toRadians();
+
+    //Check that all cities are on land
+    for(const auto &x: cities)
+      CHECK(PointOverlaps(x, landmass)==true);
+
+    //Check that all GC arcs between cities include at least some land
+    for(unsigned int i=0;i<cities.size();i++)
+    for(unsigned int j=0;j<cities.size();j++){
+      if(i==j)
+        continue;
+      CHECK(EdgeOverlapHelper(landmass,cities[i],cities[j],1000)>0);
+    }
+
+    //Route from Minneapolis to Denver should be entirely on land
+    {
+      auto a = Point2D(-93,45).toRadians();
+      auto b = Point2D(-104.9903, 39.7392).toRadians();
+      CHECK(EdgeOverlapHelper(landmass,a,b,100)==101);
+    }
   }
 }
 
