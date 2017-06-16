@@ -242,8 +242,6 @@ std::vector<unsigned int> Dominants(
 
   #pragma omp parallel for default(none) schedule(static) shared(orientations,std::cerr,poic,dom_checker,dominates)
   for(unsigned int i=0;i<orientations.size();i++){
-    if(orientations[i].size()==0)
-      std::cerr<<"Nothing closest!"<<std::endl;
     #pragma omp critical
     for(const auto &n: orientations[i]){
       if(dominates[n]==n && dom_checker(poic[i],poic[n])) //Is n not already dominated? Does i dominate n?
