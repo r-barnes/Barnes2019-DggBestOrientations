@@ -7,3 +7,7 @@ temp/
 *.gcno
 notes/
 a.out
+clean.sh
+upserver.sh
+test_gc_points
+misc/
