@@ -257,31 +257,47 @@ std::vector<unsigned int> Dominants(
   return ret;
 }
 
-std::ofstream& PrintPOI(std::ofstream& fout, const POICollection &poic, const int i){
-  fout<<i<<","
-//          <<pois[i].cluster             <<","
-      <<poic[i].overlaps.to_string()<<","
-      <<poic[i].overlaps.count()    <<","
-      <<(poic[i].pole.y*RAD_TO_DEG) <<","
-      <<(poic[i].pole.x*RAD_TO_DEG) <<","
-      <<(poic[i].rtheta*RAD_TO_DEG) <<","
-      <<poic[i].mindist             <<","
-      <<poic[i].maxdist             <<","
-      <<(poic[i].avgdist/12)        <<","
-      <<poic[i].edge_overlaps
-      <<"\n";
+std::ofstream& PrintPOI(std::ofstream& fout, const POICollection &poic, const int i, bool header){
+  if(header){
+    fout<<"num"           <<","
+        <<"overlaps"      <<","
+        <<"overlaps"      <<","
+        <<"pole.y"        <<","
+        <<"pole.x"        <<","
+        <<"rtheta"        <<","
+        <<"mindist"       <<","
+        <<"maxdist"       <<","
+        <<"avgdist"       <<","
+        <<"edge_overlaps"
+        <<"\n";
+  } else {
+    fout<<i<<","
+        <<poic[i].overlaps.to_string()<<","
+        <<poic[i].overlaps.count()    <<","
+        <<(poic[i].pole.y*RAD_TO_DEG) <<","
+        <<(poic[i].pole.x*RAD_TO_DEG) <<","
+        <<(poic[i].rtheta*RAD_TO_DEG) <<","
+        <<poic[i].mindist             <<","
+        <<poic[i].maxdist             <<","
+        <<(poic[i].avgdist/12)        <<","
+        <<poic[i].edge_overlaps
+        <<"\n";
+  }
   return fout;
 }
 
-std::ofstream& PrintPOICoordinates(std::ofstream& fout, const POICollection &poic, const int pn){
-  IcosaXY p(poic[pn].pole, poic[pn].rtheta);
-  for(unsigned int i=0;i<p.v.size();i++)
-    fout<<pn                    <<","
-//            <<poic[pn].cluster      <<","
-        <<p.v[i].y*RAD_TO_DEG<<","
-        <<p.v[i].x*RAD_TO_DEG<<","
-        <<poic[pn].overlaps.test(i)
-        <<"\n";
+std::ofstream& PrintPOICoordinates(std::ofstream& fout, const POICollection &poic, const int pn, bool header){
+  if(header){
+    fout<<"Num,Lat,Lon,OnLand\n";
+  } else {
+    IcosaXY p(poic[pn].pole, poic[pn].rtheta);
+    for(unsigned int i=0;i<p.v.size();i++)
+      fout<<pn                    <<","
+          <<p.v[i].y*RAD_TO_DEG<<","
+          <<p.v[i].x*RAD_TO_DEG<<","
+          <<poic[pn].overlaps.test(i)
+          <<"\n";
+  }
   return fout;
 }
 
@@ -328,13 +344,15 @@ void PrintOrienations(
   std::cerr<<"Printing "<<to_print.size()<<" to '"<<fileprefix<<"'"<<std::endl;
   {
     std::ofstream fout(fileprefix+"-rot.csv");
+    PrintPOI(fout, poic, 0, true);
     for(const auto &x: to_print)
-      PrintPOI(fout, poic, x);
+      PrintPOI(fout, poic, x, false);
   }
   {
     std::ofstream fout(fileprefix+"-vert.csv");
+    PrintPOICoordinates(fout, poic, 0, true);
     for(const auto &x: to_print)
-      PrintPOICoordinates(fout, poic, x);
+      PrintPOICoordinates(fout, poic, x, false);
   }
 }
 
@@ -489,16 +507,16 @@ int main(){
   std::cerr<<"Writing output..."<<std::endl;
   {
     std::ofstream fout(FILE_OUTPUT_ROT);
-    fout<<"Num,Cluster,Overlaps,OverlapCount,Lat,Lon,Theta,MinDistance,MaxDistance,AvgDistance,EdgeOverlaps\n";
+    PrintPOI(fout,poic,0,true);
     for(unsigned int i=0;i<poic.size();i++)
-      PrintPOI(fout,poic,i);
+      PrintPOI(fout,poic,i,false);
   }
 
   {
     std::ofstream fout(FILE_OUTPUT_VERT);
-    fout<<"Num,Cluster,Lat,Lon,OnLand\n";
+    PrintPOICoordinates(fout, poic, 0, true);
     for(unsigned int pn=0;pn<poic.size();pn++)
-      PrintPOICoordinates(fout, poic, pn);
+      PrintPOICoordinates(fout, poic, pn, false);
   }
 
   return 0;
