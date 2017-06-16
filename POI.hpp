@@ -64,6 +64,8 @@ class POIindex {
   std::vector<unsigned int> pidx;
 
  public:
+  const double DIST_LIMIT = 2500; //50 km radius
+
   POIindex(const std::vector<POI> &pois);
   ~POIindex();
 
