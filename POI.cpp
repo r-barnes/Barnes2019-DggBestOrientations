@@ -107,7 +107,7 @@ std::vector<unsigned int> POIindex::query(const unsigned int qpn) const {
 
   //For each 3D point of the query POI, find its nearest neighbours in 3-space
   std::vector< std::vector<std::pair<unsigned int, double> > > matches;
-  matches.reserve(3); //Can have 2-3 neighbours
+  matches.reserve(4); //Can have 2-3 neighbours
   //Iterate through all of the points associated with qpn that we have in the
   //index, finding their nearest neighbours
   for(unsigned int fi=fs;pidx[fi]==qpn;fi++)
