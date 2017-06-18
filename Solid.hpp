@@ -2,7 +2,7 @@
 #define _Solid_hpp_
 
 #include "Point.hpp"
-#include "POI.hpp"
+#include "Orientation.hpp"
 #include <cmath>
 #include <array>
 #include <vector>

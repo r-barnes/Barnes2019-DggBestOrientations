@@ -1,4 +1,4 @@
-#include "POI.hpp"
+#include "Orientation.hpp"
 #include "doctest.h"
 
 Orientation::Orientation(const Point2D &pole0, const double theta0){

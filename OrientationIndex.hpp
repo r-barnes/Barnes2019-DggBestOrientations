@@ -1,7 +1,7 @@
 #ifndef _orientation_index_hpp_
 #define _orientation_index_hpp_
 
-#include "POI.hpp"
+#include "Orientation.hpp"
 #include "nanoflann.hpp"
 #include <memory>
 

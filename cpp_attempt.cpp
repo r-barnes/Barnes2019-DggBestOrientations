@@ -11,7 +11,7 @@
 #include "Solid.hpp"
 #include "GeoStuff.hpp"
 #include "Point.hpp"
-#include "POI.hpp"
+#include "Orientation.hpp"
 #include "Timer.hpp"
 #include "IndexedShapefile.hpp"
 #include "OrientationIndex.hpp"
