@@ -11,12 +11,8 @@
 const double DEG_TO_RAD = M_PI/180.0;
 const double RAD_TO_DEG = 180.0/M_PI;
 
-IcosaXY::IcosaXY(double rlat, double rlon, double rtheta){
-  rotate(rlat,rlon,rtheta);
-}
-
-IcosaXY::IcosaXY(const Point2D &p, double rtheta){
-  rotate(p,rtheta);
+IcosaXY::IcosaXY(const Orientation &o){
+  rotate(o.pole,o.theta);
 }
 
 

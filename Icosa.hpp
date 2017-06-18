@@ -2,6 +2,7 @@
 #define _icosa_hpp_
 
 #include "Point.hpp"
+#include "POI.hpp"
 #include <cmath>
 #include <array>
 #include <vector>
@@ -31,8 +32,7 @@ class IcosaXY{
   }};
 
   IcosaXY() = default;
-  IcosaXY(double rlat, double rlon, double rtheta);
-  IcosaXY(const Point2D &p, double rtheta);
+  IcosaXY(const Orientation &o);
   IcosaXY& rotate(const Point2D &p, double rtheta);
   IcosaXY& rotate(double rlat, double rlon, double rtheta);
   IcosaXY& rotateTheta(const double rtheta);
