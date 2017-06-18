@@ -14,6 +14,7 @@
 #include "POI.hpp"
 #include "Timer.hpp"
 #include "IndexedShapefile.hpp"
+#include "OrientationIndex.hpp"
 #include <GeographicLib/Geodesic.hpp>
 #include <GeographicLib/GeodesicLine.hpp>
 #include <GeographicLib/Constants.hpp>
