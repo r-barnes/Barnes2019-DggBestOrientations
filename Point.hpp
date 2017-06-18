@@ -47,7 +47,6 @@ class Rotator {
   double R_i;
  public:
   Rotator(const Point3D &oldv, const Point3D &newv);
-  //Rotator(const Point3D &axis, const double angle);
   Point3D operator()(const Point3D &p) const;
 };
 
