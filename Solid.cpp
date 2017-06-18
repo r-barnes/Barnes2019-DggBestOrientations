@@ -1,4 +1,4 @@
-#include "Icosa.hpp"
+#include "Solid.hpp"
 #include "GeoStuff.hpp"
 #include <iomanip>
 #include <iostream>

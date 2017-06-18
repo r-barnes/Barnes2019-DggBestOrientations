@@ -1,5 +1,5 @@
 #include "OrientationIndex.hpp"
-#include "Icosa.hpp"
+#include "Solid.hpp"
 #include "doctest.h"
 #include <unordered_map>
 

@@ -8,7 +8,7 @@
 #include "Polygon.hpp"
 #include "SpIndex.hpp"
 #include "PointCloud.hpp"
-#include "Icosa.hpp"
+#include "Solid.hpp"
 #include "GeoStuff.hpp"
 #include "Point.hpp"
 #include "POI.hpp"
