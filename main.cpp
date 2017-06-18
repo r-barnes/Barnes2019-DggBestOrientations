@@ -81,6 +81,24 @@ void SaveToArchive(const T &poic, std::string filename){
 
 
 
+PointCloud ReadPointCloudFromShapefile(std::string filename, std::string layer){
+  auto landmass_wgs84 = ReadShapefile(filename, layer);
+  for(auto &ll: landmass_wgs84)
+    ll.toRadians();
+
+  PointCloud wgs84pc;
+  std::cerr<<"Adding polygon points to PointCloud..."<<std::endl;
+  for(const auto &poly: landmass_wgs84)
+  for(const auto &ll: poly.exterior)
+    wgs84pc.addPoint(ll.toXYZ(1));
+  std::cerr<<"Building kd-tree..."<<std::endl;
+  wgs84pc.buildIndex();
+
+  return wgs84pc;
+}
+
+
+
 //Returns true if the point falls within a landmass
 bool PointInLandmass(const Point2D &ll, const IndexedShapefile &landmass){
   if(ll.y>83.7*DEG_TO_RAD) //The island "83-42" as at 83.7N so anything north of this is on water
@@ -272,9 +290,22 @@ OrientationWithStats OrientationStats(const PointCloud &wgs84pc, const IndexedSh
     ows.maxdist = std::max(ows.maxdist,dist);
     ows.avgdist += dist;
   }
-  ows.edge_overlaps = OrientationEdgeOverlaps(landmass, o);
+  ows.edge_overlaps = OrientationEdgeOverlaps(o, landmass);
 
   return ows;
+}
+
+
+
+OSCollection GetStatsForOrientations(const OCollection &orients, const PointCloud &wgs84pc, const IndexedShapefile &landmass){
+  OSCollection osc;
+  Timer tmr;
+  std::cerr<<"Calculating distances to orientations' vertices..."<<std::endl;
+  #pragma omp parallel for default(none) shared(wgs84pc,landmass,orients,osc)
+  for(unsigned int pn=0;pn<orients.size();pn++)
+    osc.push_back(OrientationStats(orients[pn],wgs84pc,landmass));
+  std::cout << "Time taken = " << tmr.elapsed() <<"s"<< std::endl;
+  return osc;
 }
 
 
@@ -709,35 +740,16 @@ int main(){
 
   POICollection poic;
   if(!LoadFromArchive(poic,"poic.save")){
-
     const auto landmass = IndexedShapefile(FILE_MERC_LANDMASS,"land_polygons");
     
     auto orients = GenerateOrientations(COARSE_SPACING, 90*DEG_TO_RAD);
     orients      = FindOrientationsOfInterest(landmass, orients);
 
-    auto landmass_wgs84 = ReadShapefile(FILE_WGS84_LANDMASS, "land_polygons");
-    for(auto &ll: landmass_wgs84)
-      ll.toRadians();
+    PointCloud wgs84pc = ReadPointCloudFromShapefile(FILE_WGS84_LANDMASS, "land_polygons");
 
-    PointCloud wgs84pc;
-    std::cerr<<"Adding polygon points to PointCloud..."<<std::endl;
-    for(const auto &poly: landmass_wgs84)
-    for(const auto &ll: poly.exterior)
-      wgs84pc.addPoint(ll.toXYZ(1));
-    std::cerr<<"Building kd-tree..."<<std::endl;
-    wgs84pc.buildIndex();
+    OSCollection osc = GetStatsForOrientations(landmass,wgs84pc,orients);
 
-    OSCollection osc;
-    {
-      Timer tmr;
-      std::cerr<<"Calculating distances to orientations' vertices..."<<std::endl;
-      #pragma omp parallel for default(none) shared(poic,wgs84)
-      for(unsigned int pn=0;pn<poic.size();pn++)
-        osc.push_back(OrientationStats(wgs84pc,poic[pn]));
-      std::cout << "Time taken = " << tmr.elapsed() <<"s"<< std::endl;
-    }
-
-    SaveToArchive(osc, "poic.save");
+    SaveToArchive(osc, "osc.save");
   }
 
   norientations_t norientations;
