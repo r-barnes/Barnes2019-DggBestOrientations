@@ -514,7 +514,7 @@ TEST_CASE("Counting orientations [expensive]"){
 TEST_CASE("GenerateNearbyOrientations"){
   const auto focal        = Point2D(-93,45).toRadians();
   //const auto orientations = GenerateNearbyOrientations(focal, FINE_SPACING, FINE_RADIAL_LIMIT, 0-FINE_THETA_INTERVAL, 0+FINE_THETA_INTERVAL, FINE_THETA_STEP);
-  const auto orientations = GenerateNearbyOrientations(focal, 10, 2, 0, 1, 1);
+  const auto orientations = GenerateNearbyOrientations(focal, 10, 2*DEG_TO_RAD, 0, 0, 1);
 
   CHECK (orientations.size()>0);
 
