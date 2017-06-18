@@ -180,31 +180,6 @@ OCollection GenerateNearbyOrientations(
   return orientations;
 }
 
-TEST_CASE("GenerateNearbyOrientations"){
-  const auto focal        = Point2D(-93,45).toRadians();
-  //const auto orientations = GenerateNearbyOrientations(focal, FINE_SPACING, FINE_RADIAL_LIMIT, 0-FINE_THETA_INTERVAL, 0+FINE_THETA_INTERVAL, FINE_THETA_STEP);
-  const auto orientations = GenerateNearbyOrientations(focal, 10, 2, 0, 1, 1);
-
-  CHECK (orientations.size()>0);
-
-  {
-    std::ofstream fout("test_nearby_orientations.csv");
-    fout<<"lon,lat\n";
-    for(const auto &o: orientations)
-      fout<<(o.pole.x*RAD_TO_DEG)<<","<<(o.pole.y*RAD_TO_DEG)<<"\n";
-  }
-
-  //Check that distances to all points are within the desired angular radius of
-  //the specified focal point, to within a 5% tolerance
-  double maxdist = -std::numeric_limits<double>::infinity();
-  for(const auto &o: orientations){
-    const auto dist = GeoDistanceHaversine(focal,o.pole);
-    maxdist = std::max(maxdist,dist);
-    CHECK(dist<FINE_RADIAL_LIMIT*6371*1.05);
-  }
-  std::cerr<<"Maximum nearby rotated orientation distance = "<<maxdist<<std::endl;
-}
-
 
 
 //Given a set of orientations, return a new set in which only those orientations
@@ -513,6 +488,54 @@ norientations_t FindNearbyOrientations(const T &osc){
 
 
 
+//Determine the number of orientations in one quadrant of the 3-space
+TEST_CASE("Counting orientations [expensive]"){
+  const auto orientations = GenerateOrientations(200,90*DEG_TO_RAD,0,0,COARSE_THETA_STEP);
+
+  CHECK(orientations.size()>0);
+
+  int mincount = std::numeric_limits<int>::max();
+  int maxcount = std::numeric_limits<int>::lowest();
+  Timer tmr;
+  #pragma omp parallel for default(none) schedule(static) reduction(min:mincount) reduction(max:maxcount)
+  for(unsigned int oi=0;oi<orientations.size();oi++){
+    IcosaXYZ p = IcosaXY(orientations[oi]).toXYZ(1);
+    int count  = 0;
+    for(const auto &v: p.v)
+      if(v.y>=0 && v.z>=0)
+        count++;
+    mincount = std::min(count,mincount);
+    maxcount = std::max(count,maxcount);
+  }
+  CHECK(mincount==2);
+  CHECK(maxcount==4);
+}
+
+TEST_CASE("GenerateNearbyOrientations"){
+  const auto focal        = Point2D(-93,45).toRadians();
+  //const auto orientations = GenerateNearbyOrientations(focal, FINE_SPACING, FINE_RADIAL_LIMIT, 0-FINE_THETA_INTERVAL, 0+FINE_THETA_INTERVAL, FINE_THETA_STEP);
+  const auto orientations = GenerateNearbyOrientations(focal, 10, 2, 0, 1, 1);
+
+  CHECK (orientations.size()>0);
+
+  {
+    std::ofstream fout("test_nearby_orientations.csv");
+    fout<<"lon,lat\n";
+    for(const auto &o: orientations)
+      fout<<(o.pole.x*RAD_TO_DEG)<<","<<(o.pole.y*RAD_TO_DEG)<<"\n";
+  }
+
+  //Check that distances to all points are within the desired angular radius of
+  //the specified focal point, to within a 5% tolerance
+  double maxdist = -std::numeric_limits<double>::infinity();
+  for(const auto &o: orientations){
+    const auto dist = GeoDistanceHaversine(focal,o.pole);
+    maxdist = std::max(maxdist,dist);
+    CHECK(dist<FINE_RADIAL_LIMIT*6371*1.05);
+  }
+  std::cerr<<"Maximum nearby rotated orientation distance = "<<maxdist<<std::endl;
+}
+
 TEST_CASE("Test with data [expensive]"){
   const auto landmass = IndexedShapefile(FILE_MERC_LANDMASS,"land_polygons");
 
@@ -619,29 +642,6 @@ TEST_CASE("Test with data [expensive]"){
       CHECK(GreatCircleOverlaps(landmass,a,b,100)==101);
     }
   }
-}
-
-//Determine the number of orientations in one quadrant of the 3-space
-TEST_CASE("Counting orientations [expensive]"){
-  const auto orientations = GenerateOrientations(200,90*DEG_TO_RAD,0,0,COARSE_THETA_STEP);
-
-  CHECK(orientations.size()>0);
-
-  int mincount = std::numeric_limits<int>::max();
-  int maxcount = std::numeric_limits<int>::lowest();
-  Timer tmr;
-  #pragma omp parallel for default(none) schedule(static) reduction(min:mincount) reduction(max:maxcount)
-  for(unsigned int oi=0;oi<orientations.size();oi++){
-    IcosaXYZ p = IcosaXY(orientations[oi]).toXYZ(1);
-    int count  = 0;
-    for(const auto &v: p.v)
-      if(v.y>=0 && v.z>=0)
-        count++;
-    mincount = std::min(count,mincount);
-    maxcount = std::max(count,maxcount);
-  }
-  CHECK(mincount==2);
-  CHECK(maxcount==4);
 }
 
 TEST_CASE("POIindex: Load and Save"){
