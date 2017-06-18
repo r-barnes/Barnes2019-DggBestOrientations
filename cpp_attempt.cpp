@@ -512,9 +512,11 @@ TEST_CASE("Counting orientations [expensive]"){
 }
 
 TEST_CASE("GenerateNearbyOrientations"){
-  const auto focal        = Point2D(-93,45).toRadians();
-  //const auto orientations = GenerateNearbyOrientations(focal, FINE_SPACING, FINE_RADIAL_LIMIT, 0-FINE_THETA_INTERVAL, 0+FINE_THETA_INTERVAL, FINE_THETA_STEP);
-  const auto orientations = GenerateNearbyOrientations(focal, 10, 2*DEG_TO_RAD, 0, 0, 1);
+  const auto focal           = Point2D(-93,45).toRadians();
+  const auto point_spacingkm = 10;
+  const auto radial_limit    = 2*DEG_TO_RAD;
+  //const auto orientations  = GenerateNearbyOrientations(focal, FINE_SPACING, FINE_RADIAL_LIMIT, 0-FINE_THETA_INTERVAL, 0+FINE_THETA_INTERVAL, FINE_THETA_STEP);
+  const auto orientations    = GenerateNearbyOrientations(focal, point_spacingkm, radial_limit, 0, 0, 1);
 
   CHECK (orientations.size()>0);
 
@@ -527,12 +529,15 @@ TEST_CASE("GenerateNearbyOrientations"){
 
   //Check that distances to all points are within the desired angular radius of
   //the specified focal point, to within a 5% tolerance
+  double mindist = std::numeric_limits<double>::infinity();
   double maxdist = -std::numeric_limits<double>::infinity();
   for(const auto &o: orientations){
     const auto dist = GeoDistanceHaversine(focal,o.pole);
     maxdist = std::max(maxdist,dist);
-    CHECK(dist<FINE_RADIAL_LIMIT*6371*1.05);
+    mindist = std::min(mindist,dist);
+    CHECK(dist<radial_limit*Rearth*1.05);
   }
+  std::cerr<<"Minimum nearby rotated orientation distance = "<<mindist<<std::endl;
   std::cerr<<"Maximum nearby rotated orientation distance = "<<maxdist<<std::endl;
 }
 
