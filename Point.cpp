@@ -60,6 +60,34 @@ Rotator::Rotator(const Point3D &oldv, const Point3D &newv){
   R_i = c + r3*r3*t;
 }
 
+/*
+Rotator::Rotator(const Point3D &axis, const double angle){
+  //Ensure that incoming vectors are normalized
+  CHECK(axis.x*axis.x+axis.y*axis.y+axis.z*axis.z==doctest::Approx(1));
+
+  const double c = std::cos(angle);
+  const double s = std::sqrt(1-c*c);            //= sin theta
+  const double t = 1-c;
+
+  const double x = axis.x;
+  const double y = axis.y;
+  const double z = axis.z;
+
+  CHECK(s*s+c*c==doctest::Approx(1));
+
+  //Rotation Matrix from
+  //Glassner, A.S. (Ed.), 1993. Graphics Gems I, 1st ed. p. 466
+  R_a = c + x*x*t;
+  R_b = x*y*t + z*s;
+  R_c = x*z*t - y*s;
+  R_d = x*y*t - z*s;
+  R_e = c + y*y*t;
+  R_f = x*s + y*z*t;
+  R_g = x*z*t + y*s;
+  R_h = -x*s + y*z*t;
+  R_i = c + z*z*t;
+}*/
+
 Point3D Rotator::operator()(const Point3D &p) const {
   if(mr==0)
     return p;
