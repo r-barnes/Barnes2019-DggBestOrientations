@@ -120,6 +120,39 @@ std::vector<Point2D> GenerateOrientations(const double spacing, const double rad
   return orientations;
 }
 
+std::vector<Point2D> GenerateNearbyOrientations(const Point2D &p2d, const double angular_radius, const double spacingkm){
+  auto orientations = GenerateOrientations(spacingkm,angular_radius);
+  const Rotator r(Point3D(0,0,1), p2d.toXYZ(1)); //Rotates from North Pole to alternate location
+  
+  for(auto &x: orientations)
+    x = r(x.toXYZ(1)).toLatLon();
+
+  return orientations;
+}
+
+TEST_CASE("GenerateNearbyOrientations"){
+  const auto focal            = Point2D(-93,45).toRadians();
+  const double angular_radius = 2*DEG_TO_RAD;
+  const auto orientations     = GenerateNearbyOrientations(focal, angular_radius, 10);
+
+  {
+    std::ofstream fout("test_nearby_orientations.csv");
+    fout<<"lon,lat\n";
+    for(const auto &x: orientations)
+      fout<<(x.x*RAD_TO_DEG)<<","<<(x.y*RAD_TO_DEG)<<"\n";
+  }
+
+  //Check that distances to all points are within the desired angular radius of
+  //the specified focal point, to within a 5% tolerance
+  double maxdist = -std::numeric_limits<double>::infinity();
+  for(const auto &x: orientations){
+    const auto dist = GeoDistanceHaversine(focal,x);
+    maxdist = std::max(maxdist,dist);
+    CHECK(dist<angular_radius*6371*1.05);
+  }
+  std::cerr<<"Maximum nearby rotated orientation distance = "<<maxdist<<std::endl;
+}
+
 POICollection FindOrientationsOfInterest(const IndexedShapefile &landmass){
   std::cerr<<"Finding poles..."<<std::endl;
   POICollection poic;
