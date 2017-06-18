@@ -608,13 +608,13 @@ TEST_CASE("POIindex: Load and Save"){
     poic.push_back(b);
     poic.push_back(c);
     poic.push_back(d);
-    SaveToArchive(poic, "ztest_poic");
+    SaveToArchive(poic, "test_poic_save");
   }
 
   {
     POICollection poic;
     CHECK(LoadFromArchive(poic,"asdfasfjkwefjewifj")==false);
-    CHECK(LoadFromArchive(poic,"ztest_poic")==true);
+    CHECK(LoadFromArchive(poic,"test_poic_save")==true);
     CHECK(poic[0].pole.x==a.pole.x);
     CHECK(poic[1].pole.x==b.pole.x);
     CHECK(poic[2].pole.x==c.pole.x);
