@@ -146,8 +146,9 @@ OCollection GenerateOrientations(
     );
     pole.x = std::fmod(pole.x,2*M_PI)-M_PI;
     pole.y = pole.y-M_PI/2;
+    pole.y = -pole.y; //Orientate so North Pole is up
 
-    if(pole.y>-M_PI/2+radial_limit)
+    if(pole.y<M_PI/2-radial_limit)
       break;
 
     for(double theta=theta_min;theta<=theta_max;theta+=theta_step)
@@ -487,6 +488,16 @@ norientations_t FindNearbyOrientations(const T &osc){
 }
 
 
+TEST_CASE("Check orientation of generated points"){
+  //Use NaN to ensure that all points are generated
+  const auto orientations = GenerateOrientations(200,std::nan(""),0,0,COARSE_THETA_STEP);
+  CHECK(orientations.front().pole.y>0);
+  CHECK(orientations.back().pole.y<0);
+  std::ofstream fout("test_orientations_spiral.csv");
+  fout<<"num,lat,lon\n";
+  for(unsigned int o=0;o<orientations.size();o++)
+    fout<<o<<","<<(orientations[o].pole.y*RAD_TO_DEG)<<","<<(orientations[o].pole.x*RAD_TO_DEG)<<"\n";
+}
 
 //Determine the number of orientations in one quadrant of the 3-space
 TEST_CASE("Counting orientations [expensive]"){
