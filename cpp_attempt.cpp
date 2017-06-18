@@ -88,14 +88,12 @@ bool PointOverlaps(const Point2D &ll, const IndexedShapefile &landmass){
   return false;
 }
 
-
-
-std::vector<Point2D> GenerateOrientations(){
+std::vector<Point2D> GenerateOrientations(const double spacing, const double radial_limit){
   std::cerr<<"Generating orientations..."<<std::endl;
   std::vector<Point2D> orientations;
 
   //Number of points to sample
-  const int N = (int)(8*M_PI*Rearth*Rearth/std::sqrt(3)/pspace/pspace);
+  const int N = (int)(8*M_PI*Rearth*Rearth/std::sqrt(3)/spacing/spacing);
 
   //Generate orientations
   #pragma omp declare reduction (merge : std::vector<Point2D> : omp_out.insert(omp_out.end(), omp_in.begin(), omp_in.end()))
@@ -108,10 +106,13 @@ std::vector<Point2D> GenerateOrientations(){
     temp.x = std::fmod(temp.x,2*M_PI)-M_PI;
     temp.y = temp.y-M_PI/2;
 
-    if(!(0 <= temp.x && temp.x<=78*DEG_TO_RAD))
+    if(temp.y<M_PI/2-radial_limit)
       continue;
-    if(temp.y<23*DEG_TO_RAD)
-      continue;
+
+    // if(!(0 <= temp.x && temp.x<=78*DEG_TO_RAD))
+    //   continue;
+    // if(temp.y<23*DEG_TO_RAD)
+    //   continue;
 
     orientations.push_back(temp);
   }
@@ -123,7 +124,7 @@ POICollection FindOrientationsOfInterest(const IndexedShapefile &landmass){
   std::cerr<<"Finding poles..."<<std::endl;
   POICollection poic;
   
-  const auto orientations = GenerateOrientations();
+  const auto orientations = GenerateOrientations(PSPACE, 90*DEG_TO_RAD);
   
   long count = 0;
 
@@ -512,7 +513,9 @@ TEST_CASE("Test with data [expensive]"){
 
 //Determine the number of orientations in one quadrant of the 3-space
 TEST_CASE("Counting orientations [expensive]"){
-  const auto orientations = GenerateOrientations();
+  const auto orientations = GenerateOrientations(200,90*DEG_TO_RAD);
+
+  CHECK(orientations.size()>0);
 
   int mincount = std::numeric_limits<int>::max();
   int maxcount = std::numeric_limits<int>::lowest();
