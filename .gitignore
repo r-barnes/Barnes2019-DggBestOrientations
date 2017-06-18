@@ -9,5 +9,5 @@ notes/
 a.out
 clean.sh
 upserver.sh
-test_gc_points
+test_*
 misc/
