@@ -408,33 +408,61 @@ void DetermineDominants(POICollection &poic, const norientations_t &norientation
   Timer tmr;
   std::cerr<<"Determining dominants..."<<std::endl;
   {
+    auto dom_checker = [](const POI &a, const POI &b){ return a.mindist<b.mindist; };
+    const auto result = Dominants(norientations, poic, dom_checker);
+    PrintOrienations("out_min_mindist", poic, result);
+  }
+
+  {
     auto dom_checker = [](const POI &a, const POI &b){ return a.mindist>b.mindist; };
     const auto result = Dominants(norientations, poic, dom_checker);
-    PrintOrienations("out_mindist", poic, result);
+    PrintOrienations("out_max_mindist", poic, result);
+  }
+
+
+
+  {
+    auto dom_checker = [](const POI &a, const POI &b){ return a.maxdist<b.maxdist; };
+    const auto result = Dominants(norientations, poic, dom_checker);
+    PrintOrienations("out_min_maxdist", poic, result);
   }
 
   {
     auto dom_checker = [](const POI &a, const POI &b){ return a.maxdist>b.maxdist; };
     const auto result = Dominants(norientations, poic, dom_checker);
-    PrintOrienations("out_maxdist", poic, result);
+    PrintOrienations("out_max_maxdist", poic, result);
+  }
+
+
+
+  {
+    auto dom_checker = [](const POI &a, const POI &b){ return a.avgdist<b.avgdist; };
+    const auto result = Dominants(norientations, poic, dom_checker);
+    PrintOrienations("out_min_avgdist", poic, result);
   }
 
   {
     auto dom_checker = [](const POI &a, const POI &b){ return a.avgdist>b.avgdist; };
     const auto result = Dominants(norientations, poic, dom_checker);
-    PrintOrienations("out_avgdist", poic, result);
+    PrintOrienations("out_max_avgdist", poic, result);
   }
+
+
 
   {
     auto dom_checker = [](const POI &a, const POI &b){ return a.edge_overlaps<b.edge_overlaps; };
     const auto result = Dominants(norientations, poic, dom_checker);
-    PrintOrienations("out_edge_overlaps", poic, result);
+    PrintOrienations("out_min_edge_overlaps", poic, result);
+  }
+
+  {
+    auto dom_checker = [](const POI &a, const POI &b){ return a.edge_overlaps>b.edge_overlaps; };
+    const auto result = Dominants(norientations, poic, dom_checker);
+    PrintOrienations("out_max_edge_overlaps", poic, result);
   }
 
   std::cerr<<"Time taken = "<<tmr.elapsed()<<std::endl;
 }
-
-
 
 TEST_CASE("Test with data [expensive]"){
   const auto landmass = IndexedShapefile(FILE_MERC_LANDMASS,"land_polygons");
