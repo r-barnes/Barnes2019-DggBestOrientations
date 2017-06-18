@@ -42,7 +42,7 @@ Rotator::Rotator(const Point3D &oldv, const Point3D &newv){
   CHECK(r1*r1+r2*r2+r3*r3==doctest::Approx(1));
 
   const double c = a1*b1 + a2*b2 + a3*b3;  //cos theta = B dot A
-  const double s = sqrt(1-c*c);            //= sin theta
+  const double s = std::sqrt(1-c*c);            //= sin theta
   const double t = 1-c;
 
   CHECK(s*s+c*c==doctest::Approx(1));
