@@ -42,7 +42,7 @@
 #endif
 
 const double Rearth = 6371; //km
-const double pspace = 10;  //km - Desired interpoint spacing
+const double PSPACE = 10;  //km - Desired interpoint spacing
 
 const double DEG_TO_RAD = M_PI/180.0;
 const double RAD_TO_DEG = 180.0/M_PI;
