@@ -55,10 +55,7 @@ const double FINE_RADIAL_LIMIT   = 0.002;
 const double DEG_TO_RAD = M_PI/180.0;
 const double RAD_TO_DEG = 180.0/M_PI;
 
-//1/10th of a degree grid spacing
-const double PRECISION  = 0.1;
-
-//Neighbouring vertices of icosahedron used for generating rotations
+//Neighbouring vertices of Icosahedron used for generating rotations
 const int NA = 0;
 const int NB = 2;
 const int NC = 4;
@@ -82,7 +79,10 @@ void SaveToArchive(const T &poic, std::string filename){
   archive(poic);
 }
 
-bool PointOverlaps(const Point2D &ll, const IndexedShapefile &landmass){
+
+
+//Returns true if the point falls within a landmass
+bool PointInLandmass(const Point2D &ll, const IndexedShapefile &landmass){
   if(ll.y>83.7*DEG_TO_RAD) //The island "83-42" as at 83.7N so anything north of this is on water
     return false;
   if(ll.y<-80*DEG_TO_RAD)  //The southmost extent of water is ~79.5S, so anything south of this is on land
@@ -96,148 +96,151 @@ bool PointOverlaps(const Point2D &ll, const IndexedShapefile &landmass){
   return false;
 }
 
-std::vector<Point2D> GenerateOrientations(const double spacing, const double radial_limit){
-  std::cerr<<"Generating orientations..."<<std::endl;
-  std::vector<Point2D> orientations;
+
+
+//Returns a bitset indicating indicating which vertices of a polyhedron lie
+//within a landmass
+auto OrientationOverlaps(const IcosaXY &i2d, const IndexedShapefile &landmass){
+  std::bitset<IcosaXY::verts> overlaps = 0;
+  for(unsigned int vi=0;vi<i2d.v.size();vi++)
+    if(PointInLandmass(i2d.v[vi],landmass))
+      overlaps.set(vi); 
+  return overlaps;
+}
+
+
+
+//Generate a set of orientations. The zeroth pole is near the South Pole with
+//orientations spiraling outwards from there until the `radial_limit` is
+//reached: the maximum number of radians outward from the South Pole. Poles are
+//spaced with approximately `point_spacingkm` kilometres between themselves. The
+//polyhedron will also be rotated from `theta_min` to `theta_max` with steps of
+//size `theta_step`.
+OCollection GenerateOrientations(
+  const double point_spacingkm,
+  const double radial_limit,
+  const double theta_min,
+  const double theta_max,
+  const double theta_step
+){
+  std::cerr << "Generating orientations..."<<std::endl;
 
   //Number of points to sample
-  const int N = (int)(8*M_PI*Rearth*Rearth/std::sqrt(3)/spacing/spacing);
+  const long N = (long)(8*M_PI*Rearth*Rearth/std::sqrt(3)/point_spacingkm/point_spacingkm);
+
+  std::cerr << "\tpoint_spacingkm = " << point_spacingkm <<std::endl;
+  std::cerr << "\tradial_limit    = " << radial_limit    <<std::endl;
+  std::cerr << "\ttheta_min       = " << theta_min       <<std::endl;
+  std::cerr << "\ttheta_max       = " << theta_max       <<std::endl;
+  std::cerr << "\ttheta_step      = " << theta_step      <<std::endl;
+  std::cerr << "\tN               = " << N               <<std::endl;
 
   //Generate orientations
-  #pragma omp declare reduction (merge : std::vector<Point2D> : omp_out.insert(omp_out.end(), omp_in.begin(), omp_in.end()))
-  #pragma omp parallel for default(none) schedule(static) reduction(merge: orientations)
-  for(int i=0;i<N;i++){
-    Point2D temp (
-      M_PI*(3-std::sqrt(5))*i,
+  OCollection orientations;
+  //#pragma omp declare reduction (merge : OCollection : omp_out.insert(omp_out.end(), omp_in.begin(), omp_in.end()))
+  //#pragma omp parallel for default(none) schedule(static) reduction(merge: orientations)
+  for(long i=0;i<N;i++){
+    Point2D pole (
+      M_PI*(3.0-std::sqrt(5.0))*i,
       std::acos(1-(2.0*i+1.0)/N)
     );
-    temp.x = std::fmod(temp.x,2*M_PI)-M_PI;
-    temp.y = temp.y-M_PI/2;
+    pole.x = std::fmod(pole.x,2*M_PI)-M_PI;
+    pole.y = pole.y-M_PI/2;
 
-    if(temp.y<M_PI/2-radial_limit)
-      continue;
+    if(pole.y>-M_PI/2+radial_limit)
+      break;
 
-    // if(!(0 <= temp.x && temp.x<=78*DEG_TO_RAD))
-    //   continue;
-    // if(temp.y<23*DEG_TO_RAD)
-    //   continue;
-
-    orientations.push_back(temp);
+    for(double theta=theta_min;theta<=theta_max;theta+=theta_step)
+      orientations.emplace_back(pole,theta);
   }
+
+  std::cerr << "\tGenerated       = " << orientations.size() << std::endl;
 
   return orientations;
 }
 
-std::vector<Point2D> GenerateNearbyOrientations(const Point2D &p2d, const double angular_radius, const double spacingkm){
-  auto orientations = GenerateOrientations(spacingkm,angular_radius);
+
+
+//Generate orientations spiraling outward from the indicated pole
+OCollection GenerateNearbyOrientations(
+  const Point2D &p2d,
+  const double point_spacingkm,
+  const double radial_limit,
+  const double theta_min,
+  const double theta_max,
+  const double theta_step
+){
+  auto orientations = GenerateOrientations(point_spacingkm,radial_limit,theta_min,theta_max,theta_step);
+  CHECK(orientations.size()>0);
   const Rotator r(Point3D(0,0,1), p2d.toXYZ(1)); //Rotates from North Pole to alternate location
   
   for(auto &x: orientations)
-    x = r(x.toXYZ(1)).toLatLon();
+    x.pole = r(x.pole.toXYZ(1)).toLatLon();
 
   return orientations;
 }
 
 TEST_CASE("GenerateNearbyOrientations"){
-  const auto focal            = Point2D(-93,45).toRadians();
-  const double angular_radius = 2*DEG_TO_RAD;
-  const auto orientations     = GenerateNearbyOrientations(focal, angular_radius, 10);
+  const auto focal        = Point2D(-93,45).toRadians();
+  //const auto orientations = GenerateNearbyOrientations(focal, FINE_SPACING, FINE_RADIAL_LIMIT, 0-FINE_THETA_INTERVAL, 0+FINE_THETA_INTERVAL, FINE_THETA_STEP);
+  const auto orientations = GenerateNearbyOrientations(focal, 10, 2, 0, 1, 1);
+
+  CHECK (orientations.size()>0);
 
   {
     std::ofstream fout("test_nearby_orientations.csv");
     fout<<"lon,lat\n";
-    for(const auto &x: orientations)
-      fout<<(x.x*RAD_TO_DEG)<<","<<(x.y*RAD_TO_DEG)<<"\n";
+    for(const auto &o: orientations)
+      fout<<(o.pole.x*RAD_TO_DEG)<<","<<(o.pole.y*RAD_TO_DEG)<<"\n";
   }
 
   //Check that distances to all points are within the desired angular radius of
   //the specified focal point, to within a 5% tolerance
   double maxdist = -std::numeric_limits<double>::infinity();
-  for(const auto &x: orientations){
-    const auto dist = GeoDistanceHaversine(focal,x);
+  for(const auto &o: orientations){
+    const auto dist = GeoDistanceHaversine(focal,o.pole);
     maxdist = std::max(maxdist,dist);
-    CHECK(dist<angular_radius*6371*1.05);
+    CHECK(dist<FINE_RADIAL_LIMIT*6371*1.05);
   }
   std::cerr<<"Maximum nearby rotated orientation distance = "<<maxdist<<std::endl;
 }
 
-POICollection FindOrientationsOfInterest(const IndexedShapefile &landmass){
-  std::cerr<<"Finding poles..."<<std::endl;
-  POICollection poic;
-  
-  const auto orientations = GenerateOrientations(PSPACE, 90*DEG_TO_RAD);
-  
-  long count = 0;
+
+
+//Given a set of orientations, return a new set in which only those orientations
+//which fall entirely in the water or have a certain number of vertices on land
+//are returned in a new set. Orientations are not returned in the same order.
+OCollection FilterOrientationsForOverlaps(
+  const OCollection &orients,
+  const IndexedShapefile &landmass
+){
+  std::cerr<<"Filtering orientations for overlaps..."<<std::endl;
 
   Timer tmr;
-  #pragma omp parallel for default(none) schedule(static) shared(poic,std::cerr,landmass) reduction(+:count)
-  for(unsigned int oi=0;oi<orientations.size();oi++)
-  for(double rtheta=0;rtheta<72.01*DEG_TO_RAD;rtheta+=PRECISION*DEG_TO_RAD){
-    count++;
-    IcosaXY p(orientations[oi],rtheta);
-
-    std::bitset<12> overlaps = 0;
-    for(unsigned int pi=0;pi<p.v.size();pi++)
-      if(PointOverlaps(p.v[pi],landmass))
-        overlaps.set(pi);
-    if(overlaps==0 || overlaps.count()>=8){
-      #pragma omp critical
-      poic.emplace_back(overlaps,orientations[oi],rtheta);
-    }
+  OCollection ret;
+  #pragma omp declare reduction (merge : OCollection : omp_out.insert(omp_out.end(), omp_in.begin(), omp_in.end()))
+  #pragma omp parallel for default(none) schedule(static) shared(orients,landmass) reduction(merge: ret)
+  for(unsigned int oi=0;oi<orients.size();oi++){
+    IcosaXY i2d(orients[oi]);
+    auto overlaps = OrientationOverlaps(i2d, landmass);
+    if(overlaps.count()==0 || overlaps.count()>=8)
+      ret.push_back(orients[oi]);
   }
 
-  double t = tmr.elapsed();
-  std::cout << "Time taken = " << t <<"s"<< std::endl;
+  std::cout<< "Time taken = " << tmr.elapsed() <<"s"<< std::endl;
+  std::cerr<<"Checked = "<<orients.size()<<std::endl;
+  std::cerr<<"Found = "  <<ret.size()<<std::endl;
 
-  std::cerr<<"Checked = "<<count<<std::endl;
-  std::cerr<<"Found "<<poic.size()<<" poles of interest."<<std::endl;
-
-  return poic;
+  return ret;
 }
 
-void DistancesToIcosaXYs(POICollection &poic){
-  std::cerr<<"Reading WGS84 shapefile..."<<std::endl;
-  Polygons landmass_wgs84 = ReadShapefile(FILE_WGS84_LANDMASS, "land_polygons");
 
-  PointCloud pc;
 
-  for(auto &ll: landmass_wgs84)
-    ll.toRadians();
-
-  std::cerr<<"Adding polygon points to PointCloud..."<<std::endl;
-  for(const auto &poly: landmass_wgs84)
-  for(const auto &ll: poly.exterior)
-    pc.addPoint(ll.toXYZ(1));
-
-  std::cerr<<"Building kd-tree..."<<std::endl;
-  pc.buildIndex();
-
-  Timer tmr;
-
-  std::cerr<<"Calculating distances to poles..."<<std::endl;
-  #pragma omp parallel for default(none) shared(poic,pc)
-  for(unsigned int pn=0;pn<poic.size();pn++){
-    IcosaXY p(poic[pn].pole,poic[pn].rtheta);
-
-    for(unsigned int i=0;i<p.v.size();i++){
-      const auto cp = pc.queryPoint(p.v[i].toXYZ(1)); //Closest point
-      auto llc      = cp.toLatLon();
-      auto dist     = GeoDistanceFlatEarth(llc,p.v[i]);
-      if(poic[pn].overlaps.test(i))
-        dist = -dist;
-      poic[pn].mindist = std::min(poic[pn].mindist,dist);
-      poic[pn].maxdist = std::max(poic[pn].maxdist,dist);
-      poic[pn].avgdist += dist;
-    }
-  }
-
-  std::cout << "Time taken = " << tmr.elapsed() <<"s"<< std::endl;
-}
-
-//Maximum value returned is num_pts+1
-unsigned int EdgeOverlapHelper(const IndexedShapefile &landmass, const Point2D &a, const Point2D &b, const int num_pts){
+//For a great circle connecting two points, generate sample points along the
+//circle. Then count how many of these sample points fall within landmasses.
+//Maximum value returned is `num_pts+1`
+unsigned int GreatCircleOverlaps(const IndexedShapefile &landmass, const Point2D &a, const Point2D &b, const int num_pts){
   static const GeographicLib::Geodesic geod(GeographicLib::Constants::WGS84_a(), GeographicLib::Constants::WGS84_f());
-  unsigned int edge_overlaps = 0;
   const GeographicLib::GeodesicLine line = geod.InverseLine(
     a.y*RAD_TO_DEG,
     a.x*RAD_TO_DEG,
@@ -245,49 +248,74 @@ unsigned int EdgeOverlapHelper(const IndexedShapefile &landmass, const Point2D &
     b.x*RAD_TO_DEG
   );
   const double da = line.Arc() / num_pts;
+  unsigned int edge_overlaps = 0;
   for(int i=0;i<=num_pts;i++) {
     Point2D temp;
     line.ArcPosition(i * da, temp.y, temp.x);
     temp.toRadians();
-    edge_overlaps += PointOverlaps(temp,landmass);
+    edge_overlaps += PointInLandmass(temp,landmass);
   }
   return edge_overlaps;
 }
 
-void EdgeOverlaps(const IndexedShapefile &landmass, POICollection &poic){
-  Timer tmr;
-  std::cerr<<"Calculating edge overlaps..."<<std::endl;
-  const auto   neighbors = IcosaXY().neighbors();
-  const double ndist     = IcosaXY().neighborDistance()*1000; //Approximate spacing between vertices in metres
-  const double spacing   = 10e3;                              //Spacing between points = 10km
-  const int    num_pts   = int(std::ceil(ndist / spacing));   //The number of intervals
-  std::cerr<<"Using "<<num_pts<<" with a "<<spacing<<"m spacing to cover "<<ndist<<"m inter-neighbour distance."<<std::endl;
-  #pragma omp parallel for default(none) shared(poic,landmass)
-  for(unsigned int pn=0;pn<poic.size();pn++){
-    IcosaXY p(poic[pn].pole, poic[pn].rtheta);
-    for(unsigned int n=0;n<neighbors.size();n+=2){
-      const auto &a = p.v[neighbors[n]];
-      const auto &b = p.v[neighbors[n+1]];
-      poic[pn].edge_overlaps += EdgeOverlapHelper(landmass, a, b, num_pts);
-    }
+
+
+//For all the great circle edges of a polyhedron, determine how many sample
+//points along the circles fall within landmasses.
+unsigned int OrientationEdgeOverlaps(const IndexedShapefile &landmass, const Orientation &o){
+  static const auto   neighbors = IcosaXY().neighbors();             //Get a list of neighbouring vertices on the polyhedron
+  static const double ndist     = IcosaXY().neighborDistance()*1000; //Approximate spacing between vertices in metres
+  static const double spacing   = 10e3;                              //Spacing between points = 10km
+  static const int    num_pts   = int(std::ceil(ndist / spacing));   //The number of intervals
+  IcosaXY p(o);
+  unsigned int edge_overlaps = 0;
+  for(unsigned int n=0;n<neighbors.size();n+=2){
+    const auto &a = p.v[neighbors[n]];
+    const auto &b = p.v[neighbors[n+1]];
+    edge_overlaps += GreatCircleOverlaps(landmass, a, b, num_pts);
   }
-  std::cout << "Time taken = " << tmr.elapsed() <<"s"<< std::endl;
+  return edge_overlaps;
 }
 
-//CHEESE
+
+
+//Generate distance statistic for an orientation
+OrientationWithStats OrientationStats(const PointCloud &wgs84pc, const IndexedShapefile &landmass, const Orientation &o){
+  OrientationWithStats ows(o);
+  IcosaXY i2d(o);
+
+  ows.overlaps = OrientationOverlaps(i2d, landmass);
+
+  for(unsigned int i=0;i<i2d.v.size();i++){
+    const auto cp = wgs84pc.queryPoint(i2d.v[i].toXYZ(1)); //Closest point
+    auto llc      = cp.toLatLon();
+    auto dist     = GeoDistanceFlatEarth(llc,i2d.v[i]);
+    if(ows.overlaps.test(i))
+      dist = -dist;
+    ows.mindist = std::min(ows.mindist,dist);
+    ows.maxdist = std::max(ows.maxdist,dist);
+    ows.avgdist += dist;
+  }
+  ows.edge_overlaps = OrientationEdgeOverlaps(landmass, o);
+
+  return ows;
+}
+
+
+
+//For a set of orientations and their neighbours, determine which orientations
+//locally maximize a criterion specified by a function `dom_checker`.
 template<class T>
 std::vector<unsigned int> Dominants(
+  const OSCollection &osc,
   const norientations_t &orientations,
-  const POICollection &poic,
   T dom_checker
 ){
-  std::vector<size_t> dominates(poic.size());
+  std::vector<size_t> dominates(osc.size());
   for(unsigned int i=0;i<dominates.size();i++)
     dominates[i] = i;
 
-  POIindex poii(poic);
-
-  #pragma omp parallel for default(none) schedule(static) shared(orientations,std::cerr,poic,dom_checker,dominates)
+  #pragma omp parallel for default(none) schedule(static) shared(orientations,std::cerr,osc,dom_checker,dominates)
   for(unsigned int i=0;i<orientations.size();i++){
     #pragma omp critical
     for(const auto &n: orientations[i]){
@@ -295,10 +323,10 @@ std::vector<unsigned int> Dominants(
       if(dominates[n]!=n) 
         continue;
       //Don't dominate orientations with differing coverages
-      if(poic[i].overlaps.count()!=poic[n].overlaps.count()) 
+      if(osc[i].overlaps.count()!=osc[n].overlaps.count()) 
         continue;
       //If i doesn't dominate n, then it doesn't
-      if(!dom_checker(poic[i],poic[n])) 
+      if(!dom_checker(osc[i],osc[n])) 
         continue;
       //Make i dominate n
       dominates[n] = i;                                 
@@ -313,7 +341,36 @@ std::vector<unsigned int> Dominants(
   return ret;
 }
 
-std::ofstream& PrintPOI(std::ofstream& fout, const POICollection &poic, const int i, bool header){
+
+
+//For a set of dominants, look at nearby orientations to see if there's
+//something better. Return a collection of those better things.
+template<class T>
+OSCollection RefineDominants(
+  const std::vector<unsigned int> &dominants,
+  const OSCollection &osc,
+  const IndexedShapefile &landmass,
+  T dom_checker
+){
+  std::vector<unsigned int> ret;
+  for(const auto &x: dominants){
+    unsigned int best = 0;
+    const auto norientations = GenerateNearbyOrientations(osc[x].pole, FINE_SPACING, FINE_RADIAL_LIMIT, osc[x].theta-FINE_THETA_INTERVAL, osc[x].theta+FINE_THETA_INTERVAL, FINE_THETA_STEP);
+    for(const auto &no: norientations){
+      IcosaXY p(no.pole,no.theta);
+      auto overlaps = OrientationOverlaps(p, landmass);
+
+      if(overlaps.count()!=osc[x].overlaps.count())
+        continue;
+
+    }
+  }
+  return ret;
+}
+
+
+
+std::ofstream& PrintPOI(std::ofstream& fout, const OSCollection &osc, const int i, bool header){
   if(header){
     fout<<"num"           <<","
         <<"overlaps"      <<","
@@ -328,149 +385,133 @@ std::ofstream& PrintPOI(std::ofstream& fout, const POICollection &poic, const in
         <<"\n";
   } else {
     fout<<i<<","
-        <<poic[i].overlaps.to_string()<<","
-        <<poic[i].overlaps.count()    <<","
-        <<(poic[i].pole.y*RAD_TO_DEG) <<","
-        <<(poic[i].pole.x*RAD_TO_DEG) <<","
-        <<(poic[i].rtheta*RAD_TO_DEG) <<","
-        <<poic[i].mindist             <<","
-        <<poic[i].maxdist             <<","
-        <<(poic[i].avgdist/12)        <<","
-        <<poic[i].edge_overlaps
+        <<osc[i].overlaps.to_string()<<","
+        <<osc[i].overlaps.count()    <<","
+        <<(osc[i].pole.y*RAD_TO_DEG) <<","
+        <<(osc[i].pole.x*RAD_TO_DEG) <<","
+        <<(osc[i].theta*RAD_TO_DEG)  <<","
+        <<osc[i].mindist             <<","
+        <<osc[i].maxdist             <<","
+        <<(osc[i].avgdist/12)        <<","
+        <<osc[i].edge_overlaps
         <<"\n";
   }
   return fout;
 }
 
-std::ofstream& PrintPOICoordinates(std::ofstream& fout, const POICollection &poic, const int pn, bool header){
+std::ofstream& PrintPOICoordinates(std::ofstream& fout, const OSCollection &osc, const int pn, bool header){
   if(header){
     fout<<"Num,Lat,Lon,OnLand\n";
   } else {
-    IcosaXY p(poic[pn].pole, poic[pn].rtheta);
+    IcosaXY p(osc[pn]);
     for(unsigned int i=0;i<p.v.size();i++)
       fout<<pn                    <<","
           <<p.v[i].y*RAD_TO_DEG<<","
           <<p.v[i].x*RAD_TO_DEG<<","
-          <<poic[pn].overlaps.test(i)
+          <<osc[pn].overlaps.test(i)
           <<"\n";
   }
   return fout;
 }
 
-norientations_t FindNearbyOrientations(const POICollection &poic){
+
+void PrintOrientations(
+  std::string fileprefix,
+  const OSCollection &osc,
+  const std::vector<unsigned int> &to_print
+){
+  std::cerr<<"Printing "<<to_print.size()<<" to '"<<fileprefix<<"'"<<std::endl;
+  {
+    std::ofstream fout(fileprefix+"-rot.csv");
+    PrintPOI(fout, osc, 0, true);
+    for(const auto &x: to_print)
+      PrintPOI(fout, osc, x, false);
+  }
+  {
+    std::ofstream fout(fileprefix+"-vert.csv");
+    PrintPOICoordinates(fout, osc, 0, true);
+    for(const auto &x: to_print)
+      PrintPOICoordinates(fout, osc, x, false);
+  }
+}
+
+template<class T>
+void DetermineDominantsHelper(
+  const std::string fileprefix,
+  const OSCollection &osc,
+  const norientations_t &norientations,
+  T dom_checker
+){
+  const auto result = Dominants(osc, norientations, dom_checker);
+  PrintOrientations(fileprefix, osc, result);
+}
+
+void DetermineDominants(OSCollection &osc, const norientations_t &norientations){
+  Timer tmr;
+  std::cerr<<"Determining dominants..."<<std::endl;
+  DetermineDominantsHelper("out_min_mindist", osc, norientations,
+    [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.mindist<b.mindist; }
+  );
+  
+  DetermineDominantsHelper("out_max_mindist", osc, norientations,
+    [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.mindist>b.mindist; }
+  );
+  
+
+  DetermineDominantsHelper("out_min_maxdist", osc, norientations,
+    [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.maxdist<b.maxdist; }
+  );
+  
+  DetermineDominantsHelper("out_max_maxdist", osc, norientations,
+    [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.maxdist>b.maxdist; }
+  );
+  
+
+  DetermineDominantsHelper("out_min_avgdist", osc, norientations,
+    [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.avgdist<b.avgdist; }
+  );
+  
+  DetermineDominantsHelper("out_max_avgdist", osc, norientations,
+    [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.avgdist>b.avgdist; }
+  );
+  
+
+  DetermineDominantsHelper("out_min_edge_overlaps", osc, norientations,
+    [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.edge_overlaps<b.edge_overlaps; }
+  );
+  
+  DetermineDominantsHelper("out_max_edge_overlaps", osc, norientations,
+    [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.edge_overlaps>b.edge_overlaps; }
+  );
+  
+  std::cerr<<"Time taken = "<<tmr.elapsed()<<std::endl;
+}
+
+
+
+//Determine which orientations are in the local neighbourhood of another
+//orientation
+template<class T>
+norientations_t FindNearbyOrientations(const T &osc){
   Timer tmr_bi;
   std::cerr<<"Building kd-tree"<<std::endl;
-  POIindex poii(poic);
+  OrientationIndex oidx(osc);
   std::cerr<<"Time = "<<tmr_bi.elapsed()<<std::endl;
 
   Timer tmr;
   std::cerr<<"Finding nearby orientations..."<<std::endl;
 
-  norientations_t oneighbors(poic.size());
-
-  #pragma omp parallel for default(none) schedule(static) shared(poic,oneighbors,poii)
-  for(unsigned int i=0;i<poic.size();i++)
-    oneighbors[i] = poii.query(i);
+  norientations_t oneighbors(osc.size());
+  #pragma omp parallel for default(none) schedule(static) shared(osc,oneighbors,oidx)
+  for(unsigned int i=0;i<osc.size();i++)
+    oneighbors[i] = oidx.query(i);
 
   std::cerr<<"Time taken = "<<tmr.elapsed()<<std::endl;
 
   return oneighbors;
 }
 
-TEST_CASE("POIindex"){
-  POICollection poic;
-  poic.emplace_back(std::bitset<12>(), Point2D(-93,45).toRadians(), 0);
-  poic.emplace_back(std::bitset<12>(), Point2D(-93.1,45.1).toRadians(), 0*DEG_TO_RAD);
-  poic.emplace_back(std::bitset<12>(), Point2D(-93.1,45.1).toRadians(), 72*DEG_TO_RAD);
-  poic.emplace_back(std::bitset<12>(), Point2D(-93.2,45.1).toRadians(), 0*DEG_TO_RAD);
-  poic.emplace_back(std::bitset<12>(), Point2D(-93.1,45.2).toRadians(), 0*DEG_TO_RAD);
-  poic.emplace_back(std::bitset<12>(), Point2D(-93.2,45.2).toRadians(), 0*DEG_TO_RAD);
-  poic.emplace_back(std::bitset<12>(), Point2D(-93.2,45.2).toRadians(), 36*DEG_TO_RAD);
-  poic.emplace_back(std::bitset<12>(), Point2D(23,-23.2).toRadians(), 36*DEG_TO_RAD);
-  auto oneighbors = FindNearbyOrientations(poic);
-  CHECK(oneighbors[0].size()==5);
-  CHECK(oneighbors[7].size()==0);
-}
 
-void PrintOrienations(
-  std::string fileprefix,
-  const POICollection &poic,
-  const std::vector<unsigned int> &to_print
-){
-  std::cerr<<"Printing "<<to_print.size()<<" to '"<<fileprefix<<"'"<<std::endl;
-  {
-    std::ofstream fout(fileprefix+"-rot.csv");
-    PrintPOI(fout, poic, 0, true);
-    for(const auto &x: to_print)
-      PrintPOI(fout, poic, x, false);
-  }
-  {
-    std::ofstream fout(fileprefix+"-vert.csv");
-    PrintPOICoordinates(fout, poic, 0, true);
-    for(const auto &x: to_print)
-      PrintPOICoordinates(fout, poic, x, false);
-  }
-}
-
-void DetermineDominants(POICollection &poic, const norientations_t &norientations){
-  Timer tmr;
-  std::cerr<<"Determining dominants..."<<std::endl;
-  {
-    auto dom_checker = [](const POI &a, const POI &b){ return a.mindist<b.mindist; };
-    const auto result = Dominants(norientations, poic, dom_checker);
-    PrintOrienations("out_min_mindist", poic, result);
-  }
-
-  {
-    auto dom_checker = [](const POI &a, const POI &b){ return a.mindist>b.mindist; };
-    const auto result = Dominants(norientations, poic, dom_checker);
-    PrintOrienations("out_max_mindist", poic, result);
-  }
-
-
-
-  {
-    auto dom_checker = [](const POI &a, const POI &b){ return a.maxdist<b.maxdist; };
-    const auto result = Dominants(norientations, poic, dom_checker);
-    PrintOrienations("out_min_maxdist", poic, result);
-  }
-
-  {
-    auto dom_checker = [](const POI &a, const POI &b){ return a.maxdist>b.maxdist; };
-    const auto result = Dominants(norientations, poic, dom_checker);
-    PrintOrienations("out_max_maxdist", poic, result);
-  }
-
-
-
-  {
-    auto dom_checker = [](const POI &a, const POI &b){ return a.avgdist<b.avgdist; };
-    const auto result = Dominants(norientations, poic, dom_checker);
-    PrintOrienations("out_min_avgdist", poic, result);
-  }
-
-  {
-    auto dom_checker = [](const POI &a, const POI &b){ return a.avgdist>b.avgdist; };
-    const auto result = Dominants(norientations, poic, dom_checker);
-    PrintOrienations("out_max_avgdist", poic, result);
-  }
-
-
-
-  {
-    auto dom_checker = [](const POI &a, const POI &b){ return a.edge_overlaps<b.edge_overlaps; };
-    const auto result = Dominants(norientations, poic, dom_checker);
-    PrintOrienations("out_min_edge_overlaps", poic, result);
-  }
-
-  {
-    auto dom_checker = [](const POI &a, const POI &b){ return a.edge_overlaps>b.edge_overlaps; };
-    const auto result = Dominants(norientations, poic, dom_checker);
-    PrintOrienations("out_max_edge_overlaps", poic, result);
-  }
-
-  std::cerr<<"Time taken = "<<tmr.elapsed()<<std::endl;
-}
 
 TEST_CASE("Test with data [expensive]"){
   const auto landmass = IndexedShapefile(FILE_MERC_LANDMASS,"land_polygons");
@@ -497,14 +538,14 @@ TEST_CASE("Test with data [expensive]"){
     p.toRadians();
     int ocount = 0;
     for(const auto &v: p.v)
-      if(PointOverlaps(v,landmass))
+      if(PointInLandmass(v,landmass))
         ocount++;
 
     std::cerr<<"Fuller count: "<<ocount<<std::endl;
     assert(ocount==0);
   }
 
-  SUBCASE("PointOverlaps"){
+  SUBCASE("PointInLandmass"){
     std::vector<Point2D> cities;
     cities.emplace_back(95.0175,27.4833); //MOHANBARI, INDIA
     cities.emplace_back(-73.0603,-40.6114); //OSORNO, CHILE
@@ -561,28 +602,28 @@ TEST_CASE("Test with data [expensive]"){
 
     //Check that all cities are on land
     for(const auto &x: cities)
-      CHECK(PointOverlaps(x, landmass)==true);
+      CHECK(PointInLandmass(x, landmass)==true);
 
     //Check that all GC arcs between cities include at least some land
     for(unsigned int i=0;i<cities.size();i++)
     for(unsigned int j=0;j<cities.size();j++){
       if(i==j)
         continue;
-      CHECK(EdgeOverlapHelper(landmass,cities[i],cities[j],1000)>0);
+      CHECK(GreatCircleOverlaps(landmass,cities[i],cities[j],1000)>0);
     }
 
     //Route from Minneapolis to Denver should be entirely on land
     {
       auto a = Point2D(-93,45).toRadians();
       auto b = Point2D(-104.9903, 39.7392).toRadians();
-      CHECK(EdgeOverlapHelper(landmass,a,b,100)==101);
+      CHECK(GreatCircleOverlaps(landmass,a,b,100)==101);
     }
   }
 }
 
 //Determine the number of orientations in one quadrant of the 3-space
 TEST_CASE("Counting orientations [expensive]"){
-  const auto orientations = GenerateOrientations(200,90*DEG_TO_RAD);
+  const auto orientations = GenerateOrientations(200,90*DEG_TO_RAD,0,0,COARSE_THETA_STEP);
 
   CHECK(orientations.size()>0);
 
@@ -590,9 +631,8 @@ TEST_CASE("Counting orientations [expensive]"){
   int maxcount = std::numeric_limits<int>::lowest();
   Timer tmr;
   #pragma omp parallel for default(none) schedule(static) reduction(min:mincount) reduction(max:maxcount)
-  for(unsigned int oi=0;oi<orientations.size();oi++)
-  for(double rtheta=0;rtheta<72.01*DEG_TO_RAD;rtheta+=PRECISION*DEG_TO_RAD){
-    IcosaXYZ p = IcosaXY(orientations[oi],rtheta).toXYZ(1);
+  for(unsigned int oi=0;oi<orientations.size();oi++){
+    IcosaXYZ p = IcosaXY(orientations[oi]).toXYZ(1);
     int count  = 0;
     for(const auto &v: p.v)
       if(v.y>=0 && v.z>=0)
@@ -601,35 +641,49 @@ TEST_CASE("Counting orientations [expensive]"){
     maxcount = std::max(count,maxcount);
   }
   CHECK(mincount==2);
-  CHECK(maxcount==3);
+  CHECK(maxcount==4);
 }
 
 TEST_CASE("POIindex: Load and Save"){
-  const auto a = POI(std::bitset<12>(), Point2D(-93.1,45.1).toRadians(), 1*DEG_TO_RAD);
-  const auto b = POI(std::bitset<12>(), Point2D(176,-10.1).toRadians(), 7*DEG_TO_RAD);
-  const auto c = POI(std::bitset<12>(), Point2D(72.4,89.3).toRadians(), 34*DEG_TO_RAD);
-  const auto d = POI(std::bitset<12>(), Point2D(-103.2,-41.2).toRadians(), 98*DEG_TO_RAD);
+  const auto a = Orientation(Point2D(-93.1,45.1).toRadians(),    1*DEG_TO_RAD);
+  const auto b = Orientation(Point2D(176,-10.1).toRadians(),     7*DEG_TO_RAD);
+  const auto c = Orientation(Point2D(72.4,89.3).toRadians(),    34*DEG_TO_RAD);
+  const auto d = Orientation(Point2D(-103.2,-41.2).toRadians(), 98*DEG_TO_RAD);
 
   {
-    POICollection poic;
-    poic.push_back(a);
-    poic.push_back(b);
-    poic.push_back(c);
-    poic.push_back(d);
-    SaveToArchive(poic, "test_poic_save");
+    OCollection oc;
+    oc.push_back(a);
+    oc.push_back(b);
+    oc.push_back(c);
+    oc.push_back(d);
+    SaveToArchive(oc, "test_oc_save");
   }
 
   {
-    POICollection poic;
-    CHECK(LoadFromArchive(poic,"asdfasfjkwefjewifj")==false);
-    CHECK(LoadFromArchive(poic,"test_poic_save")==true);
-    CHECK(poic[0].pole.x==a.pole.x);
-    CHECK(poic[1].pole.x==b.pole.x);
-    CHECK(poic[2].pole.x==c.pole.x);
-    CHECK(poic[3].pole.x==d.pole.x);
+    OCollection oc;
+    CHECK(LoadFromArchive(oc,"asdfasfjkwefjewifj")==false);
+    CHECK(LoadFromArchive(oc,"test_oc_save")==true);
+    CHECK(oc[0].pole.x==a.pole.x);
+    CHECK(oc[1].pole.x==b.pole.x);
+    CHECK(oc[2].pole.x==c.pole.x);
+    CHECK(oc[3].pole.x==d.pole.x);
   }
 }
 
+TEST_CASE("POIindex"){
+  OCollection oc;
+  oc.emplace_back(Point2D(-93,45).toRadians(), 0);
+  oc.emplace_back(Point2D(-93.1,45.1).toRadians(), 0*DEG_TO_RAD);
+  oc.emplace_back(Point2D(-93.1,45.1).toRadians(), 72*DEG_TO_RAD);
+  oc.emplace_back(Point2D(-93.2,45.1).toRadians(), 0*DEG_TO_RAD);
+  oc.emplace_back(Point2D(-93.1,45.2).toRadians(), 0*DEG_TO_RAD);
+  oc.emplace_back(Point2D(-93.2,45.2).toRadians(), 0*DEG_TO_RAD);
+  oc.emplace_back(Point2D(-93.2,45.2).toRadians(), 36*DEG_TO_RAD);
+  oc.emplace_back(Point2D(23,-23.2).toRadians(), 36*DEG_TO_RAD);
+  auto oneighbors = FindNearbyOrientations(oc);
+  CHECK(oneighbors[0].size()==5);
+  CHECK(oneighbors[7].size()==0);
+}
 
 
 #ifdef DOCTEST_CONFIG_DISABLE
@@ -640,15 +694,34 @@ int main(){
   POICollection poic;
   if(!LoadFromArchive(poic,"poic.save")){
 
-    auto landmass = IndexedShapefile(FILE_MERC_LANDMASS,"land_polygons");
+    const auto landmass = IndexedShapefile(FILE_MERC_LANDMASS,"land_polygons");
+    
+    auto orients = GenerateOrientations(COARSE_SPACING, 90*DEG_TO_RAD);
+    orients      = FindOrientationsOfInterest(landmass, orients);
 
-    poic = FindOrientationsOfInterest(landmass);
+    auto landmass_wgs84 = ReadShapefile(FILE_WGS84_LANDMASS, "land_polygons");
+    for(auto &ll: landmass_wgs84)
+      ll.toRadians();
 
-    DistancesToIcosaXYs(poic);
+    PointCloud wgs84pc;
+    std::cerr<<"Adding polygon points to PointCloud..."<<std::endl;
+    for(const auto &poly: landmass_wgs84)
+    for(const auto &ll: poly.exterior)
+      wgs84pc.addPoint(ll.toXYZ(1));
+    std::cerr<<"Building kd-tree..."<<std::endl;
+    wgs84pc.buildIndex();
 
-    EdgeOverlaps(landmass, poic);
+    OSCollection osc;
+    {
+      Timer tmr;
+      std::cerr<<"Calculating distances to orientations' vertices..."<<std::endl;
+      #pragma omp parallel for default(none) shared(poic,wgs84)
+      for(unsigned int pn=0;pn<poic.size();pn++)
+        osc.push_back(OrientationStats(wgs84pc,poic[pn]));
+      std::cout << "Time taken = " << tmr.elapsed() <<"s"<< std::endl;
+    }
 
-    SaveToArchive(poic, "poic.save");
+    SaveToArchive(osc, "poic.save");
   }
 
   norientations_t norientations;
