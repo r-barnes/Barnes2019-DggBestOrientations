@@ -8,8 +8,9 @@ const double DEG_TO_RAD = M_PI/180.0;
 const double RAD_TO_DEG = 180.0/M_PI;
 
 Rotator::Rotator(const Point3D &oldv, const Point3D &newv){
-  CHECK(std::sqrt(oldv.x*oldv.x+oldv.y*oldv.y+oldv.z*oldv.z)==doctest::Approx(1));
-  CHECK(std::sqrt(newv.x*newv.x+newv.y*newv.y+newv.z*newv.z)==doctest::Approx(1));
+  //Ensure that incoming vectors are normalized
+  CHECK(oldv.x*oldv.x+oldv.y*oldv.y+oldv.z*oldv.z==doctest::Approx(1));
+  CHECK(newv.x*newv.x+newv.y*newv.y+newv.z*newv.z==doctest::Approx(1));
 
   //Icosahedron's North pole
   const double a1 = oldv.x;
@@ -21,19 +22,23 @@ Rotator::Rotator(const Point3D &oldv, const Point3D &newv){
   const double b2 = newv.y;
   const double b3 = newv.z;
 
-  //B x A
+  //B x A: This vector is perpendicular to both the North pole and the new pole
   double r1 = -a2*b3 + a3*b2;
   double r2 =  a1*b3 - a3*b1;
   double r3 = -a1*b2 + a2*b1;
   mr        = std::sqrt(r1*r1+r2*r2+r3*r3); //mr used in operator()
 
+  //If the vector cannot be normalized it means the North Pole was coincident
+  //with the new pole
   if(mr==0)
     return;
 
+  //Normalize the vector
   r1 /= mr;
   r2 /= mr;
   r3 /= mr;
 
+  //Ensure that things were actually normalized
   CHECK(r1*r1+r2*r2+r3*r3==doctest::Approx(1));
 
   const double c = a1*b1 + a2*b2 + a3*b3;  //cos theta = B dot A
