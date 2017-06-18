@@ -256,7 +256,7 @@ unsigned int GreatCircleOverlaps(const IndexedShapefile &landmass, const Point2D
 
 //For all the great circle edges of a polyhedron, determine how many sample
 //points along the circles fall within landmasses.
-unsigned int OrientationEdgeOverlaps(const IndexedShapefile &landmass, const Orientation &o){
+unsigned int OrientationEdgeOverlaps(const Orientation &o, const IndexedShapefile &landmass){
   static const auto   neighbors = SolidXY().neighbors();             //Get a list of neighbouring vertices on the polyhedron
   static const double ndist     = SolidXY().neighborDistance()*1000; //Approximate spacing between vertices in metres
   static const double spacing   = 10e3;                              //Spacing between points = 10km
@@ -274,7 +274,7 @@ unsigned int OrientationEdgeOverlaps(const IndexedShapefile &landmass, const Ori
 
 
 //Generate distance statistic for an orientation
-OrientationWithStats OrientationStats(const PointCloud &wgs84pc, const IndexedShapefile &landmass, const Orientation &o){
+OrientationWithStats OrientationStats(const Orientation &o, const PointCloud &wgs84pc, const IndexedShapefile &landmass){
   OrientationWithStats ows(o);
   SolidXY i2d(o);
 
