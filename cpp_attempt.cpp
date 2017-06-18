@@ -43,7 +43,14 @@
 #endif
 
 const double Rearth = 6371; //km
-const double PSPACE = 10;  //km - Desired interpoint spacing
+
+const double COARSE_SPACING = 10;  //km - Desired interpoint spacing for finding prospective orienations
+const double FINE_SPACING   = 0.1; //km - Desired interpoint spacing for zooming in on orientations of interest
+
+const double COARSE_THETA_STEP   = 0.1;
+const double FINE_THETA_STEP     = 0.001;
+const double FINE_THETA_INTERVAL = 0.1;
+const double FINE_RADIAL_LIMIT   = 0.002;
 
 const double DEG_TO_RAD = M_PI/180.0;
 const double RAD_TO_DEG = 180.0/M_PI;
