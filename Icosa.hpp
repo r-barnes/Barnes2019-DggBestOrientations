@@ -16,7 +16,8 @@ const double phi = (1+std::sqrt(5))/2;
 class IcosaXYZ;
 class IcosaXY{
  public:
-  std::array<Point2D,12> v = {{
+  static const int verts = 12;
+  std::array<Point2D,verts> v = {{
     { 0    ,  M_PI/2},
     { 0    , -M_PI/2},
     {-5*IES,     IEL},
@@ -59,7 +60,7 @@ class IcosaXYZ {
   friend class IcosaXY;
 
   //These values are a direct translation of those for IcosaXY
-  std::array<Point3D,12> v = {{
+  std::array<Point3D,IcosaXY::verts> v = {{
     {std::nan(""), std::nan(""), std::nan("")},
     {std::nan(""), std::nan(""), std::nan("")},
     {std::nan(""), std::nan(""), std::nan("")},
