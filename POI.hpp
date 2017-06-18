@@ -12,25 +12,37 @@
 #include <cereal/types/vector.hpp>
 #include <cereal/types/bitset.hpp>
 
-class POI {
+class Orientation {
+ public:
+  Orientation()                     = default;
+  Orientation(const Orientation &o) = default;
+  Orientation(const Point2D &pole0, const double theta0);
+  Point2D pole;
+  double theta;
+  template<class Archive>
+  void serialize( Archive & ar ){
+    ar(pole,theta);
+  }
+};
+
+class OrientationWithStats : public Orientation {
  public:
   static const unsigned int dim = 12;
   std::bitset<dim>    overlaps      = 0;
-  Point2D             pole;
-  double              rtheta        = 0;
   double              mindist       = std::numeric_limits<double>::infinity();
   double              maxdist       = -std::numeric_limits<double>::infinity();
   double              avgdist       = 0;
   int                 edge_overlaps = 0;
-  POI()                             = default;
-  POI(const std::bitset<dim> &overlaps0, const Point2D &pole0, double rtheta0);
+
+  OrientationWithStats() = default;
+  OrientationWithStats(const Orientation &o);
 
   template <class Archive>
   void serialize( Archive & ar ){
     ar(
-      overlaps,
       pole,
-      rtheta,
+      theta,
+      overlaps,
       mindist,
       maxdist,
       avgdist,
@@ -39,6 +51,8 @@ class POI {
   }
 };
 
+typedef std::vector<Orientation> OCollection;
+typedef std::vector<OrientationWithStats> OSCollection;
 
 
 class POIindex {
@@ -82,9 +96,7 @@ class POIindex {
   std::vector<unsigned int> query(const unsigned int qpn) const;
 };
 
-typedef std::vector<POI> POICollection;
-
-bool LoadPOICollection(POICollection &poic, std::string filename);
-void SavePOICollection(const POICollection &poic, std::string filename);
+bool LoadPOICollection(OSCollection &poic, std::string filename);
+void SavePOICollection(const OSCollection &poic, std::string filename);
 
 #endif

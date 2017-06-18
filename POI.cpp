@@ -5,16 +5,13 @@
 #include <fstream>
 #include "doctest.h"
 
+Orientation::Orientation(const Point2D &pole0, const double theta0){
+  pole  = pole0;
+  theta = theta0;
 const double DEG_TO_RAD = M_PI/180.0;
 const double RAD_TO_DEG = 180.0/M_PI;
 
 
-
-POI::POI(const std::bitset<12> &overlaps0, const Point2D &pole0, double rtheta0){
-  overlaps = overlaps0;
-  pole     = pole0;
-  rtheta   = rtheta0;
-}
 
 POIindex::POIindex(const std::vector<POI> &pois){
   //Cannot be parallelized, otherwise the order of the points might get mixed up
@@ -167,7 +164,16 @@ std::vector<unsigned int> POIindex::query(const unsigned int qpn) const {
   return closest_n;
 }
 
+OrientationWithStats::OrientationWithStats(const Orientation &o) : Orientation(o) {}
 
+TEST_CASE("Orientation Constructors"){
+  Orientation o(Point2D(-93,45),13.7);
+  Orientation ob(o);
+  OrientationWithStats ows(o);
+  CHECK(o.pole.x==ob.pole.x);
+  CHECK(o.theta==ob.theta);
+  CHECK(o.pole.x==ows.pole.x);
+  CHECK(o.theta==ows.theta);
 
 TEST_CASE("POIindex"){
   POICollection poic;
