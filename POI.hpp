@@ -22,10 +22,6 @@ class POI {
   double              maxdist       = -std::numeric_limits<double>::infinity();
   double              avgdist       = 0;
   int                 edge_overlaps = 0;
-  uint32_t            mindist_n     = 0;
-  uint32_t            maxdist_n     = 0;
-  uint32_t            avgdist_n     = 0;
-  uint32_t            edge_n        = 0;
   POI()                             = default;
   POI(const std::bitset<dim> &overlaps0, const Point2D &pole0, double rtheta0);
 
@@ -38,11 +34,7 @@ class POI {
       mindist,
       maxdist,
       avgdist,
-      edge_overlaps,
-      mindist_n,
-      maxdist_n,
-      avgdist_n,
-      edge_n
+      edge_overlaps
     );
   }
 };
