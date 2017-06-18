@@ -65,8 +65,11 @@ IcosaXY& IcosaXY::toMercator(){
 }
 
 TEST_CASE("toMercator"){
-  auto p = IcosaXY().toMercator();
-  (void)p;
+  auto ico2d = IcosaXY();
+  auto p     = WGS84toEPSG3857(ico2d.v[3]);
+  ico2d.toMercator();
+  CHECK(p.x==ico2d.v[3].x);
+  CHECK(p.y==ico2d.v[3].y);
 }
 
 
@@ -78,8 +81,12 @@ IcosaXY& IcosaXY::toRadians(){
 }
 
 TEST_CASE("toRadians"){
-  auto p = IcosaXY().toRadians();
-  (void)p;
+  auto ico2d = IcosaXY();
+  auto p     = ico2d.v[3];
+  ico2d.toRadians();
+  p.toRadians();
+  CHECK(p.x==ico2d.v[3].x);
+  CHECK(p.y==ico2d.v[3].y);
 }
 
 
