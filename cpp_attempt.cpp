@@ -100,8 +100,8 @@ bool PointInLandmass(const Point2D &ll, const IndexedShapefile &landmass){
 
 //Returns a bitset indicating indicating which vertices of a polyhedron lie
 //within a landmass
-auto OrientationOverlaps(const IcosaXY &i2d, const IndexedShapefile &landmass){
-  std::bitset<IcosaXY::verts> overlaps = 0;
+auto OrientationOverlaps(const SolidXY &i2d, const IndexedShapefile &landmass){
+  std::bitset<SolidXY::verts> overlaps = 0;
   for(unsigned int vi=0;vi<i2d.v.size();vi++)
     if(PointInLandmass(i2d.v[vi],landmass))
       overlaps.set(vi); 
@@ -197,7 +197,7 @@ OCollection FilterOrientationsForOverlaps(
   #pragma omp declare reduction (merge : OCollection : omp_out.insert(omp_out.end(), omp_in.begin(), omp_in.end()))
   #pragma omp parallel for default(none) schedule(static) shared(orients,landmass) reduction(merge: ret)
   for(unsigned int oi=0;oi<orients.size();oi++){
-    IcosaXY i2d(orients[oi]);
+    SolidXY i2d(orients[oi]);
     auto overlaps = OrientationOverlaps(i2d, landmass);
     if(overlaps.count()==0 || overlaps.count()>=8)
       ret.push_back(orients[oi]);
@@ -239,11 +239,11 @@ unsigned int GreatCircleOverlaps(const IndexedShapefile &landmass, const Point2D
 //For all the great circle edges of a polyhedron, determine how many sample
 //points along the circles fall within landmasses.
 unsigned int OrientationEdgeOverlaps(const IndexedShapefile &landmass, const Orientation &o){
-  static const auto   neighbors = IcosaXY().neighbors();             //Get a list of neighbouring vertices on the polyhedron
-  static const double ndist     = IcosaXY().neighborDistance()*1000; //Approximate spacing between vertices in metres
+  static const auto   neighbors = SolidXY().neighbors();             //Get a list of neighbouring vertices on the polyhedron
+  static const double ndist     = SolidXY().neighborDistance()*1000; //Approximate spacing between vertices in metres
   static const double spacing   = 10e3;                              //Spacing between points = 10km
   static const int    num_pts   = int(std::ceil(ndist / spacing));   //The number of intervals
-  IcosaXY p(o);
+  SolidXY p(o);
   unsigned int edge_overlaps = 0;
   for(unsigned int n=0;n<neighbors.size();n+=2){
     const auto &a = p.v[neighbors[n]];
@@ -258,7 +258,7 @@ unsigned int OrientationEdgeOverlaps(const IndexedShapefile &landmass, const Ori
 //Generate distance statistic for an orientation
 OrientationWithStats OrientationStats(const PointCloud &wgs84pc, const IndexedShapefile &landmass, const Orientation &o){
   OrientationWithStats ows(o);
-  IcosaXY i2d(o);
+  SolidXY i2d(o);
 
   ows.overlaps = OrientationOverlaps(i2d, landmass);
 
@@ -333,7 +333,7 @@ OSCollection RefineDominants(
     unsigned int best = 0;
     const auto norientations = GenerateNearbyOrientations(osc[x].pole, FINE_SPACING, FINE_RADIAL_LIMIT, osc[x].theta-FINE_THETA_INTERVAL, osc[x].theta+FINE_THETA_INTERVAL, FINE_THETA_STEP);
     for(const auto &no: norientations){
-      IcosaXY p(no.pole,no.theta);
+      SolidXY p(no.pole,no.theta);
       auto overlaps = OrientationOverlaps(p, landmass);
 
       if(overlaps.count()!=osc[x].overlaps.count())
@@ -379,7 +379,7 @@ std::ofstream& PrintPOICoordinates(std::ofstream& fout, const OSCollection &osc,
   if(header){
     fout<<"Num,Lat,Lon,OnLand\n";
   } else {
-    IcosaXY p(osc[pn]);
+    SolidXY p(osc[pn]);
     for(unsigned int i=0;i<p.v.size();i++)
       fout<<pn                    <<","
           <<p.v[i].y*RAD_TO_DEG<<","
@@ -510,7 +510,7 @@ TEST_CASE("Counting orientations [expensive]"){
   Timer tmr;
   #pragma omp parallel for default(none) schedule(static) reduction(min:mincount) reduction(max:maxcount)
   for(unsigned int oi=0;oi<orientations.size();oi++){
-    IcosaXYZ p = IcosaXY(orientations[oi]).toXYZ(1);
+    SolidXYZ p = SolidXY(orientations[oi]).toXYZ(1);
     int count  = 0;
     for(const auto &v: p.v)
       if(v.y>=0 && v.z>=0)
@@ -556,7 +556,7 @@ TEST_CASE("Test with data [expensive]"){
   const auto landmass = IndexedShapefile(FILE_MERC_LANDMASS,"land_polygons");
 
   SUBCASE("Check that Fuller orientation has no overlaps"){
-    IcosaXY p;
+    SolidXY p;
     //Fuller's orientation
     p.v = {{
       {  10.53620,  64.7     },

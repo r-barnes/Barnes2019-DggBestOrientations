@@ -6,8 +6,8 @@
 OrientationIndex::OrientationIndex(const OCollection &orients){
   //Cannot be parallelized, otherwise the order of the points might get mixed up
   for(unsigned int oi=0;oi<orients.size();oi++){
-    const IcosaXY  p2d = IcosaXY(orients[oi]);
-    const IcosaXYZ p3d = p2d.toXYZ(6371);  //Radius of the Earth
+    const SolidXY  p2d = SolidXY(orients[oi]);
+    const SolidXYZ p3d = p2d.toXYZ(6371);  //Radius of the Earth
     for(unsigned int vi=0;vi<p3d.v.size();vi++){
       //Choose one quadrant of 3-space. Will have 2-3 members
       if(p3d.v[vi].z>=0 && p3d.v[vi].y>=0){ 
