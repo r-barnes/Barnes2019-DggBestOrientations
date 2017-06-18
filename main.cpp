@@ -44,21 +44,19 @@
 
 const double Rearth = 6371; //km
 
-const double COARSE_SPACING = 10;  //km - Desired interpoint spacing for finding prospective orienations
-const double FINE_SPACING   = 0.1; //km - Desired interpoint spacing for zooming in on orientations of interest
-
-const double COARSE_THETA_STEP   = 0.1;
-const double FINE_THETA_STEP     = 0.001;
-const double FINE_THETA_INTERVAL = 0.1;
-const double FINE_RADIAL_LIMIT   = 0.002;
-
 const double DEG_TO_RAD = M_PI/180.0;
 const double RAD_TO_DEG = 180.0/M_PI;
 
-//Neighbouring vertices of Icosahedron used for generating rotations
-const int NA = 0;
-const int NB = 2;
-const int NC = 4;
+const double COARSE_SPACING      = 10;  //km - Desired interpoint spacing for finding prospective orienations
+const double COARSE_RADIAL_LIMIT = 90*DEG_TO_RAD;
+const double COARSE_THETA_MIN    = 0;
+const double COARSE_THETA_MAX    = 72*DEG_TO_RAD;
+const double COARSE_THETA_STEP   = 0.1*DEG_TO_RAD;
+
+const double FINE_SPACING        = 0.1; //km - Desired interpoint spacing for zooming in on orientations of interest
+const double FINE_RADIAL_LIMIT   = 0.002;
+const double FINE_THETA_STEP     = 0.001;
+const double FINE_THETA_INTERVAL = 0.1;
 
 typedef std::vector< std::vector<unsigned int> > norientations_t;
 
@@ -736,43 +734,53 @@ TEST_CASE("POIindex"){
 #ifdef DOCTEST_CONFIG_DISABLE
 
 int main(){
-  std::cerr<<"PRECISION = "<<PRECISION<<std::endl;
+  std::cout<<"Rearth              = " << Rearth              <<std::endl;
+  std::cout<<"COARSE_SPACING      = " << COARSE_SPACING      <<std::endl;
+  std::cout<<"COARSE_RADIAL_LIMIT = " << COARSE_RADIAL_LIMIT <<std::endl;
+  std::cout<<"COARSE_THETA_MIN    = " << COARSE_THETA_MIN    <<std::endl;
+  std::cout<<"COARSE_THETA_MAX    = " << COARSE_THETA_MAX    <<std::endl;
+  std::cout<<"COARSE_THETA_STEP   = " << COARSE_THETA_STEP   <<std::endl;
 
-  POICollection poic;
-  if(!LoadFromArchive(poic,"poic.save")){
+  std::cout<<"FINE_SPACING        = " << FINE_SPACING        <<std::endl;
+  std::cout<<"FINE_THETA_STEP     = " << FINE_THETA_STEP     <<std::endl;
+  std::cout<<"FINE_THETA_INTERVAL = " << FINE_THETA_INTERVAL <<std::endl;
+  std::cout<<"FINE_RADIAL_LIMIT   = " << FINE_RADIAL_LIMIT   <<std::endl;
+
+  OSCollection osc;
+  if(!LoadFromArchive(osc,"osc.save")){
     const auto landmass = IndexedShapefile(FILE_MERC_LANDMASS,"land_polygons");
     
-    auto orients = GenerateOrientations(COARSE_SPACING, 90*DEG_TO_RAD);
-    orients      = FindOrientationsOfInterest(landmass, orients);
+    auto orients = GenerateOrientations(COARSE_SPACING, COARSE_RADIAL_LIMIT, COARSE_THETA_MIN, COARSE_THETA_MAX, COARSE_THETA_STEP);
+    orients      = FilterOrientationsForOverlaps(orients, landmass);
 
     PointCloud wgs84pc = ReadPointCloudFromShapefile(FILE_WGS84_LANDMASS, "land_polygons");
 
-    OSCollection osc = GetStatsForOrientations(landmass,wgs84pc,orients);
+    osc = GetStatsForOrientations(orients,wgs84pc,landmass);
 
     SaveToArchive(osc, "osc.save");
   }
 
   norientations_t norientations;
   if(!LoadFromArchive(norientations,"norientations.save")){
-    norientations = FindNearbyOrientations(poic);
+    norientations = FindNearbyOrientations(osc);
     SaveToArchive(norientations, "norientations.save");
   }
 
-  DetermineDominants(poic, norientations);
+  DetermineDominants(osc, norientations);
 
   std::cerr<<"Writing output..."<<std::endl;
   {
     std::ofstream fout(FILE_OUTPUT_ROT);
-    PrintPOI(fout,poic,0,true);
-    for(unsigned int i=0;i<poic.size();i++)
-      PrintPOI(fout,poic,i,false);
+    PrintPOI(fout,osc,0,true);
+    for(unsigned int i=0;i<osc.size();i++)
+      PrintPOI(fout,osc,i,false);
   }
 
   {
     std::ofstream fout(FILE_OUTPUT_VERT);
-    PrintPOICoordinates(fout, poic, 0, true);
-    for(unsigned int pn=0;pn<poic.size();pn++)
-      PrintPOICoordinates(fout, poic, pn, false);
+    PrintPOICoordinates(fout, osc, 0, true);
+    for(unsigned int pn=0;pn<osc.size();pn++)
+      PrintPOICoordinates(fout, osc, pn, false);
   }
 
   return 0;
