@@ -30,13 +30,11 @@
 
 #ifdef ENV_XSEDE
   const std::string FILE_WGS84_LANDMASS = "/home/rbarnes1/scratch/dgg_best/land-polygons-complete-4326/land_polygons.shp";
-  const std::string FILE_OUTPUT_ROT     = "/home/rbarnes1/scratch/dgg_best/out-rot.csv";
-  const std::string FILE_OUTPUT_VERT    = "/home/rbarnes1/scratch/dgg_best/out-vert.csv";
+  const std::string FILE_OUTPUT_PREFIX  = "/home/rbarnes1/scratch/dgg_best/";
   const std::string FILE_MERC_LANDMASS  = "/home/rbarnes1/scratch/dgg_best/land-polygons-split-3857/land_polygons.shp";
 #elif ENV_LAPTOP
   const std::string FILE_WGS84_LANDMASS = "data/land-polygons-complete-4326/land_polygons.shp";
-  const std::string FILE_OUTPUT_ROT     = "/z/out-rot.csv";
-  const std::string FILE_OUTPUT_VERT    = "/z/out-vert.csv";
+  const std::string FILE_OUTPUT_PREFIX  = "/z/";
   const std::string FILE_MERC_LANDMASS  = "data/land-polygons-split-3857/land_polygons.shp";
 #else
   this-is-an-error
@@ -454,13 +452,13 @@ void PrintOrientations(
 ){
   std::cerr<<"Printing "<<osc.size()<<" to '"<<fileprefix<<"'"<<std::endl;
   {
-    std::ofstream fout(fileprefix+"-rot.csv");
+    std::ofstream fout(FILE_OUTPUT_PREFIX + fileprefix + "-rot.csv");
     PrintPOI(fout, osc, 0, true);
     for(unsigned int o=0;o<osc.size();o++)
       PrintPOI(fout, osc, o, false);
   }
   {
-    std::ofstream fout(fileprefix+"-vert.csv");
+    std::ofstream fout(FILE_OUTPUT_PREFIX + fileprefix + "-vert.csv");
     PrintPOICoordinates(fout, osc, 0, true);
     for(unsigned int o=0;o<osc.size();o++)
       PrintPOICoordinates(fout, osc, o, false);
@@ -806,21 +804,6 @@ int main(){
   }
 
   DetermineDominants(osc, norientations, wgs84pc, landmass);
-
-  std::cerr<<"Writing output..."<<std::endl;
-  {
-    std::ofstream fout(FILE_OUTPUT_ROT);
-    PrintPOI(fout,osc,0,true);
-    for(unsigned int i=0;i<osc.size();i++)
-      PrintPOI(fout,osc,i,false);
-  }
-
-  {
-    std::ofstream fout(FILE_OUTPUT_VERT);
-    PrintPOICoordinates(fout, osc, 0, true);
-    for(unsigned int pn=0;pn<osc.size();pn++)
-      PrintPOICoordinates(fout, osc, pn, false);
-  }
 
   return 0;
 }
