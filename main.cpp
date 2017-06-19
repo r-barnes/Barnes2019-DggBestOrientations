@@ -797,7 +797,7 @@ int main(){
   if(!LoadFromArchive(orients,"orients.save")){  
     orients = GenerateOrientations(COARSE_SPACING, COARSE_RADIAL_LIMIT, COARSE_THETA_MIN, COARSE_THETA_MAX, COARSE_THETA_STEP);
     orients = FilterOrientationsForOverlaps(orients, landmass);
-    SaveToArchive(orients, "osc.save");
+    SaveToArchive(orients, "orients.save");
   }
 
   OSCollection osc;
@@ -807,7 +807,7 @@ int main(){
   }
 
   norientations_t norientations;
-  if(!LoadFromArchive(norientations,"norientations.save")){
+  if(!LoadFromArchive(norientations, "norientations.save")){
     norientations = FindNearbyOrientations(osc);
     SaveToArchive(norientations, "norientations.save");
   }
