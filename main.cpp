@@ -221,9 +221,9 @@ OCollection FilterOrientationsForOverlaps(
       ret.push_back(orients[oi]);
   }
 
-  std::cout<< "Time taken = " << tmr.elapsed() <<"s"<< std::endl;
-  std::cerr<<"Checked = "<<orients.size()<<std::endl;
-  std::cerr<<"Found = "  <<ret.size()<<std::endl;
+  std::cout<<"Time taken = " << tmr.elapsed() <<"s"<<std::endl;
+  std::cerr<<"Checked = "    <<orients.size()      <<std::endl;
+  std::cerr<<"Found = "      <<ret.size()          <<std::endl;
 
   return ret;
 }
