@@ -189,12 +189,14 @@ OCollection GenerateNearbyOrientations(
   const double theta_max,
   const double theta_step
 ){
-  auto orientations = GenerateOrientations(point_spacingkm,radial_limit,theta_min,theta_max,theta_step);
+  OCollection orientations = GenerateOrientations(point_spacingkm,radial_limit,theta_min,theta_max,theta_step);
   CHECK(orientations.size()>0);
   const Rotator r(Point3D(0,0,1), p2d.toXYZ(1)); //Rotates from North Pole to alternate location
   
-  for(auto &x: orientations)
-    x.pole = r(x.pole.toXYZ(1)).toLatLon();
+  #pragma omp declare reduction (merge : OCollection : omp_out.insert(omp_out.end(), omp_in.begin(), omp_in.end()))
+  #pragma omp parallel for default(none) schedule(static) reduction(merge: orientations)
+  for(unsigned int i=0;i<orientations.size();i++)
+    orientations[i].pole = r(orientations[i].pole.toXYZ(1)).toLatLon();
 
   return orientations;
 }
