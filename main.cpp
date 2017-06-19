@@ -324,7 +324,6 @@ std::vector<unsigned int> Dominants(
 
   #pragma omp parallel for default(none) schedule(static) shared(orientations,std::cerr,osc,dom_checker,dominates)
   for(unsigned int i=0;i<orientations.size();i++){
-    #pragma omp critical
     for(const auto &n: orientations[i]){
       //n is already dominated
       if(dominates[n]!=n) 
