@@ -486,40 +486,48 @@ void DetermineDominants(
 ){
   Timer tmr;
   std::cerr<<"Determining dominants..."<<std::endl;
-  DetermineDominantsHelper("out_min_mindist", osc, norientations, wgs84pc, landmass,
-    [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.mindist<b.mindist; }
-  );
-  
-  DetermineDominantsHelper("out_max_mindist", osc, norientations, wgs84pc, landmass,
-    [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.mindist>b.mindist; }
-  );
-  
 
-  DetermineDominantsHelper("out_min_maxdist", osc, norientations, wgs84pc, landmass,
-    [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.maxdist<b.maxdist; }
-  );
-  
-  DetermineDominantsHelper("out_max_maxdist", osc, norientations, wgs84pc, landmass,
-    [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.maxdist>b.maxdist; }
-  );
-  
+  #pragma omp parallel sections 
+  {
+    #pragma omp section  
+    DetermineDominantsHelper("out_min_mindist", osc, norientations, wgs84pc, landmass,
+      [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.mindist<b.mindist; }
+    );
+    #pragma omp section    
+    DetermineDominantsHelper("out_max_mindist", osc, norientations, wgs84pc, landmass,
+      [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.mindist>b.mindist; }
+    );
+    
 
-  DetermineDominantsHelper("out_min_avgdist", osc, norientations, wgs84pc, landmass,
-    [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.avgdist<b.avgdist; }
-  );
-  
-  DetermineDominantsHelper("out_max_avgdist", osc, norientations, wgs84pc, landmass,
-    [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.avgdist>b.avgdist; }
-  );
-  
+    #pragma omp section
+    DetermineDominantsHelper("out_min_maxdist", osc, norientations, wgs84pc, landmass,
+      [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.maxdist<b.maxdist; }
+    );
+    #pragma omp section    
+    DetermineDominantsHelper("out_max_maxdist", osc, norientations, wgs84pc, landmass,
+      [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.maxdist>b.maxdist; }
+    );
 
-  DetermineDominantsHelper("out_min_edge_overlaps", osc, norientations, wgs84pc, landmass,
-    [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.edge_overlaps<b.edge_overlaps; }
-  );
-  
-  DetermineDominantsHelper("out_max_edge_overlaps", osc, norientations, wgs84pc, landmass,
-    [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.edge_overlaps>b.edge_overlaps; }
-  );
+    
+    #pragma omp section
+    DetermineDominantsHelper("out_min_avgdist", osc, norientations, wgs84pc, landmass,
+      [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.avgdist<b.avgdist; }
+    );
+    #pragma omp section    
+    DetermineDominantsHelper("out_max_avgdist", osc, norientations, wgs84pc, landmass,
+      [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.avgdist>b.avgdist; }
+    );
+    
+
+    #pragma omp section
+    DetermineDominantsHelper("out_min_edge_overlaps", osc, norientations, wgs84pc, landmass,
+      [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.edge_overlaps<b.edge_overlaps; }
+    );
+    #pragma omp section    
+    DetermineDominantsHelper("out_max_edge_overlaps", osc, norientations, wgs84pc, landmass,
+      [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.edge_overlaps>b.edge_overlaps; }
+    );
+  }
   
   std::cerr<<"Time taken = "<<tmr.elapsed()<<std::endl;
 }
