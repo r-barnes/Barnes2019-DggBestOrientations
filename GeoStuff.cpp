@@ -157,3 +157,7 @@ Polygons ReadShapefile(std::string filename, std::string layername){
 
   return geometries;
 }
+
+TEST_CASE("Shapefile open failure"){
+  CHECK_THROWS(ReadShapefile("asdfjasfdlkjasdf", "ajdsfajsfdklajsfd"));
+}

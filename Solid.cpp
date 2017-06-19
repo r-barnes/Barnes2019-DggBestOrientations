@@ -91,13 +91,6 @@ TEST_CASE("toRadians"){
 
 
 
-void SolidXY::print() const {
-  for(const auto &p: v)
-    std::cerr<<std::fixed<<std::setw(10)<<p.y<<" "<<std::fixed<<std::setw(10)<<p.x<<" -- "<<std::setw(10)<<std::fixed<<p.y*RAD_TO_DEG<<" "<<std::setw(10)<<std::fixed<<p.x*RAD_TO_DEG<<std::endl;
-}
-
-
-
 //Return neighbours in a N1a,N1b,N2a,N2b,... format
 std::vector<int> SolidXY::neighbors() const {
   std::vector<int> ret;
@@ -183,14 +176,6 @@ TEST_CASE("SolidXYZ::toLatLon"){
 }
 
 
-
-void SolidXYZ::print() const {
-  for(const auto &p: v)
-    std::cerr<<std::fixed<<std::setprecision(10)<<std::setw(15)<<p.x<<" "
-             <<std::fixed<<std::setprecision(10)<<std::setw(15)<<p.y<<" "
-             <<std::fixed<<std::setprecision(10)<<std::setw(15)<<p.z
-             <<std::endl;
-}
 
 //https://math.stackexchange.com/a/476311/14493
 SolidXYZ& SolidXYZ::rotateTo(const Point3D &o){

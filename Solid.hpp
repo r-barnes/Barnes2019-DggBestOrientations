@@ -39,7 +39,6 @@ class SolidXY{
   SolidXY& rotateTheta(const double rtheta);
   SolidXY& toMercator();
   SolidXY& toRadians();
-  void print() const;
   std::vector<int> neighbors() const;
   double neighborDistance() const;
   SolidXYZ toXYZ(const double radius) const;
@@ -76,7 +75,6 @@ class SolidXYZ {
   }};
 
   SolidXY toLatLon() const;
-  void print() const;
   SolidXYZ& rotateTo(const Point3D &o);
   std::vector<int> neighbors() const;
 

@@ -186,6 +186,13 @@ TEST_CASE("OrientationIndex"){
     CHECK(result[0]==1);
   }
 
+  SUBCASE("Partial overlap with no results"){
+    orients.emplace_back(Point2D(-93,45).toRadians(), 36.0*DEG_TO_RAD);
+    OrientationIndex oidx(orients);
+    auto result = oidx.query(0);
+    CHECK(result.size()==0);
+  }
+
   SUBCASE("Check more"){
     orients.emplace_back(Point2D(-93.1,45.1).toRadians(), 0*DEG_TO_RAD);
     orients.emplace_back(Point2D(-93.2,45.1).toRadians(), 0*DEG_TO_RAD);
@@ -200,22 +207,21 @@ TEST_CASE("OrientationIndex"){
   }
 }
 
-/*
+
 TEST_CASE("OrientationsWithStats"){
   const double DEG_TO_RAD = M_PI/180.0;
   const double RAD_TO_DEG = 180.0/M_PI;
 
-  OSCollection orients;
-  orients.emplace_back(Point2D(-93,45).toRadians(), 0);
-  orients.emplace_back(Point2D(-93.1,45.1).toRadians(), 0*DEG_TO_RAD);
-  orients.emplace_back(Point2D(-93.2,45.1).toRadians(), 0*DEG_TO_RAD);
-  orients.emplace_back(Point2D(-93.1,45.2).toRadians(), 0*DEG_TO_RAD);
-  orients.emplace_back(Point2D(-93.2,45.2).toRadians(), 0*DEG_TO_RAD);
-  orients.emplace_back(Point2D(-93.2,45.2).toRadians(), 36*DEG_TO_RAD);
-  orients.emplace_back(Point2D(23,-23.2).toRadians(), 36*DEG_TO_RAD);
-  OrientationIndex oidx(orients);
+  OSCollection ows;
+  ows.emplace_back(Point2D(-93,45).toRadians(), 0);
+  ows.emplace_back(Point2D(-93.1,45.1).toRadians(), 0*DEG_TO_RAD);
+  ows.emplace_back(Point2D(-93.2,45.1).toRadians(), 0*DEG_TO_RAD);
+  ows.emplace_back(Point2D(-93.1,45.2).toRadians(), 0*DEG_TO_RAD);
+  ows.emplace_back(Point2D(-93.2,45.2).toRadians(), 0*DEG_TO_RAD);
+  ows.emplace_back(Point2D(-93.2,45.2).toRadians(), 36*DEG_TO_RAD);
+  ows.emplace_back(Point2D(23,-23.2).toRadians(), 36*DEG_TO_RAD);
+  OrientationIndex oidx(ows);
   auto result = oidx.query(0);
   CHECK(result.size()==4);
   CHECK(result[0]==1);
 }
-*/
