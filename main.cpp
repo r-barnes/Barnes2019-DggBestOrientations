@@ -53,9 +53,9 @@ const double COARSE_THETA_MAX    = 72*DEG_TO_RAD;
 const double COARSE_THETA_STEP   = 0.1*DEG_TO_RAD;
 
 const double FINE_SPACING        = 0.1; //km - Desired interpoint spacing for zooming in on orientations of interest
-const double FINE_RADIAL_LIMIT   = 0.002;
-const double FINE_THETA_STEP     = 0.001;
-const double FINE_THETA_INTERVAL = 0.1;
+const double FINE_RADIAL_LIMIT   = COARSE_SPACING/Rearth;
+const double FINE_THETA_STEP     = 0.001*DEG_TO_RAD;
+const double FINE_THETA_INTERVAL = 0.1*DEG_TO_RAD;
 
 typedef std::vector< std::vector<unsigned int> > norientations_t;
 
