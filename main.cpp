@@ -27,6 +27,7 @@
 #include <cassert>
 #include <fstream>
 #include "doctest.h"
+#include <omp.h>
 
 #ifdef ENV_XSEDE
   const std::string FILE_WGS84_LANDMASS = "/home/rbarnes1/scratch/dgg_best/land-polygons-complete-4326/land_polygons.shp";
@@ -779,6 +780,8 @@ int main(){
   std::cout<<"FINE_THETA_STEP     = " << FINE_THETA_STEP     <<std::endl;
   std::cout<<"FINE_THETA_INTERVAL = " << FINE_THETA_INTERVAL <<std::endl;
   std::cout<<"FINE_RADIAL_LIMIT   = " << FINE_RADIAL_LIMIT   <<std::endl;
+
+  assert(!omp_get_nested());
 
   const auto landmass      = IndexedShapefile(FILE_MERC_LANDMASS,"land_polygons");
   const PointCloud wgs84pc = ReadPointCloudFromShapefile(FILE_WGS84_LANDMASS, "land_polygons");
