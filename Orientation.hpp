@@ -32,6 +32,7 @@ class OrientationWithStats : public Orientation {
   int                 edge_overlaps = 0;
 
   OrientationWithStats() = default;
+  OrientationWithStats(const Point2D &pole0, const double theta0);
   OrientationWithStats(const Orientation &o);
 
   template <class Archive>

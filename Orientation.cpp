@@ -8,6 +8,8 @@ Orientation::Orientation(const Point2D &pole0, const double theta0){
 
 OrientationWithStats::OrientationWithStats(const Orientation &o) : Orientation(o) {}
 
+OrientationWithStats::OrientationWithStats(const Point2D &pole0, const double theta0) : Orientation(pole0, theta0) {}
+
 TEST_CASE("Orientation Constructors"){
   Orientation o(Point2D(-93,45),13.7);
   Orientation ob(o);
