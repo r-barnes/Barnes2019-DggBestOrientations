@@ -142,7 +142,12 @@ OCollection GenerateOrientations(
   std::cerr << "Generating orientations..."<<std::endl;
 
   //Number of points to sample
-  const long N = (long)(8*M_PI*Rearth*Rearth/std::sqrt(3)/point_spacingkm/point_spacingkm);
+  const long N    = (long)(8*M_PI*Rearth*Rearth/std::sqrt(3)/point_spacingkm/point_spacingkm);
+  //This might induce minor sample loss near the South Pole due to numeric
+  //issues, but that turns out not to be an issue since we generate solids from
+  //the North Pole and only explore orientations down to the equator (below
+  //which symmetry guarantees that we've already explored what we need to)
+  const long Nmax = (N*(1-std::cos(radial_limit))-1)/2;
 
   std::cerr << "\tpoint_spacingkm = " << point_spacingkm <<std::endl;
   std::cerr << "\tradial_limit    = " << radial_limit    <<std::endl;
@@ -153,9 +158,9 @@ OCollection GenerateOrientations(
 
   //Generate orientations
   OCollection orientations;
-  //#pragma omp declare reduction (merge : OCollection : omp_out.insert(omp_out.end(), omp_in.begin(), omp_in.end()))
-  //#pragma omp parallel for default(none) schedule(static) reduction(merge: orientations)
-  for(long i=0;i<N;i++){
+  #pragma omp declare reduction (merge : OCollection : omp_out.insert(omp_out.end(), omp_in.begin(), omp_in.end()))
+  #pragma omp parallel for default(none) schedule(static) reduction(merge: orientations)
+  for(long i=0;i<Nmax;i++){
     Point2D pole (
       M_PI*(3.0-std::sqrt(5.0))*i,
       std::acos(1-(2.0*i+1.0)/N)
@@ -163,9 +168,6 @@ OCollection GenerateOrientations(
     pole.x = std::fmod(pole.x,2*M_PI)-M_PI;
     pole.y = pole.y-M_PI/2;
     pole.y = -pole.y; //Orientate so North Pole is up
-
-    if(pole.y<M_PI/2-radial_limit)
-      break;
 
     for(double theta=theta_min;theta<=theta_max;theta+=theta_step)
       orientations.emplace_back(pole,theta);
@@ -550,7 +552,7 @@ norientations_t FindNearbyOrientations(const T &osc){
 
 TEST_CASE("Check orientation of generated points"){
   //Use NaN to ensure that all points are generated
-  const auto orientations = GenerateOrientations(200,std::nan(""),0,0,COARSE_THETA_STEP);
+  const auto orientations = GenerateOrientations(200,M_PI,0,0,COARSE_THETA_STEP);
   CHECK(orientations.front().pole.y>0);
   CHECK(orientations.back().pole.y<0);
   std::ofstream fout("test_orientations_spiral.csv");
@@ -608,6 +610,8 @@ TEST_CASE("GenerateNearbyOrientations"){
     mindist = std::min(mindist,dist);
     CHECK(dist<radial_limit*Rearth*1.05);
   }
+  //CHECK(mindist==doctest::Approx(0).epsilon(0.02));
+  CHECK(maxdist==doctest::Approx(radial_limit*Rearth).epsilon(0.02));
   std::cerr<<"Minimum nearby rotated orientation distance = "<<mindist<<std::endl;
   std::cerr<<"Maximum nearby rotated orientation distance = "<<maxdist<<std::endl;
 }
