@@ -351,26 +351,50 @@ std::vector<unsigned int> Dominants(
 //For a set of dominants, look at nearby orientations to see if there's
 //something better. Return a collection of those better things.
 template<class T>
-OSCollection RefineDominants(
-  const std::vector<unsigned int> &dominants,
-  const OSCollection &osc,
-  const IndexedShapefile &landmass,
+OrientationWithStats RefineDominant(
+  const OrientationWithStats &this_o,
+  const PointCloud           &wgs84pc,
+  const IndexedShapefile     &landmass,
   T dom_checker
 ){
-  std::vector<unsigned int> ret;
-  for(const auto &x: dominants){
-    unsigned int best = 0;
-    const auto norientations = GenerateNearbyOrientations(osc[x].pole, FINE_SPACING, FINE_RADIAL_LIMIT, osc[x].theta-FINE_THETA_INTERVAL, osc[x].theta+FINE_THETA_INTERVAL, FINE_THETA_STEP);
-    for(const auto &no: norientations){
-      SolidXY p(no.pole,no.theta);
-      auto overlaps = OrientationOverlaps(p, landmass);
-
-      if(overlaps.count()!=osc[x].overlaps.count())
-        continue;
-
-    }
+  const auto norientations = GenerateNearbyOrientations(
+    this_o.pole,
+    FINE_SPACING,
+    FINE_RADIAL_LIMIT,
+    this_o.theta-FINE_THETA_INTERVAL,
+    this_o.theta+FINE_THETA_INTERVAL, 
+    FINE_THETA_STEP
+  );
+  OrientationWithStats best = this_o;
+  for(const auto &no: norientations){
+    SolidXY sxy(no);
+    const auto overlaps = OrientationOverlaps(sxy, landmass);
+    if(overlaps.count()!=this_o.overlaps.count())
+      continue;
+    OrientationWithStats nos = OrientationStats(this_o, wgs84pc, landmass);
+    if(dom_checker(nos,best)) //If neighbouring orientation is better than best
+      best = nos;             //Keep it
   }
-  return ret;
+  return best;
+}
+
+
+template<class T>
+OSCollection RefineDominants(
+  const OSCollection              &osc,
+  const std::vector<unsigned int> &dominants,
+  const PointCloud                &wgs84pc,
+  const IndexedShapefile          &landmass,
+  T dom_checker
+){
+  OSCollection best;
+  best.reserve(osc.size());
+  for(unsigned int d=0;d<dominants.size();d++){
+    if(dominants[d]!=d) //Is the orientation dominant?
+      continue;         //No
+    best.push_back(RefineDominant(osc[d],wgs84pc,landmass,dom_checker));
+  }
+  return best;
 }
 
 
@@ -422,70 +446,77 @@ std::ofstream& PrintPOICoordinates(std::ofstream& fout, const OSCollection &osc,
 
 void PrintOrientations(
   std::string fileprefix,
-  const OSCollection &osc,
-  const std::vector<unsigned int> &to_print
+  const OSCollection &osc
 ){
-  std::cerr<<"Printing "<<to_print.size()<<" to '"<<fileprefix<<"'"<<std::endl;
+  std::cerr<<"Printing "<<osc.size()<<" to '"<<fileprefix<<"'"<<std::endl;
   {
     std::ofstream fout(fileprefix+"-rot.csv");
     PrintPOI(fout, osc, 0, true);
-    for(const auto &x: to_print)
-      PrintPOI(fout, osc, x, false);
+    for(unsigned int o=0;o<osc.size();o++)
+      PrintPOI(fout, osc, o, false);
   }
   {
     std::ofstream fout(fileprefix+"-vert.csv");
     PrintPOICoordinates(fout, osc, 0, true);
-    for(const auto &x: to_print)
-      PrintPOICoordinates(fout, osc, x, false);
+    for(unsigned int o=0;o<osc.size();o++)
+      PrintPOICoordinates(fout, osc, o, false);
   }
 }
 
 template<class T>
 void DetermineDominantsHelper(
-  const std::string fileprefix,
-  const OSCollection &osc,
-  const norientations_t &norientations,
+  const std::string      fileprefix,
+  const OSCollection     &osc,
+  const norientations_t  &norientations,
+  const PointCloud       &wgs84pc,
+  const IndexedShapefile &landmass,
   T dom_checker
 ){
-  const auto result = Dominants(osc, norientations, dom_checker);
-  PrintOrientations(fileprefix, osc, result);
+  auto dominants   = Dominants(osc, norientations, dom_checker);
+  auto refined_osc = RefineDominants(osc,dominants,wgs84pc,landmass,dom_checker);
+  PrintOrientations(fileprefix, refined_osc);
 }
 
-void DetermineDominants(OSCollection &osc, const norientations_t &norientations){
+void DetermineDominants(
+  OSCollection           &osc,
+  const norientations_t  &norientations,
+  const PointCloud       &wgs84pc,
+  const IndexedShapefile &landmass
+){
   Timer tmr;
   std::cerr<<"Determining dominants..."<<std::endl;
-  DetermineDominantsHelper("out_min_mindist", osc, norientations,
+  DetermineDominantsHelper("out_min_mindist", osc, norientations, wgs84pc, landmass,
     [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.mindist<b.mindist; }
   );
   
-  DetermineDominantsHelper("out_max_mindist", osc, norientations,
+  DetermineDominantsHelper("out_max_mindist", osc, norientations, wgs84pc, landmass,
     [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.mindist>b.mindist; }
   );
   
 
-  DetermineDominantsHelper("out_min_maxdist", osc, norientations,
+  DetermineDominantsHelper("out_min_maxdist", osc, norientations, wgs84pc, landmass,
     [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.maxdist<b.maxdist; }
   );
   
-  DetermineDominantsHelper("out_max_maxdist", osc, norientations,
+  DetermineDominantsHelper("out_max_maxdist", osc, norientations, wgs84pc, landmass,
     [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.maxdist>b.maxdist; }
   );
   
 
-  DetermineDominantsHelper("out_min_avgdist", osc, norientations,
+  DetermineDominantsHelper("out_min_avgdist", osc, norientations, wgs84pc, landmass,
     [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.avgdist<b.avgdist; }
   );
   
-  DetermineDominantsHelper("out_max_avgdist", osc, norientations,
+  DetermineDominantsHelper("out_max_avgdist", osc, norientations, wgs84pc, landmass,
     [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.avgdist>b.avgdist; }
   );
   
 
-  DetermineDominantsHelper("out_min_edge_overlaps", osc, norientations,
+  DetermineDominantsHelper("out_min_edge_overlaps", osc, norientations, wgs84pc, landmass,
     [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.edge_overlaps<b.edge_overlaps; }
   );
   
-  DetermineDominantsHelper("out_max_edge_overlaps", osc, norientations,
+  DetermineDominantsHelper("out_max_edge_overlaps", osc, norientations, wgs84pc, landmass,
     [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.edge_overlaps>b.edge_overlaps; }
   );
   
@@ -746,17 +777,19 @@ int main(){
   std::cout<<"FINE_THETA_INTERVAL = " << FINE_THETA_INTERVAL <<std::endl;
   std::cout<<"FINE_RADIAL_LIMIT   = " << FINE_RADIAL_LIMIT   <<std::endl;
 
+  const auto landmass      = IndexedShapefile(FILE_MERC_LANDMASS,"land_polygons");
+  const PointCloud wgs84pc = ReadPointCloudFromShapefile(FILE_WGS84_LANDMASS, "land_polygons");
+
+  OCollection orients;
+  if(!LoadFromArchive(orients,"orients.save")){  
+    orients = GenerateOrientations(COARSE_SPACING, COARSE_RADIAL_LIMIT, COARSE_THETA_MIN, COARSE_THETA_MAX, COARSE_THETA_STEP);
+    orients = FilterOrientationsForOverlaps(orients, landmass);
+    SaveToArchive(orients, "osc.save");
+  }
+
   OSCollection osc;
   if(!LoadFromArchive(osc,"osc.save")){
-    const auto landmass = IndexedShapefile(FILE_MERC_LANDMASS,"land_polygons");
-    
-    auto orients = GenerateOrientations(COARSE_SPACING, COARSE_RADIAL_LIMIT, COARSE_THETA_MIN, COARSE_THETA_MAX, COARSE_THETA_STEP);
-    orients      = FilterOrientationsForOverlaps(orients, landmass);
-
-    PointCloud wgs84pc = ReadPointCloudFromShapefile(FILE_WGS84_LANDMASS, "land_polygons");
-
     osc = GetStatsForOrientations(orients,wgs84pc,landmass);
-
     SaveToArchive(osc, "osc.save");
   }
 
@@ -766,7 +799,7 @@ int main(){
     SaveToArchive(norientations, "norientations.save");
   }
 
-  DetermineDominants(osc, norientations);
+  DetermineDominants(osc, norientations, wgs84pc, landmass);
 
   std::cerr<<"Writing output..."<<std::endl;
   {
