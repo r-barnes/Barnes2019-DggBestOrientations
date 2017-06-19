@@ -3,25 +3,6 @@
 #include "doctest.h"
 #include <unordered_map>
 
-OrientationIndex::OrientationIndex(const OCollection &orients){
-  //Cannot be parallelized, otherwise the order of the points might get mixed up
-  for(unsigned int oi=0;oi<orients.size();oi++){
-    const SolidXY  p2d = SolidXY(orients[oi]);
-    const SolidXYZ p3d = p2d.toXYZ(6371);  //Radius of the Earth
-    for(unsigned int vi=0;vi<p3d.v.size();vi++){
-      //Choose one quadrant of 3-space. Will have 2-3 members
-      if(p3d.v[vi].z>=0 && p3d.v[vi].y>=0){ 
-        p3ds.push_back(p3d.v[vi]);
-        p2ds.push_back(p2d.v[vi]);
-        pidx.push_back(oi);
-      }
-    }
-  }
-
-  index.reset(new my_kd_tree_t(3 /*dim*/, *this, nanoflann::KDTreeSingleIndexAdaptorParams(10 /* max leaf */) ));
-  index->buildIndex();
-}
-
 OrientationIndex::~OrientationIndex(){
   index->freeIndex();
 }
@@ -36,6 +17,35 @@ inline double OrientationIndex::kdtree_distance(const double *p1, const size_t i
   const double d1 = p1[1]-p3ds[idx_p2].y;
   const double d2 = p1[2]-p3ds[idx_p2].z;
   return d0*d0+d1*d1+d2*d2;
+}
+
+OrientationIndex::OrientationIndex(const OCollection &orients){  //Cannot be parallelized, otherwise the order of the points might get mixed up
+  for(unsigned int oi=0;oi<orients.size();oi++)
+    addOrientation(oi, orients[oi]);
+
+  index.reset(new my_kd_tree_t(3 /*dim*/, *this, nanoflann::KDTreeSingleIndexAdaptorParams(10 /* max leaf */) ));
+  index->buildIndex();
+}
+
+OrientationIndex::OrientationIndex(const OSCollection &orients){  //Cannot be parallelized, otherwise the order of the points might get mixed up
+  for(unsigned int oi=0;oi<orients.size();oi++)
+    addOrientation(oi, orients[oi]);
+
+  index.reset(new my_kd_tree_t(3 /*dim*/, *this, nanoflann::KDTreeSingleIndexAdaptorParams(10 /* max leaf */) ));
+  index->buildIndex();
+}
+
+void OrientationIndex::addOrientation(const unsigned int id, const Orientation &o){
+  const SolidXY  p2d = SolidXY(o);
+  const SolidXYZ p3d = p2d.toXYZ(6371);  //Radius of the Earth
+  for(unsigned int vi=0;vi<p3d.v.size();vi++){
+    //Choose one quadrant of 3-space. Will have 2-3 members
+    if(p3d.v[vi].z>=0 && p3d.v[vi].y>=0){ 
+      p3ds.push_back(p3d.v[vi]);
+      p2ds.push_back(p2d.v[vi]);
+      pidx.push_back(id);
+    }
+  }
 }
 
 // Returns the dim'th component of the idx'th point in the class:

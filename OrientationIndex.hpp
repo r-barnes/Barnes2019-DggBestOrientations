@@ -3,6 +3,7 @@
 
 #include "Orientation.hpp"
 #include "nanoflann.hpp"
+#include "Solid.hpp"
 #include <memory>
 
 class OrientationIndex {
@@ -19,10 +20,13 @@ class OrientationIndex {
   std::vector<Point2D> p2ds;
   std::vector<unsigned int> pidx;
 
+  void addOrientation(const unsigned int id, const Orientation &o);
+
  public:
   const double DIST_LIMIT = 100*100; //Search radius in km (distance squared)
 
   OrientationIndex(const OCollection &orients);
+  OrientationIndex(const OSCollection &orients);
 
   ~OrientationIndex();
 
