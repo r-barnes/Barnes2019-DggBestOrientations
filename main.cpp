@@ -358,11 +358,8 @@ OSCollection RefineDominants(
 ){
   OSCollection best;
   best.reserve(osc.size());
-  for(unsigned int d=0;d<dominants.size();d++){
-    if(dominants[d]!=d) //Is the orientation dominant?
-      continue;         //No
+  for(unsigned int d=0;d<dominants.size();d++)
     best.push_back(RefineDominant(osc[d],wgs84pc,landmass,dom_checker));
-  }
   return best;
 }
 
