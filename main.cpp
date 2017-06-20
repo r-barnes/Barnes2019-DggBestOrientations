@@ -94,6 +94,12 @@ PointCloud ReadPointCloudFromShapefile(std::string filename, std::string layer){
   wgs84pc.buildIndex();
 
   return wgs84pc;
+
+//Orientations with no vertices on land are always of interest, as are overlaps
+//with many orientations on land. This convenience function is used elsewhere to
+//filter by overlaps
+bool OverlapOfInterest(const bitset<OrientationWithStats::dim> &overlaps){
+  return overlaps.count()==0 || overlaps.count()>=OVERLAPS_TO_BEAT;
 }
 
 
