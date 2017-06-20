@@ -46,16 +46,18 @@ const double Rearth = 6371; //km
 const double DEG_TO_RAD = M_PI/180.0;
 const double RAD_TO_DEG = 180.0/M_PI;
 
-const double COARSE_SPACING      = 10;  //km - Desired interpoint spacing for finding prospective orienations
+const double COARSE_SPACING      = 20;  //km - Desired interpoint spacing for finding prospective orienations
 const double COARSE_RADIAL_LIMIT = 90*DEG_TO_RAD;
 const double COARSE_THETA_MIN    = 0;
 const double COARSE_THETA_MAX    = 72*DEG_TO_RAD;
-const double COARSE_THETA_STEP   = 0.1*DEG_TO_RAD;
+const double COARSE_THETA_STEP   = 0.2*DEG_TO_RAD;
 
 const double FINE_SPACING        = 0.1; //km - Desired interpoint spacing for zooming in on orientations of interest
 const double FINE_RADIAL_LIMIT   = COARSE_SPACING/Rearth;
 const double FINE_THETA_STEP     = 0.001*DEG_TO_RAD;
-const double FINE_THETA_INTERVAL = 0.1*DEG_TO_RAD;
+const double FINE_THETA_INTERVAL = COARSE_THETA_STEP;
+
+const int    OVERLAPS_TO_BEAT    = 8; //Number of overlaps beyond (and including) which we are interested
 
 typedef std::vector< std::vector<unsigned int> > norientations_t;
 
