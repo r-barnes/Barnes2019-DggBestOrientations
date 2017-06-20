@@ -40,11 +40,14 @@ OrientationGenerator::OrientationGenerator(
   //which symmetry guarantees that we've already explored what we need to)
   Nmax = (N*(1-std::cos(radial_limit))-1)/2;
 
-  std::cerr << "Initializing orientation generator"      <<std::endl;
-  std::cerr << "\tpoint_spacingkm = " << point_spacingkm <<std::endl;
-  std::cerr << "\tradial_limit    = " << radial_limit    <<std::endl;
-  std::cerr << "\tN               = " << N               <<std::endl;
-  std::cerr << "\tNmax            = " << Nmax            <<std::endl;
+  #pragma omp critical
+  {
+    std::cerr << "Initializing orientation generator"      <<std::endl;
+    std::cerr << "\tpoint_spacingkm = " << point_spacingkm <<std::endl;
+    std::cerr << "\tradial_limit    = " << radial_limit    <<std::endl;
+    std::cerr << "\tN               = " << N               <<std::endl;
+    std::cerr << "\tNmax            = " << Nmax            <<std::endl;
+  }
 }
 
 long OrientationGenerator::getNmax() const {
