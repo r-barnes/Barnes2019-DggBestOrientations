@@ -1,5 +1,11 @@
 #include "PointCloud.hpp"
 #include "doctest.h"
+#include <cstdlib>
+#include <fstream>
+#include <string>
+#include <cstdlib>
+#include <cereal/archives/binary.hpp>
+#include <cereal/types/vector.hpp>
 
 inline size_t PointCloud::kdtree_get_point_count() const {
   return pts.size();
@@ -25,6 +31,13 @@ inline double PointCloud::kdtree_get_pt(const size_t idx, int dim) const {
     return pts[idx].z;
 }
 
+void PointCloud::newIndex() {
+  index.reset(
+    new my_kd_tree_t(3 /*dim*/, *this, nanoflann::KDTreeSingleIndexAdaptorParams(10 /* max leaf */) ),
+    [](my_kd_tree_t *t){ t->freeIndex(); }
+  );
+}
+
 // Optional bounding-box computation: return false to default to a standard bbox computation loop.
 //   Return true if the BBOX was already computed by the class and returned in "bb" so it can be avoided to redo it again.
 //   Look at bb.size() to find out the expected dimensionality (e.g. 2 or 3 for point clouds)
@@ -32,9 +45,7 @@ template <class BBOX>
 bool PointCloud::kdtree_get_bbox(BBOX& /* bb */) const { return false; }
 
 void PointCloud::buildIndex() {
-  if(index!=NULL)
-    delete index;
-  index = new my_kd_tree_t(3 /*dim*/, *this, nanoflann::KDTreeSingleIndexAdaptorParams(10 /* max leaf */) );
+  newIndex();
   index->buildIndex();
 }
 
@@ -53,6 +64,38 @@ const Point3D& PointCloud::queryPoint(const Point3D &xyz) const {
   return pts[ret_index];
 }
 
+void PointCloud::saveToArchive(std::string fileprefix) const {
+  {
+    std::ofstream os(fileprefix + "-pts.save", std::ios::binary);
+    cereal::BinaryOutputArchive archive( os );
+    archive(*this);
+  }
+
+  std::string fout_cloud_name = fileprefix+"-cloud.save";
+  FILE *f = fopen(fout_cloud_name.c_str(),"wb");
+  if (!f) throw std::runtime_error("Error writing index file!");
+  index->saveIndex(f);
+  fclose(f);
+}
+
+bool PointCloud::loadFromArchive(std::string fileprefix) {
+  std::ifstream os(fileprefix + "-pts.save", std::ios::binary);
+  std::string fout_cloud_name = fileprefix+"-cloud.save";
+  FILE *f = fopen(fout_cloud_name.c_str(),"rb");
+  if(!os.good() || !f)
+    return false;
+
+  cereal::BinaryInputArchive archive( os );
+  archive(*this);
+
+  newIndex();
+  index->loadIndex(f);
+  fclose(f);
+
+  return true;
+}
+
+
 TEST_CASE("PointCloud"){
   PointCloud pc;
   auto a = Point3D(1,0,0);
@@ -67,4 +110,27 @@ TEST_CASE("PointCloud"){
   CHECK(fp.x==a.x);
   CHECK(fp.y==a.y);
   CHECK(fp.z==0);
+}
+
+TEST_CASE("PointCloud Save/Load"){
+  Point3D qp(rand(),rand(),rand());
+  Point3D closest;
+  {
+    PointCloud pc;
+    for(int i=0;i<200;i++)
+      pc.addPoint(Point3D(rand(),rand(),rand()));
+    pc.buildIndex();
+    pc.saveToArchive("test_pc_save");
+    closest = pc.queryPoint(qp);
+  }
+
+  {
+    PointCloud pc;
+    pc.loadFromArchive("test_pc_save");
+    Point3D lclosest = pc.queryPoint(qp);
+    CHECK(lclosest.x==closest.x);
+    CHECK(lclosest.y==closest.y);
+    CHECK(lclosest.z==closest.z);
+  }
+
 }

@@ -3,6 +3,8 @@
 
 #include "nanoflann.hpp"
 #include "Point.hpp"
+#include <stdexcept>
+#include <memory>
 
 class PointCloud {
  private:
@@ -12,7 +14,9 @@ class PointCloud {
     3 /* dim */
   > my_kd_tree_t;
 
-  my_kd_tree_t *index = NULL;
+  void newIndex();
+
+  std::shared_ptr<my_kd_tree_t> index;
 
  public:
   std::vector<Point3D> pts;
@@ -37,6 +41,14 @@ class PointCloud {
   void buildIndex();
   void addPoint(const Point3D &xyz);
   const Point3D& queryPoint(const Point3D &xyz) const;
+
+  void saveToArchive(std::string filename) const;
+  bool loadFromArchive(std::string filename);
+
+  template <class Archive>
+  void serialize( Archive & ar ){
+    ar(pts);
+  }
 };
 
 #endif
