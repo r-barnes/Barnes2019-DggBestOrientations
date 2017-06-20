@@ -335,7 +335,7 @@ OrientationWithStats RefineDominant(
   for(const auto &no: norientations){
     SolidXY sxy(no);
     const auto overlaps = OrientationOverlaps(sxy, landmass);
-    if(overlaps.count()!=this_o.overlaps.count())
+    if(!OverlapOfInterest(overlaps))
       continue;
     OrientationWithStats nos = OrientationStats(this_o, wgs84pc, landmass);
     if(dom_checker(nos,best)) //If neighbouring orientation is better than best
