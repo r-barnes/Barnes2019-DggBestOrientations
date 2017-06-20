@@ -331,7 +331,9 @@ OrientationWithStats RefineDominant(
     this_o.theta+FINE_THETA_INTERVAL, 
     FINE_THETA_STEP
   );
+
   OrientationWithStats best = this_o;
+
   for(const auto &no: norientations){
     SolidXY sxy(no);
     const auto overlaps = OrientationOverlaps(sxy, landmass);
@@ -341,6 +343,7 @@ OrientationWithStats RefineDominant(
     if(dom_checker(nos,best)) //If neighbouring orientation is better than best
       best = nos;             //Keep it
   }
+
   return best;
 }
 
