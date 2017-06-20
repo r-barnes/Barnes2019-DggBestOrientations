@@ -133,56 +133,34 @@ auto OrientationOverlaps(const SolidXY &i2d, const IndexedShapefile &landmass){
 
 
 
-//Generate a set of orientations. The zeroth pole is near the South Pole with
-//orientations spiraling outwards from there until the `radial_limit` is
-//reached: the maximum number of radians outward from the South Pole. Poles are
-//spaced with approximately `point_spacingkm` kilometres between themselves. The
-//polyhedron will also be rotated from `theta_min` to `theta_max` with steps of
-//size `theta_step`.
-OCollection GenerateOrientations(
-  const double point_spacingkm,
-  const double radial_limit,
-  const double theta_min,
-  const double theta_max,
-  const double theta_step
+//Given a set of orientations, return a new set in which only those orientations
+//which fall entirely in the water or have a certain number of vertices on land
+//are returned in a new set. Orientations are not returned in the same order.
+OCollection OrientationsFilteredByOverlaps(
+  const IndexedShapefile &landmass
 ){
-  std::cerr << "Generating orientations..."<<std::endl;
+  std::cerr<<"Filtering orientations for overlaps..."<<std::endl;
 
-  //Number of points to sample
-  const long N    = (long)(8*M_PI*Rearth*Rearth/std::sqrt(3)/point_spacingkm/point_spacingkm);
-  //This might induce minor sample loss near the South Pole due to numeric
-  //issues, but that turns out not to be an issue since we generate solids from
-  //the North Pole and only explore orientations down to the equator (below
-  //which symmetry guarantees that we've already explored what we need to)
-  const long Nmax = (N*(1-std::cos(radial_limit))-1)/2;
+  const OrientationGenerator og(COARSE_SPACING, COARSE_RADIAL_LIMIT);
 
-  std::cerr << "\tpoint_spacingkm = " << point_spacingkm <<std::endl;
-  std::cerr << "\tradial_limit    = " << radial_limit    <<std::endl;
-  std::cerr << "\ttheta_min       = " << theta_min       <<std::endl;
-  std::cerr << "\ttheta_max       = " << theta_max       <<std::endl;
-  std::cerr << "\ttheta_step      = " << theta_step      <<std::endl;
-  std::cerr << "\tN               = " << N               <<std::endl;
-
-  //Generate orientations
-  OCollection orientations;
+  Timer tmr;
+  OCollection ret;
   #pragma omp declare reduction (merge : OCollection : omp_out.insert(omp_out.end(), omp_in.begin(), omp_in.end()))
-  #pragma omp parallel for default(none) schedule(static) reduction(merge: orientations)
-  for(long i=0;i<Nmax;i++){
-    Point2D pole (
-      M_PI*(3.0-std::sqrt(5.0))*i,
-      std::acos(1-(2.0*i+1.0)/N)
-    );
-    pole.x = std::fmod(pole.x,2*M_PI)-M_PI;
-    pole.y = pole.y-M_PI/2;
-    pole.y = -pole.y; //Orientate so North Pole is up
-
-    for(double theta=theta_min;theta<=theta_max;theta+=theta_step)
-      orientations.emplace_back(pole,theta);
+  #pragma omp parallel for default(none) schedule(static) shared(landmass) reduction(merge: ret)
+  for(unsigned int o=0;o<og.getNmax();o++)
+  for(double theta=COARSE_THETA_MIN;theta<=COARSE_THETA_MAX;theta+=COARSE_THETA_STEP){
+    auto ori = Orientation(og(o),theta);
+    SolidXY sxy(ori);
+    const auto overlaps = OrientationOverlaps(sxy, landmass);
+    if(OverlapOfInterest(overlaps))
+      ret.push_back(ori);
   }
 
-  std::cerr << "\tGenerated       = " << orientations.size() << std::endl;
+  std::cout<<"Time taken = " <<tmr.elapsed() <<"s"<<std::endl;
+  std::cerr<<"Checked = "    <<og.getNmax()       <<std::endl;
+  std::cerr<<"Found = "      <<ret.size()         <<std::endl;
 
-  return orientations;
+  return ret;
 }
 
 
@@ -196,44 +174,22 @@ OCollection GenerateNearbyOrientations(
   const double theta_max,
   const double theta_step
 ){
-  OCollection orientations = GenerateOrientations(point_spacingkm,radial_limit,theta_min,theta_max,theta_step);
-  CHECK(orientations.size()>0);
+  const OrientationGenerator og(point_spacingkm,radial_limit);
   const Rotator r(Point3D(0,0,1), p2d.toXYZ(1)); //Rotates from North Pole to alternate location
-  
-  #pragma omp parallel for default(none) schedule(static) shared(orientations)
-  for(unsigned int i=0;i<orientations.size();i++)
-    orientations[i].pole = r(orientations[i].pole.toXYZ(1)).toLatLon();
 
-  return orientations;
-}
+  CHECK(og.getNmax()>0);
 
-
-
-//Given a set of orientations, return a new set in which only those orientations
-//which fall entirely in the water or have a certain number of vertices on land
-//are returned in a new set. Orientations are not returned in the same order.
-OCollection FilterOrientationsForOverlaps(
-  const OCollection &orients,
-  const IndexedShapefile &landmass
-){
-  std::cerr<<"Filtering orientations for overlaps..."<<std::endl;
-
-  Timer tmr;
-  OCollection ret;
+  OCollection orientations;
   #pragma omp declare reduction (merge : OCollection : omp_out.insert(omp_out.end(), omp_in.begin(), omp_in.end()))
-  #pragma omp parallel for default(none) schedule(static) shared(orients,landmass) reduction(merge: ret)
-  for(unsigned int oi=0;oi<orients.size();oi++){
-    SolidXY i2d(orients[oi]);
-    auto overlaps = OrientationOverlaps(i2d, landmass);
-    if(overlaps.count()==0 || overlaps.count()>=8)
-      ret.push_back(orients[oi]);
+  #pragma omp parallel for default(none) schedule(static) reduction(merge: orientations)
+  for(long i=0;i<og.getNmax();i++){
+    auto pole = og(i);
+    pole = r(pole.toXYZ(1)).toLatLon();
+    for(double theta=theta_min;theta<=theta_max;theta+=theta_step)
+      orientations.emplace_back(pole,theta);
   }
 
-  std::cout<<"Time taken = " << tmr.elapsed() <<"s"<<std::endl;
-  std::cerr<<"Checked = "    <<orients.size()      <<std::endl;
-  std::cerr<<"Found = "      <<ret.size()          <<std::endl;
-
-  return ret;
+  return orientations;
 }
 
 
@@ -309,7 +265,8 @@ OSCollection GetStatsForOrientations(const OCollection &orients, const PointClou
   OSCollection osc;
   Timer tmr;
   std::cerr<<"Calculating distances to orientations' vertices..."<<std::endl;
-  #pragma omp parallel for default(none) shared(wgs84pc,landmass,orients,osc)
+  #pragma omp declare reduction (merge : OSCollection : omp_out.insert(omp_out.end(), omp_in.begin(), omp_in.end()))
+  #pragma omp parallel for default(none) shared(wgs84pc,landmass,orients) reduction(merge:osc)
   for(unsigned int pn=0;pn<orients.size();pn++)
     osc.push_back(OrientationStats(orients[pn],wgs84pc,landmass));
   std::cout << "Time taken = " << tmr.elapsed() <<"s"<< std::endl;
@@ -330,7 +287,7 @@ std::vector<unsigned int> Dominants(
   for(unsigned int i=0;i<dominates.size();i++)
     dominates[i] = i;
 
-  #pragma omp parallel for default(none) schedule(static) shared(orientations,std::cerr,osc,dom_checker,dominates)
+  #pragma omp parallel for default(none) schedule(static) shared(orientations,osc,dom_checker,dominates)
   for(unsigned int i=0;i<orientations.size();i++){
     for(const auto &n: orientations[i]){
       //n is already dominated
@@ -567,27 +524,32 @@ norientations_t FindNearbyOrientations(const T &osc){
 
 TEST_CASE("Check orientation of generated points"){
   //Use NaN to ensure that all points are generated
-  const auto orientations = GenerateOrientations(200,M_PI,0,0,COARSE_THETA_STEP);
-  CHECK(orientations.front().pole.y>0);
-  CHECK(orientations.back().pole.y<0);
+  OrientationGenerator og(200,180*DEG_TO_RAD);
+
+  std::vector<Point2D> orients;
+  for(long i=0;i<og.getNmax();i++)
+    orients.push_back(og(i));
+
+  CHECK(orients.front().y>0);
+  CHECK(orients.back().y<0);
   std::ofstream fout("test_orientations_spiral.csv");
   fout<<"num,lat,lon\n";
-  for(unsigned int o=0;o<orientations.size();o++)
-    fout<<o<<","<<(orientations[o].pole.y*RAD_TO_DEG)<<","<<(orientations[o].pole.x*RAD_TO_DEG)<<"\n";
+  for(unsigned int o=0;o<orients.size();o++)
+    fout<<o<<","<<(orients[o].y*RAD_TO_DEG)<<","<<(orients[o].x*RAD_TO_DEG)<<"\n";
 }
 
 //Determine the number of orientations in one quadrant of the 3-space
 TEST_CASE("Counting orientations [expensive]"){
-  const auto orientations = GenerateOrientations(200,90*DEG_TO_RAD,0,0,COARSE_THETA_STEP);
+  const OrientationGenerator og(200,90*DEG_TO_RAD);
 
-  CHECK(orientations.size()>0);
+  CHECK(og.getNmax()>0);
 
   int mincount = std::numeric_limits<int>::max();
   int maxcount = std::numeric_limits<int>::lowest();
   Timer tmr;
   #pragma omp parallel for default(none) schedule(static) reduction(min:mincount) reduction(max:maxcount)
-  for(unsigned int oi=0;oi<orientations.size();oi++){
-    SolidXYZ p = SolidXY(orientations[oi]).toXYZ(1);
+  for(long i=0;i<og.getNmax();i++){
+    SolidXYZ p = SolidXY(Orientation(og(i),0)).toXYZ(1);
     int count  = 0;
     for(const auto &v: p.v)
       if(v.y>=0 && v.z>=0)
