@@ -352,6 +352,7 @@ OrientationWithStats RefineDominant(
 }
 
 
+
 template<class T>
 OSCollection RefineDominants(
   const OSCollection              &osc,
