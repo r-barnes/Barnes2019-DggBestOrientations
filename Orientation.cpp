@@ -1,5 +1,7 @@
 #include "Orientation.hpp"
 #include "doctest.h"
+#include <iostream>
+#include <cmath>
 
 Orientation::Orientation(const Point2D &pole0, const double theta0){
   pole  = pole0;
@@ -18,4 +20,51 @@ TEST_CASE("Orientation Constructors"){
   CHECK(o.theta==ob.theta);
   CHECK(o.pole.x==ows.pole.x);
   CHECK(o.theta==ows.theta);
+}
+
+
+
+OrientationGenerator::OrientationGenerator(
+  const double point_spacingkm0,
+  const double radial_limit0
+){
+  point_spacingkm = point_spacingkm0;
+  radial_limit    = radial_limit0;
+
+  //Number of points to sample
+  N = (long)(8*M_PI*Rearth*Rearth/std::sqrt(3)/point_spacingkm/point_spacingkm);
+
+  //This might induce minor sample loss near the South Pole due to numeric
+  //issues, but that turns out not to be an issue since we generate solids from
+  //the North Pole and only explore orientations down to the equator (below
+  //which symmetry guarantees that we've already explored what we need to)
+  Nmax = (N*(1-std::cos(radial_limit))-1)/2;
+
+  std::cerr << "Initializing orientation generator"      <<std::endl;
+  std::cerr << "\tpoint_spacingkm = " << point_spacingkm <<std::endl;
+  std::cerr << "\tradial_limit    = " << radial_limit    <<std::endl;
+  std::cerr << "\tN               = " << N               <<std::endl;
+  std::cerr << "\tNmax            = " << Nmax            <<std::endl;
+}
+
+long OrientationGenerator::getNmax() const {
+  return Nmax;
+}
+
+//Generate a set of orientations. The zeroth pole is near the South Pole with
+//orientations spiraling outwards from there until the `radial_limit` is
+//reached: the maximum number of radians outward from the South Pole. Poles are
+//spaced with approximately `point_spacingkm` kilometres between themselves. The
+//polyhedron will also be rotated from `theta_min` to `theta_max` with steps of
+//size `theta_step`.
+Point2D OrientationGenerator::operator()(long i) const {
+  Point2D pole (
+    M_PI*(3.0-std::sqrt(5.0))*i,
+    std::acos(1-(2.0*i+1.0)/N)
+  );
+  pole.x = std::fmod(pole.x,2*M_PI)-M_PI;
+  pole.y = pole.y-M_PI/2;
+  pole.y = -pole.y; //Orientate so North Pole is up
+
+  return pole;
 }

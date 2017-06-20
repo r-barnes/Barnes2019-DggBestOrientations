@@ -55,4 +55,21 @@ typedef std::vector<OrientationWithStats> OSCollection;
 bool LoadPOICollection(OSCollection &poic, std::string filename);
 void SavePOICollection(const OSCollection &poic, std::string filename);
 
+class OrientationGenerator {
+ private:
+  const double Rearth = 6371;
+  double point_spacingkm;
+  double radial_limit;
+  long   N;
+  long   Nmax;
+ public:
+  OrientationGenerator(
+    const double point_spacingkm0,
+    const double radial_limit0
+  );
+
+  Point2D operator()(long i) const;
+  long getNmax() const;
+};
+
 #endif

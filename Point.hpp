@@ -24,6 +24,7 @@ class Point2D {
 class Point3D {
  public:
   double x,y,z;
+  Point3D() = default;
   Point3D(double x0, double y0, double z0);
   Point2D toLatLon() const;
   double dot(const Point3D &b) const;
