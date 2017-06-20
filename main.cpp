@@ -361,7 +361,8 @@ OSCollection RefineDominants(
   T dom_checker
 ){
   OSCollection best;
-  best.reserve(osc.size());
+  #pragma omp declare reduction (merge : OSCollection : omp_out.insert(omp_out.end(), omp_in.begin(), omp_in.end()))
+  #pragma omp parallel for default(none) schedule(static) shared(dominants,osc,wgs84pc,landmass,dom_checker) reduction(merge: best)
   for(unsigned int d=0;d<dominants.size();d++)
     best.push_back(RefineDominant(osc[d],wgs84pc,landmass,dom_checker));
   return best;
@@ -423,7 +424,7 @@ void PrintOrientations(
 ){
   #pragma omp critical
   std::cerr<<"Printing "<<osc.size()<<" to '"<<fileprefix<<"'"<<std::endl;
-  
+
   {
     std::ofstream fout(FILE_OUTPUT_PREFIX + fileprefix + "-rot.csv");
     PrintPOI(fout, osc, 0, true);
@@ -469,43 +470,43 @@ void DetermineDominants(
   Timer tmr;
   std::cerr<<"Determining dominants..."<<std::endl;
 
-  #pragma omp parallel sections 
+  //#pragma omp parallel sections 
   {
-    #pragma omp section  
+    //#pragma omp section  
     DetermineDominantsHelper("out_min_mindist", osc, norientations, wgs84pc, landmass,
       [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.mindist<b.mindist; }
     );
-    #pragma omp section    
+    //#pragma omp section    
     DetermineDominantsHelper("out_max_mindist", osc, norientations, wgs84pc, landmass,
       [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.mindist>b.mindist; }
     );
     
 
-    #pragma omp section
+    //#pragma omp section
     DetermineDominantsHelper("out_min_maxdist", osc, norientations, wgs84pc, landmass,
       [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.maxdist<b.maxdist; }
     );
-    #pragma omp section    
+    //#pragma omp section    
     DetermineDominantsHelper("out_max_maxdist", osc, norientations, wgs84pc, landmass,
       [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.maxdist>b.maxdist; }
     );
 
     
-    #pragma omp section
+    //#pragma omp section
     DetermineDominantsHelper("out_min_avgdist", osc, norientations, wgs84pc, landmass,
       [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.avgdist<b.avgdist; }
     );
-    #pragma omp section    
+    //#pragma omp section    
     DetermineDominantsHelper("out_max_avgdist", osc, norientations, wgs84pc, landmass,
       [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.avgdist>b.avgdist; }
     );
     
 
-    #pragma omp section
+    //#pragma omp section
     DetermineDominantsHelper("out_min_edge_overlaps", osc, norientations, wgs84pc, landmass,
       [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.edge_overlaps<b.edge_overlaps; }
     );
-    #pragma omp section    
+    //#pragma omp section    
     DetermineDominantsHelper("out_max_edge_overlaps", osc, norientations, wgs84pc, landmass,
       [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.edge_overlaps>b.edge_overlaps; }
     );
