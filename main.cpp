@@ -394,6 +394,8 @@ std::ofstream& PrintPOI(std::ofstream& fout, const OSCollection &osc, const int 
   return fout;
 }
 
+
+
 std::ofstream& PrintPOICoordinates(std::ofstream& fout, const OSCollection &osc, const int pn, bool header){
   if(header){
     fout<<"Num,Lat,Lon,OnLand\n";
@@ -410,11 +412,14 @@ std::ofstream& PrintPOICoordinates(std::ofstream& fout, const OSCollection &osc,
 }
 
 
+
 void PrintOrientations(
   std::string fileprefix,
   const OSCollection &osc
 ){
+  #pragma omp critical
   std::cerr<<"Printing "<<osc.size()<<" to '"<<fileprefix<<"'"<<std::endl;
+  
   {
     std::ofstream fout(FILE_OUTPUT_PREFIX + fileprefix + "-rot.csv");
     PrintPOI(fout, osc, 0, true);
@@ -429,6 +434,8 @@ void PrintOrientations(
   }
 }
 
+
+
 template<class T>
 void DetermineDominantsHelper(
   const std::string      fileprefix,
@@ -438,10 +445,16 @@ void DetermineDominantsHelper(
   const IndexedShapefile &landmass,
   T dom_checker
 ){
-  auto dominants   = Dominants(osc, norientations, dom_checker);
-  auto refined_osc = RefineDominants(osc,dominants,wgs84pc,landmass,dom_checker);
+  const auto dominants   = Dominants(osc, norientations, dom_checker);
+  #pragma omp critical
+  std::cerr<<"Dominants size ("<<fileprefix<<") = "<<dominants.size()<<std::endl;
+  const auto refined_osc = RefineDominants(osc,dominants,wgs84pc,landmass,dom_checker);
+  #pragma omp critical
+  std::cerr<<"Refined dominants size ("<<fileprefix<<") = "<<dominants.size()<<std::endl;
   PrintOrientations(fileprefix, refined_osc);
 }
+
+
 
 void DetermineDominants(
   OSCollection           &osc,
