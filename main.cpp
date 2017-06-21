@@ -152,8 +152,10 @@ OCollection OrientationsFilteredByOverlaps(
 
   const OrientationGenerator og(COARSE_SPACING, COARSE_RADIAL_LIMIT);
 
-  std::cerr<<"Orientations to generate sans theta-rotation = "<<og.getNmax()<<std::endl;
-  std::cerr<<"Orientations to generate sans with theta-rotation = "<<og.getNmax()*((COARSE_THETA_MAX-COARSE_THETA_MIN)/COARSE_THETA_STEP)<<std::endl;
+  std::cerr<<"Orientations to generate sans theta-rotation = "<<(long)og.getNmax()<<std::endl;
+
+  const long orienations_to_search = ((long)(og.getNmax()*((COARSE_THETA_MAX-COARSE_THETA_MIN)/COARSE_THETA_STEP)));
+  std::cerr<<"Orientations to generate with theta-rotation = "<<orienations_to_search<<std::endl;
 
   Timer tmr;
   OCollection ret;
@@ -169,7 +171,6 @@ OCollection OrientationsFilteredByOverlaps(
   }
 
   std::cout<<"Filtering: Time taken = " <<tmr.elapsed() <<"s"<<std::endl;
-  std::cerr<<"Filtering: Checked = "    <<og.getNmax()       <<std::endl;
   std::cerr<<"Filtering: Found = "      <<ret.size()         <<std::endl;
 
   return ret;
