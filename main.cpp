@@ -345,20 +345,33 @@ OrientationWithStats RefineDominant(
     this_o.theta+FINE_THETA_INTERVAL, 
     FINE_THETA_STEP
   );
+  std::cerr<<"Time = "<<tmr_nor.elapsed()<<" s"<<std::endl;
 
-  OrientationWithStats best = this_o;
+  std::cerr<<"Refining the dominant over "<<norientations.size()<<" nearby orientations..."<<std::endl;
+  // ProgressBar pg;
+  // pg.start((uint32_t)norientations.size());
 
-  for(const auto &no: norientations){
-    SolidXY sxy(no);
+  std::vector<OrientationWithStats> best(omp_get_max_threads(),this_o);
+  #pragma omp parallel for default(none) schedule(static) shared(std::cerr,wgs84pc,landmass,dom_checker,best)
+  for(unsigned int no=0;no<norientations.size();no++){
+    //pg.update((uint32_t)no);
+    #pragma omp critical
+    std::cerr<<"RefineDominant: "<<no<<std::endl;
+    const SolidXY sxy(norientations[no]);
     const auto overlaps = OrientationOverlaps(sxy, landmass);
     if(!OverlapOfInterest(overlaps))
       continue;
-    OrientationWithStats nos = OrientationStats(this_o, wgs84pc, landmass);
-    if(dom_checker(nos,best)) //If neighbouring orientation is better than best
-      best = nos;             //Keep it
+    const OrientationWithStats nos = OrientationStats(norientations[no], wgs84pc, landmass);
+    if(dom_checker(nos,best[omp_get_thread_num()])) //If neighbouring orientation is better than best
+      best[omp_get_thread_num()] = nos;             //Keep it
   }
 
-  return best;
+  auto bestbest = best.front();
+  for(auto &x: best)
+    if(dom_checker(x,bestbest))
+      bestbest = x;
+
+  return bestbest;
 }
 
 
@@ -372,8 +385,6 @@ OSCollection RefineDominants(
   T dom_checker
 ){
   OSCollection best;
-  #pragma omp declare reduction (merge : OSCollection : omp_out.insert(omp_out.end(), omp_in.begin(), omp_in.end()))
-  #pragma omp parallel for default(none) schedule(static) shared(dominants,osc,wgs84pc,landmass,dom_checker) reduction(merge: best)
   for(unsigned int d=0;d<dominants.size();d++)
     best.push_back(RefineDominant(osc[d],wgs84pc,landmass,dom_checker));
   return best;
