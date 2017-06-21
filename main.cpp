@@ -118,6 +118,8 @@ bool PointInLandmass(const Point2D &ll, const IndexedShapefile &landmass){
   const auto pid = landmass.sp.queryPoint(xy);
   if(pid==-1)
     return false;
+  if(landmass.isRect(pid)) //R-tree rectangle is coincident with the bounding box of a rectangular polygon, so no contains point check is necessary
+    return true;
   if(landmass.polys.at(pid).containsPoint(xy))
     return true;
   return false;
