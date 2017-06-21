@@ -13,9 +13,10 @@ inline size_t PointCloud::kdtree_get_point_count() const {
 
 // Returns the distance between the vector "p1[0:size-1]" and the data point with index "idx_p2" stored in the class:
 inline double PointCloud::kdtree_distance(const double *p1, const size_t idx_p2, size_t /*size*/) const {
-  const double d0 = p1[0]-pts[idx_p2].x;
-  const double d1 = p1[1]-pts[idx_p2].y;
-  const double d2 = p1[2]-pts[idx_p2].z;
+  const auto  &p2 = pts.at(idx_p2);
+  const double d0 = p1[0]-p2.x;
+  const double d1 = p1[1]-p2.y;
+  const double d2 = p1[2]-p2.z;
   return d0*d0+d1*d1+d2*d2;
 }
 
