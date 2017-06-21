@@ -30,6 +30,7 @@ Usage Note: My work is copyrighted. You may use my work but you may not include 
 rwgray@rwgrayprojects.com
 
 
+perf record -e LLC-loads,LLC-load-misses yourExecutable
 
 
  5.245390W longitude, 2.3008820N latitude, and placing an adjacent vertex at an azimuth of 7.466580 from the first vertex. Note that this placement is the only known icosahedron placement with no icosahedron vertices falling on land. 
@@ -75,30 +76,3 @@ set env LD_LIBRARY_PATH /share/apps/compute/gcc-6.2.0/lib64/:/home/rbarnes1/os/a
 
 
 g++6 -I/home/rbarnes1/os/include -Ilibs -I/home/rbarnes1/os/anaconda3/include -march=native -mtune=native --std=c++11 -O3 -g -Wall -ffast-math -fopenmp -o dgfinder.exe cpp_attempt.cpp  GeoStuff.cpp  Icosa.cpp  PointCloud.cpp  Point.cpp  Polygon.cpp  SpIndex.cpp POI.cpp -L/home/rbarnes1/os/anaconda3/lib -lgdal -L/home/rbarnes1/os/anaconda3/lib -lgeos_c -L/home/rbarnes1/os/anaconda3/lib -lxerces-c -lpthread -L/home/rbarnes1/os/anaconda3/lib -lnetcdf -L/home/rbarnes1/os/anaconda3/lib -lhdf5 -L/home/rbarnes1/os/anaconda3/lib -lmfhdf -ldf -L/home/rbarnes1/os/anaconda3/lib -lgeotiff -L/home/rbarnes1/os/anaconda3/lib -ltiff -lz -lpthread -lm -lrt -ldl -L/home/rbarnes1/os/anaconda3/lib -lcurl -L/home/rbarnes1/os/anaconda3/lib -lkea -L/home/rbarnes1/os/anaconda3/lib -lhdf5 -lhdf5_hl -lhdf5_cpp -ljpeg -lgeos -lproj -llzma -lssl -lcrypto -I/opt/boost/intel/mvapich2_ib/include/ -DENV_XSEDE -lGeographic
-
-
-Distance Metric Comparison:
-
-Flat Earth: User time (seconds): 131.10
-0,500,650,100,59.2426
-0,500,650,50,54.39
-0,500,700,150,40.397
-0,300,700,200,1.34997
-
-Elliptical Earth: User time (seconds): 170.75
-0,500,650,100,1.03792
-0,500,650,50,0.953383
-0,500,700,150,0.70457
-0,300,700,200,0.0236081
-
-Law of Cosines: User time (seconds): 449.53
-0,500,650,100,59.2424
-0,500,650,50,54.3873
-0,500,700,150,40.397
-0,300,700,200,1.3499
-
-Haversine: User time (seconds): 476.33
-0,500,650,100,59.2424
-0,500,650,50,54.3873
-0,500,700,150,40.397
-0,300,700,200,1.34997
