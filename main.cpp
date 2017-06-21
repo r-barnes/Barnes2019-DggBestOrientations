@@ -67,8 +67,11 @@ bool LoadFromArchive(T &poic, std::string filename){
   std::ifstream os(filename, std::ios::binary);
   if(!os.good())
     return false;
+  std::cerr<<"Loading from archive '"<<filename<<"'..."<<std::endl;
+  Timer tmr;
   cereal::BinaryInputArchive archive( os );
   archive(poic);
+  std::cerr<<"Time = "<<tmr.elapsed()<<" s"<<std::endl;
   return true;
 }
 
@@ -149,6 +152,9 @@ OCollection OrientationsFilteredByOverlaps(
 
   const OrientationGenerator og(COARSE_SPACING, COARSE_RADIAL_LIMIT);
 
+  std::cerr<<"Orientations to generate sans theta-rotation = "<<og.getNmax()<<std::endl;
+  std::cerr<<"Orientations to generate sans with theta-rotation = "<<og.getNmax()*((COARSE_THETA_MAX-COARSE_THETA_MIN)/COARSE_THETA_STEP)<<std::endl;
+
   Timer tmr;
   OCollection ret;
   #pragma omp declare reduction (merge : OCollection : omp_out.insert(omp_out.end(), omp_in.begin(), omp_in.end()))
@@ -162,9 +168,9 @@ OCollection OrientationsFilteredByOverlaps(
       ret.push_back(ori);
   }
 
-  std::cout<<"Time taken = " <<tmr.elapsed() <<"s"<<std::endl;
-  std::cerr<<"Checked = "    <<og.getNmax()       <<std::endl;
-  std::cerr<<"Found = "      <<ret.size()         <<std::endl;
+  std::cout<<"Filtering: Time taken = " <<tmr.elapsed() <<"s"<<std::endl;
+  std::cerr<<"Filtering: Checked = "    <<og.getNmax()       <<std::endl;
+  std::cerr<<"Filtering: Found = "      <<ret.size()         <<std::endl;
 
   return ret;
 }
@@ -270,7 +276,7 @@ OrientationWithStats OrientationStats(const Orientation &o, const PointCloud &wg
 OSCollection GetStatsForOrientations(const OCollection &orients, const PointCloud &wgs84pc, const IndexedShapefile &landmass){
   OSCollection osc;
   Timer tmr;
-  std::cerr<<"Calculating distances to orientations' vertices..."<<std::endl;
+  std::cerr<<"Calculating orientation statistics..."<<std::endl;
   #pragma omp declare reduction (merge : OSCollection : omp_out.insert(omp_out.end(), omp_in.begin(), omp_in.end()))
   #pragma omp parallel for default(none) shared(wgs84pc,landmass,orients) reduction(merge:osc)
   for(unsigned int pn=0;pn<orients.size();pn++)
@@ -329,6 +335,8 @@ OrientationWithStats RefineDominant(
   const IndexedShapefile     &landmass,
   T dom_checker
 ){
+  std::cerr<<"Generating neighbouring orientations for refining dominant..."<<std::endl;
+  Timer tmr_nor;
   const auto norientations = GenerateNearbyOrientations(
     this_o.pole,
     FINE_SPACING,
