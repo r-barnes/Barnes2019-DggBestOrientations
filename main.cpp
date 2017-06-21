@@ -248,16 +248,15 @@ unsigned int GreatCircleOverlaps(const IndexedShapefile &landmass, const Point2D
 
 //For all the great circle edges of a polyhedron, determine how many sample
 //points along the circles fall within landmasses.
-unsigned int OrientationEdgeOverlaps(const Orientation &o, const IndexedShapefile &landmass){
+unsigned int OrientationEdgeOverlaps(const SolidXY &sxy, const IndexedShapefile &landmass){
   static const auto   neighbors = SolidXY().neighbors();             //Get a list of neighbouring vertices on the polyhedron
   static const double ndist     = SolidXY().neighborDistance()*1000; //Approximate spacing between vertices in metres
   static const double spacing   = 10e3;                              //Spacing between points = 10km
   static const int    num_pts   = int(std::ceil(ndist / spacing));   //The number of intervals
-  SolidXY p(o);
   unsigned int edge_overlaps = 0;
   for(unsigned int n=0;n<neighbors.size();n+=2){
-    const auto &a = p.v[neighbors[n]];
-    const auto &b = p.v[neighbors[n+1]];
+    const auto &a = sxy.v[neighbors[n]];
+    const auto &b = sxy.v[neighbors[n+1]];
     edge_overlaps += GreatCircleOverlaps(landmass, a, b, num_pts);
   }
   return edge_overlaps;
@@ -268,21 +267,21 @@ unsigned int OrientationEdgeOverlaps(const Orientation &o, const IndexedShapefil
 //Generate distance statistic for an orientation
 OrientationWithStats OrientationStats(const Orientation &o, const PointCloud &wgs84pc, const IndexedShapefile &landmass){
   OrientationWithStats ows(o);
-  SolidXY i2d(o);
+  SolidXY sxy(o);
 
-  ows.overlaps = OrientationOverlaps(i2d, landmass);
+  ows.overlaps = OrientationOverlaps(sxy, landmass);
 
-  for(unsigned int i=0;i<i2d.v.size();i++){
-    const auto cp = wgs84pc.queryPoint(i2d.v[i].toXYZ(1)); //Closest point
+  for(unsigned int i=0;i<sxy.v.size();i++){
+    const auto cp = wgs84pc.queryPoint(sxy.v[i].toXYZ(1)); //Closest point
     auto llc      = cp.toLatLon();
-    auto dist     = GeoDistanceFlatEarth(llc,i2d.v[i]);
+    auto dist     = GeoDistanceFlatEarth(llc,sxy.v[i]);
     if(ows.overlaps.test(i))
       dist = -dist;
     ows.mindist = std::min(ows.mindist,dist);
     ows.maxdist = std::max(ows.maxdist,dist);
     ows.avgdist += dist;
   }
-  ows.edge_overlaps = OrientationEdgeOverlaps(o, landmass);
+  ows.edge_overlaps = OrientationEdgeOverlaps(sxy, landmass);
 
   return ows;
 }
