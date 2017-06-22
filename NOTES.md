@@ -76,3 +76,22 @@ set env LD_LIBRARY_PATH /share/apps/compute/gcc-6.2.0/lib64/:/home/rbarnes1/os/a
 
 
 g++6 -I/home/rbarnes1/os/include -Ilibs -I/home/rbarnes1/os/anaconda3/include -march=native -mtune=native --std=c++11 -O3 -g -Wall -ffast-math -fopenmp -o dgfinder.exe cpp_attempt.cpp  GeoStuff.cpp  Icosa.cpp  PointCloud.cpp  Point.cpp  Polygon.cpp  SpIndex.cpp POI.cpp -L/home/rbarnes1/os/anaconda3/lib -lgdal -L/home/rbarnes1/os/anaconda3/lib -lgeos_c -L/home/rbarnes1/os/anaconda3/lib -lxerces-c -lpthread -L/home/rbarnes1/os/anaconda3/lib -lnetcdf -L/home/rbarnes1/os/anaconda3/lib -lhdf5 -L/home/rbarnes1/os/anaconda3/lib -lmfhdf -ldf -L/home/rbarnes1/os/anaconda3/lib -lgeotiff -L/home/rbarnes1/os/anaconda3/lib -ltiff -lz -lpthread -lm -lrt -ldl -L/home/rbarnes1/os/anaconda3/lib -lcurl -L/home/rbarnes1/os/anaconda3/lib -lkea -L/home/rbarnes1/os/anaconda3/lib -lhdf5 -lhdf5_hl -lhdf5_cpp -ljpeg -lgeos -lproj -llzma -lssl -lcrypto -I/opt/boost/intel/mvapich2_ib/include/ -DENV_XSEDE -lGeographic
+
+
+
+-fprofile-generate enables -fprofile-arcs, -fprofile-values and -fvpt.
+
+-fprofile-use enables -fbranch-probabilities, -fvpt, -funroll-loops, -fpeel-loops and -ftracer
+
+Source: http://gcc.gnu.org/onlinedocs/gcc-4.7.2/gcc/Optimize-Options.html#Optimize-Options
+
+PS. Information about LTO also on that page.
+
+-fprofile-generate enables -fprofile-arcs, -fprofile-values and -fvpt.
+
+-fprofile-use enables -fbranch-probabilities, -fvpt, -funroll-loops, -fpeel-loops and -ftracer
+
+Source: http://gcc.gnu.org/onlinedocs/gcc-4.7.2/gcc/Optimize-Options.html#Optimize-Options
+
+PS. Information about LTO also on that page.
+
