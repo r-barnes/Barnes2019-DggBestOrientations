@@ -66,7 +66,7 @@ const Point3D& PointCloud::queryPoint(const Point3D &xyz) const {
   nanoflann::KNNResultSet<double> resultSet(num_results);
   resultSet.init(&ret_index, &out_dist_sqr);
   index->findNeighbors(resultSet, &query_pt[0], nanoflann::SearchParams(10));
-  return pts[ret_index];
+  return pts.at(ret_index);
 }
 
 void PointCloud::saveToArchive(std::string fileprefix) const {
