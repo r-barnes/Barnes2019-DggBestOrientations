@@ -4,6 +4,7 @@
 #include <fstream>
 #include <string>
 #include <cstdlib>
+#include <iostream>
 #include <cereal/archives/binary.hpp>
 #include <cereal/types/vector.hpp>
 
@@ -35,7 +36,10 @@ inline double PointCloud::kdtree_get_pt(const size_t idx, int dim) const {
 void PointCloud::newIndex() {
   index.reset(
     new my_kd_tree_t(3 /*dim*/, *this, nanoflann::KDTreeSingleIndexAdaptorParams(10 /* max leaf */) ),
-    [](my_kd_tree_t *t){ t->freeIndex(); }
+    [](my_kd_tree_t *t){
+      std::cerr<<"Freeing PointCloud index."<<std::endl;
+      t->freeIndex(); 
+    }
   );
 }
 
