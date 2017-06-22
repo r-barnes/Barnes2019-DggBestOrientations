@@ -92,6 +92,7 @@ bool LoadFromArchive(T &poic, std::string filename){
 
 template<class T>
 void SaveToArchive(const T &poic, std::string filename){
+  std::cerr<<"Saving to archive '"<<filename<<"'..."<<std::endl;
   std::ofstream os(filename, std::ios::binary);
   cereal::BinaryOutputArchive archive( os );
   archive(poic);
@@ -100,6 +101,7 @@ void SaveToArchive(const T &poic, std::string filename){
 
 
 PointCloud ReadPointCloudFromShapefile(std::string filename, std::string layer){
+  std::cerr<<"Generating point cloud from shapefile..."<<std::endl;
   auto landmass_wgs84 = ReadShapefile(filename, layer);
   for(auto &ll: landmass_wgs84)
     ll.toRadians();
