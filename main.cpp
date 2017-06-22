@@ -685,28 +685,28 @@ int main(){
   const auto landmass = IndexedShapefile(FILE_MERC_LANDMASS,"land_polygons");
 
   OCollection orients;
-  if(!LoadFromArchive(orients,"save_orients.save")){  
+  if(!LoadFromArchive(orients, FILE_OUTPUT_PREFIX + "save_orients.save")){  
     orients = OrientationsFilteredByOverlaps(landmass);
-    SaveToArchive(orients, "save_orients.save");
+    SaveToArchive(orients, FILE_OUTPUT_PREFIX + "save_orients.save");
   }
 
   PointCloud wgs84pc;
-  if(!wgs84pc.loadFromArchive("save_pointcloud")){
+  if(!wgs84pc.loadFromArchive(FILE_OUTPUT_PREFIX + "save_pointcloud.save")){
     wgs84pc = ReadPointCloudFromShapefile(FILE_WGS84_LANDMASS, "land_polygons");
     wgs84pc.buildIndex();
-    wgs84pc.saveToArchive("save_pointcloud");
+    wgs84pc.saveToArchive(FILE_OUTPUT_PREFIX + "save_pointcloud.save");
   }
 
   OSCollection osc;
-  if(!LoadFromArchive(osc,"save_osc.save")){
+  if(!LoadFromArchive(osc, FILE_OUTPUT_PREFIX + "save_osc.save")){
     osc = GetStatsForOrientations(orients,wgs84pc,landmass);
-    SaveToArchive(osc, "save_osc.save");
+    SaveToArchive(osc, FILE_OUTPUT_PREFIX + "save_osc.save");
   }
 
   norientations_t norientations;
-  if(!LoadFromArchive(norientations, "save_norientations.save")){
+  if(!LoadFromArchive(norientations, FILE_OUTPUT_PREFIX + "save_norientations.save")){
     norientations = FindNearbyOrientations(osc);
-    SaveToArchive(norientations, "save_norientations.save");
+    SaveToArchive(norientations, FILE_OUTPUT_PREFIX + "save_norientations.save");
   }
 
   DetermineDominants(osc, norientations);
