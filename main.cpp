@@ -112,7 +112,6 @@ PointCloud ReadPointCloudFromShapefile(std::string filename, std::string layer){
   for(const auto &ll: poly.exterior)
     wgs84pc.addPoint(ll.toXYZ(1));
   std::cerr<<"Building kd-tree..."<<std::endl;
-  wgs84pc.buildIndex();
 
   return wgs84pc;
 }
@@ -694,6 +693,7 @@ int main(){
   PointCloud wgs84pc;
   if(!wgs84pc.loadFromArchive("save_pointcloud")){
     wgs84pc = ReadPointCloudFromShapefile(FILE_WGS84_LANDMASS, "land_polygons");
+    wgs84pc.buildIndex();
     wgs84pc.saveToArchive("save_pointcloud");
   }
 
