@@ -168,16 +168,16 @@ OCollection OrientationsFilteredByOverlaps(
 
   const OrientationGenerator og(COARSE_SPACING, COARSE_RADIAL_LIMIT);
 
-  std::cerr<<"Orientations to generate sans theta-rotation = "<<(long)og.getNmax()<<std::endl;
+  std::cerr<<"Orientations to generate sans theta-rotation = "<<(long)og.size()<<std::endl;
 
-  const long orienations_to_search = ((long)(og.getNmax()*((COARSE_THETA_MAX-COARSE_THETA_MIN)/COARSE_THETA_STEP)));
+  const long orienations_to_search = ((long)(og.size()*((COARSE_THETA_MAX-COARSE_THETA_MIN)/COARSE_THETA_STEP)));
   std::cerr<<"Orientations to generate with theta-rotation = "<<orienations_to_search<<std::endl;
 
   Timer tmr;
   OCollection ret;
   #pragma omp declare reduction (merge : OCollection : omp_out.insert(omp_out.end(), omp_in.begin(), omp_in.end()))
   #pragma omp parallel for default(none) schedule(static) shared(landmass) reduction(merge: ret)
-  for(unsigned int o=0;o<og.getNmax();o++)
+  for(unsigned int o=0;o<og.size();o++){
   for(double theta=COARSE_THETA_MIN;theta<=COARSE_THETA_MAX;theta+=COARSE_THETA_STEP){
     auto ori = Orientation(og(o),theta);
     SolidXY sxy(ori);
@@ -367,7 +367,7 @@ void PrintOrientations(
   const std::vector<unsigned int> &do_print
 ){
   #pragma omp critical
-  std::cerr<<"Printing "<<osc.size()<<" to '"<<fileprefix<<"'"<<std::endl;
+  std::cerr<<"Printing "<<do_print.size()<<" to '"<<fileprefix<<"'"<<std::endl;
 
   {
     std::ofstream fout(FILE_OUTPUT_PREFIX + fileprefix + "-rot.csv");
@@ -481,7 +481,7 @@ TEST_CASE("Check orientation of generated points"){
   OrientationGenerator og(200,180*DEG_TO_RAD);
 
   std::vector<Point2D> orients;
-  for(long i=0;i<og.getNmax();i++)
+  for(long i=0;i<og.size();i++)
     orients.push_back(og(i));
 
   CHECK(orients.front().y>0);
@@ -496,13 +496,13 @@ TEST_CASE("Check orientation of generated points"){
 TEST_CASE("Counting orientations [expensive]"){
   const OrientationGenerator og(200,90*DEG_TO_RAD);
 
-  CHECK(og.getNmax()>0);
+  CHECK(og.size()>0);
 
   int mincount = std::numeric_limits<int>::max();
   int maxcount = std::numeric_limits<int>::lowest();
   Timer tmr;
   #pragma omp parallel for default(none) schedule(static) reduction(min:mincount) reduction(max:maxcount)
-  for(long i=0;i<og.getNmax();i++){
+  for(long i=0;i<og.size();i++){
     SolidXYZ p = SolidXY(Orientation(og(i),0)).toXYZ(1);
     int count  = 0;
     for(const auto &v: p.v)

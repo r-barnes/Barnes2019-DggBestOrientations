@@ -58,18 +58,16 @@ void SavePOICollection(const OSCollection &poic, std::string filename);
 class OrientationGenerator {
  private:
   const double Rearth = 6371;
-  double point_spacingkm;
-  double radial_limit;
-  long   N;
-  long   Nmax;
+  long   N;    //Total number of orientations
+  long   Nmax; //Number to be generated given the radial_limit.
  public:
   OrientationGenerator(
-    const double point_spacingkm0,
-    const double radial_limit0
+    const double point_spacingkm, //Approximate distance between points
+    const double radial_limit     //Radians from North pole to which orientations should be generated
   );
 
   Point2D operator()(long i) const;
-  long getNmax() const;
+  long size() const;
 };
 
 #endif

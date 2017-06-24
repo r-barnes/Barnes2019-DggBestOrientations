@@ -25,12 +25,9 @@ TEST_CASE("Orientation Constructors"){
 
 
 OrientationGenerator::OrientationGenerator(
-  const double point_spacingkm0,
-  const double radial_limit0
+  const double point_spacingkm,
+  const double radial_limit
 ){
-  point_spacingkm = point_spacingkm0;
-  radial_limit    = radial_limit0;
-
   //Number of points to sample
   N = (long)(8*M_PI*Rearth*Rearth/std::sqrt(3)/point_spacingkm/point_spacingkm);
 
@@ -50,7 +47,7 @@ OrientationGenerator::OrientationGenerator(
   }
 }
 
-long OrientationGenerator::getNmax() const {
+long OrientationGenerator::size() const {
   return Nmax;
 }
 
