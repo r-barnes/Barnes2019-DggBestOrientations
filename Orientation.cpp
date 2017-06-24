@@ -24,6 +24,22 @@ TEST_CASE("Orientation Constructors"){
 
 
 
+
+
+
+Point2D GenerateSpiralPoint(const long i, const long N){
+  Point2D pole (
+    M_PI*(3.0-std::sqrt(5.0))*i,
+    std::acos(1-(2.0*i+1.0)/N)
+  );
+  pole.x = std::fmod(pole.x,2*M_PI)-M_PI;
+  pole.y = pole.y-M_PI/2;
+  pole.y = -pole.y; //Orientate so North Pole is up
+  return pole;
+}
+
+
+
 OrientationGenerator::OrientationGenerator(
   const double point_spacingkm,
   const double radial_limit
@@ -58,13 +74,6 @@ long OrientationGenerator::size() const {
 //polyhedron will also be rotated from `theta_min` to `theta_max` with steps of
 //size `theta_step`.
 Point2D OrientationGenerator::operator()(long i) const {
-  Point2D pole (
-    M_PI*(3.0-std::sqrt(5.0))*i,
-    std::acos(1-(2.0*i+1.0)/N)
-  );
-  pole.x = std::fmod(pole.x,2*M_PI)-M_PI;
-  pole.y = pole.y-M_PI/2;
-  pole.y = -pole.y; //Orientate so North Pole is up
+  return GenerateSpiralPoint(i,N);
 
-  return pole;
 }
