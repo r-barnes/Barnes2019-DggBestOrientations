@@ -302,18 +302,18 @@ OSCollection GetStatsForOrientations(const OCollection &orients, const PointClou
 template<class T>
 std::vector<unsigned int> Dominants(
   const OSCollection &osc,
-  const norientations_t &orientations,
+  const norientations_t &norientations,
   T dom_checker
 ){
   std::vector<size_t> dominates(osc.size());
   for(unsigned int i=0;i<dominates.size();i++)
     dominates[i] = i;
 
-  ProgressBar pg(orientations.size());
+  ProgressBar pg(norientations.size());
 
-  #pragma omp parallel for default(none) schedule(static) shared(orientations,osc,dom_checker,dominates,pg)
-  for(unsigned int i=0;i<orientations.size();i++){
-    for(const auto &n: orientations[i]){
+  #pragma omp parallel for default(none) schedule(static) shared(norientations,osc,dom_checker,dominates,pg)
+  for(unsigned int i=0;i<norientations.size();i++){
+    for(const auto &n: norientations[i]){
       //n is already dominated
       if(dominates[n]!=n) 
         continue;
@@ -361,11 +361,10 @@ OrientationWithStats RefineDominant(
   std::cerr<<"Time = "<<tmr_nor.elapsed()<<" s"<<std::endl;
 
   std::cerr<<"Refining the dominant over "<<norientations.size()<<" nearby orientations..."<<std::endl;
-  // ProgressBar pg;
-  // pg.start((uint32_t)norientations.size());
 
+  ProgressBar pg(norientations.size());
   std::vector<OrientationWithStats> best(omp_get_max_threads(),this_o);
-  #pragma omp parallel for default(none) schedule(static) shared(std::cerr,wgs84pc,landmass,dom_checker,best)
+  #pragma omp parallel for default(none) schedule(static) shared(std::cerr,wgs84pc,landmass,dom_checker,best,pg)
   for(unsigned int no=0;no<norientations.size();no++){
     //pg.update((uint32_t)no);
     #pragma omp critical
@@ -377,6 +376,7 @@ OrientationWithStats RefineDominant(
     const OrientationWithStats nos = OrientationStats(norientations[no], wgs84pc, landmass);
     if(dom_checker(nos,best[omp_get_thread_num()])) //If neighbouring orientation is better than best
       best[omp_get_thread_num()] = nos;             //Keep it
+    ++pg;
   }
 
   auto bestbest = best.front();
