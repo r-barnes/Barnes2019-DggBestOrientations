@@ -80,11 +80,11 @@ void ProgressBar::update(uint32_t work_done0){
   // std::cerr<<"works_per_sec = "<<works_per_sec<<std::endl;
   // std::cerr<<"avg_time  = "<<avg_count<<std::endl;
   // std::cerr<<"avg_count = "<<avg_count<<std::endl;
-  const double time_remaining = avg_time/avg_count*(total_work-work_done*num_threads);
+  const double time_remaining = avg_time/avg_count*(total_work/(double)num_threads-work_done);
 
   //Use a uint16_t because using a uint8_t will cause the result to print as a
   //character instead of a number
-  uint16_t percent = (uint8_t)(work_done*num_threads*100/total_work);
+  double percent = 100*work_done*num_threads/total_work;
 
   //Handle overflows
   if(percent>100)
@@ -95,7 +95,7 @@ void ProgressBar::update(uint32_t work_done0){
   std::cerr<<"\r\033[2K["
            <<std::string(percent/2, '=')<<std::string(50-percent/2, ' ')
            <<"] ("
-           <<percent<<"% - "
+           <<std::fixed<<std::setprecision(1)<<percent<<"% - "
            <<std::fixed<<std::setprecision(1)<<time_remaining
            <<"s - "
            <<omp_get_num_threads()<< " threads)"<<std::flush;
