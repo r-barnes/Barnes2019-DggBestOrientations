@@ -16,9 +16,6 @@
 #include "IndexedShapefile.hpp"
 #include "OrientationIndex.hpp"
 #include "Progress.hpp"
-#include <GeographicLib/Geodesic.hpp>
-#include <GeographicLib/GeodesicLine.hpp>
-#include <GeographicLib/Constants.hpp>
 #include <iostream>
 #include <vector>
 #include <stdexcept>
@@ -231,21 +228,12 @@ OCollection GenerateNearbyOrientations(
 //circle. Then count how many of these sample points fall within landmasses.
 //Maximum value returned is `num_pts+1`
 unsigned int GreatCircleOverlaps(const IndexedShapefile &landmass, const Point2D &a, const Point2D &b, const int num_pts){
-  static const GeographicLib::Geodesic geod(GeographicLib::Constants::WGS84_a(), GeographicLib::Constants::WGS84_f());
-  const GeographicLib::GeodesicLine line = geod.InverseLine(
-    a.y*RAD_TO_DEG,
-    a.x*RAD_TO_DEG,
-    b.y*RAD_TO_DEG,
-    b.x*RAD_TO_DEG
-  );
-  const double da = line.Arc() / num_pts;
+  GreatCircleGenerator gcg(a,b,num_pts);
+
   unsigned int edge_overlaps = 0;
-  for(int i=0;i<=num_pts;i++) {
-    Point2D temp;
-    line.ArcPosition(i * da, temp.y, temp.x);
-    temp.toRadians();
-    edge_overlaps += PointInLandmass(temp,landmass);
-  }
+  for(int i=0;i<=gcg.size();i++)
+    edge_overlaps += PointInLandmass(gcg(i),landmass);
+
   return edge_overlaps;
 }
 

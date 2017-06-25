@@ -3,6 +3,9 @@
 
 #include "Point.hpp"
 #include "Polygon.hpp"
+#include <GeographicLib/Geodesic.hpp>
+#include <GeographicLib/GeodesicLine.hpp>
+#include <GeographicLib/Constants.hpp>
 
 double GeoDistanceFlatEarth(const Point2D &a, const Point2D &b);
 
@@ -16,5 +19,18 @@ void ToMercator(T &pts);
 double EuclideanDistance(const Point3D &a, const Point3D &b);
 
 Polygons ReadShapefile(std::string filename, std::string layername);
+
+class GreatCircleGenerator {
+ public:
+  static GeographicLib::Geodesic geod;
+ private:
+  GeographicLib::GeodesicLine gline;
+  double da;
+  int num_pts;
+ public:
+  GreatCircleGenerator(const Point2D &a, const Point2D &b, const int num_pts0);
+  Point2D operator()(int i) const;
+  int size() const;
+};
 
 #endif

@@ -2,6 +2,9 @@
 #include <cmath>
 #include "doctest.h"
 #include <ogrsf_frmts.h>
+#include <cmath>
+
+const double RAD_TO_DEG = 180.0/M_PI;
 
 // """
 // Calculate the Great Circle distance on Earth between two latitude-longitude
@@ -160,4 +163,34 @@ Polygons ReadShapefile(std::string filename, std::string layername){
 
 TEST_CASE("Shapefile open failure"){
   CHECK_THROWS(ReadShapefile("asdfjasfdlkjasdf", "ajdsfajsfdklajsfd"));
+}
+
+GeographicLib::Geodesic GreatCircleGenerator::geod = GeographicLib::Geodesic(GeographicLib::Constants::WGS84_a(), GeographicLib::Constants::WGS84_f());
+
+GreatCircleGenerator::GreatCircleGenerator(
+  const Point2D &a,
+  const Point2D &b,
+  const int num_pts0
+){
+  gline = geod.InverseLine(
+    a.y*RAD_TO_DEG,
+    a.x*RAD_TO_DEG,
+    b.y*RAD_TO_DEG,
+    b.x*RAD_TO_DEG
+  );
+
+  num_pts = num_pts0;
+
+  da = gline.Arc() / num_pts;
+}
+
+Point2D GreatCircleGenerator::operator()(int i) const {
+  Point2D temp;
+  gline.ArcPosition(i * da, temp.y, temp.x);
+  temp.toRadians();
+  return temp;
+}
+  
+int GreatCircleGenerator::size() const {
+  return num_pts;
 }
