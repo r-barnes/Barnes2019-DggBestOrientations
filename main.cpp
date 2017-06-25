@@ -198,6 +198,35 @@ OCollection OrientationsFilteredByOverlaps(
 
 
 
+//Generate orientations spiraling outward from the indicated pole
+OCollection GenerateNearbyOrientations(
+  const Point2D &p2d,
+  const double point_spacingkm,
+  const double radial_limit,
+  const double theta_min,
+  const double theta_max,
+  const double theta_step
+){
+  const OrientationGenerator og(point_spacingkm,radial_limit);
+  const Rotator r(Point3D(0,0,1), p2d.toXYZ(1)); //Rotates from North Pole to alternate location
+
+  CHECK(og.getNmax()>0);
+
+  OCollection orientations;
+  #pragma omp declare reduction (merge : OCollection : omp_out.insert(omp_out.end(), omp_in.begin(), omp_in.end()))
+  #pragma omp parallel for default(none) schedule(static) reduction(merge: orientations)
+  for(long i=0;i<og.getNmax();i++){
+    auto pole = og(i);
+    pole = r(pole.toXYZ(1)).toLatLon();
+    for(double theta=theta_min;theta<=theta_max;theta+=theta_step)
+      orientations.emplace_back(pole,theta);
+  }
+
+  return orientations;
+}
+
+
+
 //For a great circle connecting two points, generate sample points along the
 //circle. Then count how many of these sample points fall within landmasses.
 //Maximum value returned is `num_pts+1`
@@ -597,6 +626,38 @@ TEST_CASE("Counting orientations [expensive]"){
   }
   CHECK(mincount==2);
   CHECK(maxcount==4);
+}
+
+TEST_CASE("GenerateNearbyOrientations"){
+  const auto focal           = Point2D(-93,45).toRadians();
+  const auto point_spacingkm = 0.1;
+  const auto radial_limit    = 0.1*DEG_TO_RAD;
+  //const auto orientations  = GenerateNearbyOrientations(focal, FINE_SPACING, FINE_RADIAL_LIMIT, 0-FINE_THETA_INTERVAL, 0+FINE_THETA_INTERVAL, FINE_THETA_STEP);
+  const auto orientations    = GenerateNearbyOrientations(focal, point_spacingkm, radial_limit, 0, 0, 1);
+
+  CHECK (orientations.size()>0);
+
+  {
+    std::ofstream fout("test_nearby_orientations.csv");
+    fout<<"lon,lat\n";
+    for(const auto &o: orientations)
+      fout<<(o.pole.x*RAD_TO_DEG)<<","<<(o.pole.y*RAD_TO_DEG)<<"\n";
+  }
+
+  //Check that distances to all points are within the desired angular radius of
+  //the specified focal point, to within a 5% tolerance
+  double mindist = std::numeric_limits<double>::infinity();
+  double maxdist = -std::numeric_limits<double>::infinity();
+  for(const auto &o: orientations){
+    const auto dist = GeoDistanceHaversine(focal,o.pole);
+    maxdist = std::max(maxdist,dist);
+    mindist = std::min(mindist,dist);
+    CHECK(dist<radial_limit*Rearth*1.05);
+  }
+  //CHECK(mindist==doctest::Approx(0).epsilon(0.02));
+  CHECK(maxdist==doctest::Approx(radial_limit*Rearth).epsilon(0.02));
+  std::cerr<<"Minimum nearby rotated orientation distance = "<<mindist<<std::endl;
+  std::cerr<<"Maximum nearby rotated orientation distance = "<<maxdist<<std::endl;
 }
 
 TEST_CASE("Test with data [expensive]"){
