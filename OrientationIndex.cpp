@@ -104,25 +104,59 @@ std::vector<std::pair<unsigned int, double> > OrientationIndex::query(const Poin
   return matches;
 }
 
+
+
 std::vector<unsigned int> OrientationIndex::query(const unsigned int qpn) const {
   //Locate the first point corresponding to qpn, we'll iterate forward to
   //identify the rest
-  const size_t fs = std::lower_bound(pidx.begin(), pidx.end(), qpn)-pidx.begin();
+  auto it_pidx = std::lower_bound(pidx.begin(), pidx.end(), qpn);
 
+  std::vector<Point3D>::const_iterator it3d_start = p3ds.begin() + (it_pidx-pidx.begin());
+  std::vector<Point3D>::const_iterator it3d_end   = it3d_start;
+
+  //Advance `it_pidx` to the element just past the end of this orientation,
+  //advance `it3d_end` along with it.
+  while(*it_pidx==qpn){
+    it_pidx++;
+    it3d_end++;
+  }
+
+  return query(it3d_start,it3d_end,qpn);
+}
+
+
+
+std::vector<unsigned int> OrientationIndex::query(const Orientation &o) const {
+  const SolidXYZ sxyz = SolidXY(o).toXYZ(Rearth);
+  std::vector<Point3D> qps;
+  qps.reserve(12);
+  for(const auto v: sxyz.v)
+    if(vertexInSubdivision(v))
+      qps.push_back(v);
+  return query(qps.begin(), qps.end(), NO_IGNORE);
+}
+
+
+
+std::vector<unsigned int> OrientationIndex::query(
+  const std::vector<Point3D>::const_iterator qvec_begin,
+  const std::vector<Point3D>::const_iterator qvec_end,
+  const unsigned int ignore_pt
+) const {
   //For each 3D point of the query POI, find its nearest neighbours in 3-space
   std::vector< std::vector<std::pair<unsigned int, double> > > matches;
   matches.reserve(4); //Can have 2-3 neighbours
   //Iterate through all of the points associated with qpn that we have in the
   //index, finding their nearest neighbours
-  for(unsigned int fi=fs;pidx[fi]==qpn;fi++)
-    matches.push_back(query(p3ds[fi]));
+  for(auto qviter = qvec_begin;qviter!=qvec_end;++qviter)
+    matches.push_back(query(*qviter));
 
   //Look at the neighbours of each point and determine how many times each
   //neighbour is seen total. Ignore qpn itself.
   std::unordered_map<size_t,uint8_t> counts(10000);
   for(const auto &r: matches)
   for(const auto &x: r){
-    if(pidx[x.first]!=qpn)
+    if(pidx[x.first]!=ignore_pt)
       counts[pidx[x.first]]++;
   }
 

@@ -5,6 +5,7 @@
 #include "nanoflann.hpp"
 #include "Solid.hpp"
 #include <memory>
+#include <limits>
 
 class OrientationIndex {
  private:
@@ -26,6 +27,7 @@ class OrientationIndex {
 
  public:
   const double Rearth = 6371;
+  static const unsigned int NO_IGNORE = std::numeric_limits<unsigned int>::max();
   
   const double DIST_LIMIT = 100*100; //Search radius in km (distance squared)
 
@@ -53,6 +55,8 @@ class OrientationIndex {
 
   std::vector<std::pair<unsigned int, double> > query(const Point3D &qp) const;
   std::vector<unsigned int> query(const unsigned int qpn) const;
+  std::vector<unsigned int> query(const std::vector<Point3D>::const_iterator qvec_begin, const std::vector<Point3D>::const_iterator qvec_end, const unsigned int ignore_pt) const;
+  std::vector<unsigned int> query(const Orientation &o) const;
 };
 
 #endif
