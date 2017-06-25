@@ -44,7 +44,7 @@ OrientationIndex::OrientationIndex(const OSCollection &orients){  //Cannot be pa
 
 void OrientationIndex::addOrientation(const unsigned int id, const Orientation &o){
   const SolidXY  p2d = SolidXY(o);
-  const SolidXYZ p3d = p2d.toXYZ(6371);  //Radius of the Earth
+  const SolidXYZ p3d = p2d.toXYZ(Rearth);
   for(unsigned int vi=0;vi<p3d.v.size();vi++){
     //Choose one quadrant of 3-space. Will have 2-3 members
     if(vertexInSubdivision(p3d.v[vi])){ 

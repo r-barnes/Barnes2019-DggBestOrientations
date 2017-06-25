@@ -25,6 +25,8 @@ class OrientationIndex {
   bool vertexInSubdivision(const Point3D &v) const;
 
  public:
+  const double Rearth = 6371;
+  
   const double DIST_LIMIT = 100*100; //Search radius in km (distance squared)
 
   OrientationIndex(const OCollection &orients);
