@@ -210,12 +210,12 @@ OCollection GenerateNearbyOrientations(
   const OrientationGenerator og(point_spacingkm,radial_limit);
   const Rotator r(Point3D(0,0,1), p2d.toXYZ(1)); //Rotates from North Pole to alternate location
 
-  CHECK(og.getNmax()>0);
+  CHECK(og.size()>0);
 
   OCollection orientations;
   #pragma omp declare reduction (merge : OCollection : omp_out.insert(omp_out.end(), omp_in.begin(), omp_in.end()))
   #pragma omp parallel for default(none) schedule(static) reduction(merge: orientations)
-  for(long i=0;i<og.getNmax();i++){
+  for(long i=0;i<og.size();i++){
     auto pole = og(i);
     pole = r(pole.toXYZ(1)).toLatLon();
     for(double theta=theta_min;theta<=theta_max;theta+=theta_step)
