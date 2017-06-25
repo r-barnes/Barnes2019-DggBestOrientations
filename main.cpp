@@ -494,7 +494,7 @@ void DetermineDominantsHelper(
   const IndexedShapefile &landmass,
   T dom_checker
 ){
-  const auto dominants   = Dominants(osc, norientations, dom_checker);
+  const auto dominants = Dominants(osc, norientations, dom_checker);
   #pragma omp critical
   std::cerr<<"Dominants size ("<<fileprefix<<") = "<<dominants.size()<<std::endl;
   const auto refined_osc = RefineDominants(osc,dominants,wgs84pc,landmass,dom_checker);
@@ -629,7 +629,6 @@ TEST_CASE("GenerateNearbyOrientations"){
   const auto focal           = Point2D(-93,45).toRadians();
   const auto point_spacingkm = 0.1;
   const auto radial_limit    = 0.1*DEG_TO_RAD;
-  //const auto orientations  = GenerateNearbyOrientations(focal, FINE_SPACING, FINE_RADIAL_LIMIT, 0-FINE_THETA_INTERVAL, 0+FINE_THETA_INTERVAL, FINE_THETA_STEP);
   const auto orientations    = GenerateNearbyOrientations(focal, point_spacingkm, radial_limit, 0, 0, 1);
 
   CHECK (orientations.size()>0);
