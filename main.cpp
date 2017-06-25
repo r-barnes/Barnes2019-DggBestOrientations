@@ -469,9 +469,6 @@ void PrintOrientations(
   std::string fileprefix,
   const OSCollection &osc
 ){
-  #pragma omp critical
-  std::cerr<<"Printing "<<do_print.size()<<" to '"<<fileprefix<<"'"<<std::endl;
-
   {
     std::ofstream fout(FILE_OUTPUT_PREFIX + fileprefix + "-rot.csv");
     PrintPOI(fout, osc, 0, true);
