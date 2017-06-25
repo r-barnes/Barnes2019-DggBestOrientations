@@ -55,9 +55,9 @@ const double RAD_TO_DEG = 180.0/M_PI;
   const double COARSE_THETA_MAX    = 72*DEG_TO_RAD;
   const double COARSE_THETA_STEP   = 0.1*DEG_TO_RAD;
 
-  const double FINE_SPACING        = 0.1; //km - Desired interpoint spacing for zooming in on orientations of interest
-  const double FINE_RADIAL_LIMIT   = COARSE_SPACING/Rearth;
-  const double FINE_THETA_STEP     = 0.001*DEG_TO_RAD;
+  const double FINE_SPACING        = 1; //km - Desired interpoint spacing for zooming in on orientations of interest
+  const double FINE_RADIAL_LIMIT   = COARSE_SPACING/Rearth; //Arc Length=Angle*Radius => Angle=(Arc Lenth)/Radius
+  const double FINE_THETA_STEP     = 0.01*DEG_TO_RAD;
   const double FINE_THETA_INTERVAL = COARSE_THETA_STEP;
 #elif COARSE_RESOLUTION //Used for profiling
   const double COARSE_SPACING      = 200;  //km - Desired interpoint spacing for finding prospective orienations
