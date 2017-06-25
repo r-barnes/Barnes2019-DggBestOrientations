@@ -15,6 +15,7 @@
 #include "Timer.hpp"
 #include "IndexedShapefile.hpp"
 #include "OrientationIndex.hpp"
+#include "Progress.hpp"
 #include <GeographicLib/Geodesic.hpp>
 #include <GeographicLib/GeodesicLine.hpp>
 #include <GeographicLib/Constants.hpp>
@@ -173,21 +174,24 @@ OCollection OrientationsFilteredByOverlaps(
   const long orienations_to_search = ((long)(og.size()*((COARSE_THETA_MAX-COARSE_THETA_MIN)/COARSE_THETA_STEP)));
   std::cerr<<"Orientations to generate with theta-rotation = "<<orienations_to_search<<std::endl;
 
-  Timer tmr;
+  ProgressBar pg(og.size());
   OCollection ret;
   #pragma omp declare reduction (merge : OCollection : omp_out.insert(omp_out.end(), omp_in.begin(), omp_in.end()))
-  #pragma omp parallel for default(none) schedule(static) shared(landmass) reduction(merge: ret)
+  #pragma omp parallel for default(none) schedule(static) shared(landmass,pg) reduction(merge: ret)
   for(unsigned int o=0;o<og.size();o++){
-  for(double theta=COARSE_THETA_MIN;theta<=COARSE_THETA_MAX;theta+=COARSE_THETA_STEP){
-    auto ori = Orientation(og(o),theta);
-    SolidXY sxy(ori);
-    const auto overlaps = OrientationOverlaps(sxy, landmass);
-    if(OverlapOfInterest(overlaps))
-      ret.push_back(ori);
+    const auto pole = og(o);
+    for(double theta=COARSE_THETA_MIN;theta<=COARSE_THETA_MAX;theta+=COARSE_THETA_STEP){
+      const Orientation ori(pole,theta);
+      SolidXY sxy(ori);
+      const auto overlaps = OrientationOverlaps(sxy, landmass);
+      if(OverlapOfInterest(overlaps))
+        ret.push_back(ori);
+    }
+    ++pg;
   }
 
-  std::cout<<"Filtering: Time taken = " <<tmr.elapsed() <<"s"<<std::endl;
-  std::cerr<<"Filtering: Found = "      <<ret.size()         <<std::endl;
+  std::cout<<"Filtering: Time taken = " <<pg.stop()  <<"s"<<std::endl;
+  std::cerr<<"Filtering: Found = "      <<ret.size() <<std::endl;
 
   return ret;
 }
@@ -262,13 +266,15 @@ OrientationWithStats OrientationStats(const Orientation &o, const PointCloud &wg
 
 OSCollection GetStatsForOrientations(const OCollection &orients, const PointCloud &wgs84pc, const IndexedShapefile &landmass){
   OSCollection osc;
-  Timer tmr;
+  ProgressBar pg(orients.size());
   std::cerr<<"Calculating orientation statistics..."<<std::endl;
   #pragma omp declare reduction (merge : OSCollection : omp_out.insert(omp_out.end(), omp_in.begin(), omp_in.end()))
-  #pragma omp parallel for default(none) shared(wgs84pc,landmass,orients) reduction(merge:osc)
-  for(unsigned int pn=0;pn<orients.size();pn++)
+  #pragma omp parallel for default(none) shared(wgs84pc,landmass,orients,pg) reduction(merge:osc)
+  for(unsigned int pn=0;pn<orients.size();pn++){
     osc.push_back(OrientationStats(orients[pn],wgs84pc,landmass));
-  std::cout << "Time taken = " << tmr.elapsed() <<"s"<< std::endl;
+    ++pg;
+  }
+  std::cout << "Time taken = " << pg.stop() <<"s"<< std::endl;
   return osc;
 }
 
@@ -286,7 +292,9 @@ std::vector<unsigned int> Dominants(
   for(unsigned int i=0;i<dominates.size();i++)
     dominates[i] = i;
 
-  #pragma omp parallel for default(none) schedule(static) shared(orientations,osc,dom_checker,dominates)
+  ProgressBar pg(orientations.size());
+
+  #pragma omp parallel for default(none) schedule(static) shared(orientations,osc,dom_checker,dominates,pg)
   for(unsigned int i=0;i<orientations.size();i++){
     for(const auto &n: orientations[i]){
       //n is already dominated
@@ -301,6 +309,7 @@ std::vector<unsigned int> Dominants(
       //Make i dominate n
       dominates[n] = i;                                 
     }
+    ++pg;
   }
 
   std::vector<unsigned int> ret;
@@ -462,15 +471,17 @@ norientations_t FindNearbyOrientations(const T &osc){
   OrientationIndex oidx(osc);
   std::cerr<<"Time = "<<tmr_bi.elapsed()<<std::endl;
 
-  Timer tmr;
   std::cerr<<"Finding nearby orientations..."<<std::endl;
 
+  ProgressBar pg(osc.size());
   norientations_t oneighbors(osc.size());
-  #pragma omp parallel for default(none) schedule(static) shared(osc,oneighbors,oidx)
-  for(unsigned int i=0;i<osc.size();i++)
+  #pragma omp parallel for default(none) schedule(static) shared(osc,oneighbors,oidx,pg)
+  for(unsigned int i=0;i<osc.size();i++){
     oneighbors[i] = oidx.query(i);
+    ++pg;
+  }
 
-  std::cerr<<"Time taken = "<<tmr.elapsed()<<std::endl;
+  std::cerr<<"Time taken = "<<pg.stop()<<std::endl;
 
   return oneighbors;
 }
