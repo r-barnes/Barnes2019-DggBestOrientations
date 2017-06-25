@@ -791,6 +791,25 @@ TEST_CASE("POIindex"){
   CHECK(oneighbors[7].size()==0);
 }
 
+TEST_CASE("Generate great cicles between points"){
+  SolidXY sxy;
+  static const auto neighbors = SolidXY().neighbors();             //Get a list of neighbouring vertices on the polyhedron
+
+  std::ofstream fout("test/test_gc_between_verts");
+  fout<<"lat,lon\n";
+
+  for(unsigned int n=0;n<neighbors.size();n+=2){
+    const auto &a = sxy.v[neighbors[n]];
+    const auto &b = sxy.v[neighbors[n+1]];
+    const GreatCircleGenerator gcg(a,b,100);
+    for(int i=0;i<gcg.size();i++){
+      auto temp = gcg(i);
+      fout<<(temp.y*RAD_TO_DEG)<<","<<(temp.x*RAD_TO_DEG)<<"\n";
+    }
+  }
+}
+
+
 
 #ifdef DOCTEST_CONFIG_DISABLE
 
