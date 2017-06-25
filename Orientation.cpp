@@ -3,6 +3,8 @@
 #include <iostream>
 #include <cmath>
 
+const double DEG_TO_RAD = M_PI/180.0;
+
 Orientation::Orientation(const Point2D &pole0, const double theta0){
   pole  = pole0;
   theta = theta0;
@@ -20,22 +22,6 @@ TEST_CASE("Orientation Constructors"){
   CHECK(o.theta==ob.theta);
   CHECK(o.pole.x==ows.pole.x);
   CHECK(o.theta==ows.theta);
-}
-
-
-
-
-
-
-Point2D GenerateSpiralPoint(const long i, const long N){
-  Point2D pole (
-    M_PI*(3.0-std::sqrt(5.0))*i,
-    std::acos(1-(2.0*i+1.0)/N)
-  );
-  pole.x = std::fmod(pole.x,2*M_PI)-M_PI;
-  pole.y = pole.y-M_PI/2;
-  pole.y = -pole.y; //Orientate so North Pole is up
-  return pole;
 }
 
 
@@ -74,6 +60,52 @@ long OrientationGenerator::size() const {
 //polyhedron will also be rotated from `theta_min` to `theta_max` with steps of
 //size `theta_step`.
 Point2D OrientationGenerator::operator()(long i) const {
-  return GenerateSpiralPoint(i,N);
-
+  Point2D pole (
+    M_PI*(3.0-std::sqrt(5.0))*i,
+    std::acos(1-(2.0*i+1.0)/N)
+  );
+  pole.x = std::fmod(pole.x,2*M_PI)-M_PI;
+  pole.y = pole.y-M_PI/2;
+  pole.y = -pole.y; //Orientate so North Pole is up
+  return pole;
 }
+
+
+
+
+PreloadedOrientationGenerator::PreloadedOrientationGenerator (
+  const double point_spacingkm, //Approximate distance between points
+  const double radial_limit,    //Radians from North pole to which orientations should be generated
+  const double angular_limit,
+  const double theta_step
+) : OrientationGenerator(point_spacingkm,radial_limit) {
+  #pragma omp critical
+  {
+    std::cerr << "\tangular_limit   = " << angular_limit   <<std::endl;
+    std::cerr << "\ttheta_step      = " << theta_step      <<std::endl;
+  }
+
+  for(long i=0;i<OrientationGenerator::size();i++){
+    const auto pole = OrientationGenerator::operator()(i);
+    if(pole.x<0 || pole.x>angular_limit)
+      continue;
+    for(double theta=0;theta<=72*DEG_TO_RAD;theta+=theta_step)
+      orients.emplace_back(pole,theta);
+  }
+
+  #pragma omp critical
+  std::cerr << "\tOrientations generated = "<<orients.size()<<std::endl;
+}
+
+
+
+const Orientation& PreloadedOrientationGenerator::operator()(long i) const {
+  return orients.at(i);
+}
+
+
+
+size_t PreloadedOrientationGenerator::size() const {
+  return orients.size();
+}
+

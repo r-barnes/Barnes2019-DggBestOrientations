@@ -70,4 +70,22 @@ class OrientationGenerator {
   long size() const;
 };
 
+
+class PreloadedOrientationGenerator : private OrientationGenerator {
+ private:
+  const double Rearth = 6371;
+ public:
+  std::vector<Orientation> orients;
+
+  PreloadedOrientationGenerator(
+    const double point_spacingkm, //Approximate distance between points
+    const double radial_limit,    //Radians from North pole to which orientations should be generated
+    const double angular_limit,
+    const double theta_step
+  );
+
+  const Orientation& operator()(long i) const;
+  size_t size() const;
+};
+
 #endif
