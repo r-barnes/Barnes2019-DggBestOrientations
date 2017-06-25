@@ -11,6 +11,13 @@ inline size_t OrientationIndex::kdtree_get_point_count() const {
   return p3ds.size();
 }
 
+
+
+inline bool OrientationIndex::vertexInSubdivision(const Point3D &v) const {
+  return v.z>=0 && v.y>=0;
+}
+
+
 // Returns the distance between the vector "p1[0:size-1]" and the data point with index "idx_p2" stored in the class:
 inline double OrientationIndex::kdtree_distance(const double *p1, const size_t idx_p2, size_t /*size*/) const {
   const double d0 = p1[0]-p3ds[idx_p2].x;
@@ -40,7 +47,7 @@ void OrientationIndex::addOrientation(const unsigned int id, const Orientation &
   const SolidXYZ p3d = p2d.toXYZ(6371);  //Radius of the Earth
   for(unsigned int vi=0;vi<p3d.v.size();vi++){
     //Choose one quadrant of 3-space. Will have 2-3 members
-    if(p3d.v[vi].z>=0 && p3d.v[vi].y>=0){ 
+    if(vertexInSubdivision(p3d.v[vi])){ 
       p3ds.push_back(p3d.v[vi]);
       p2ds.push_back(p2d.v[vi]);
       pidx.push_back(id);

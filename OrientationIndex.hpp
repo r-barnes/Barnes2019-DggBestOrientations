@@ -22,6 +22,8 @@ class OrientationIndex {
 
   void addOrientation(const unsigned int id, const Orientation &o);
 
+  bool vertexInSubdivision(const Point3D &v) const;
+
  public:
   const double DIST_LIMIT = 100*100; //Search radius in km (distance squared)
 
