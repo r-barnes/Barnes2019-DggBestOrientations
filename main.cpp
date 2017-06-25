@@ -486,7 +486,7 @@ TEST_CASE("Check orientation of generated points"){
 
   CHECK(orients.front().y>0);
   CHECK(orients.back().y<0);
-  std::ofstream fout("test_orientations_spiral.csv");
+  std::ofstream fout("test/test_orientations_spiral.csv");
   fout<<"num,lat,lon\n";
   for(unsigned int o=0;o<orients.size();o++)
     fout<<o<<","<<(orients[o].y*RAD_TO_DEG)<<","<<(orients[o].x*RAD_TO_DEG)<<"\n";
@@ -635,13 +635,13 @@ TEST_CASE("POIindex: Load and Save"){
     oc.push_back(b);
     oc.push_back(c);
     oc.push_back(d);
-    SaveToArchive(oc, "test_oc_save");
+    SaveToArchive(oc, "test/test_oc_save");
   }
 
   {
     OCollection oc;
     CHECK(LoadFromArchive(oc,"asdfasfjkwefjewifj")==false);
-    CHECK(LoadFromArchive(oc,"test_oc_save")==true);
+    CHECK(LoadFromArchive(oc,"test/test_oc_save")==true);
     CHECK(oc[0].pole.x==a.pole.x);
     CHECK(oc[1].pole.x==b.pole.x);
     CHECK(oc[2].pole.x==c.pole.x);

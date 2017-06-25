@@ -125,13 +125,13 @@ TEST_CASE("PointCloud Save/Load"){
     for(int i=0;i<200;i++)
       pc.addPoint(Point3D(rand(),rand(),rand()));
     pc.buildIndex();
-    pc.saveToArchive("test_pc_save");
+    pc.saveToArchive("test/test_pc_save");
     closest = pc.queryPoint(qp);
   }
 
   {
     PointCloud pc;
-    pc.loadFromArchive("test_pc_save");
+    pc.loadFromArchive("test/test_pc_save");
     Point3D lclosest = pc.queryPoint(qp);
     CHECK(lclosest.x==closest.x);
     CHECK(lclosest.y==closest.y);
