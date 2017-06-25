@@ -483,10 +483,8 @@ void DetermineDominantsHelper(
   T dom_checker
 ){
   const auto dominants = Dominants(osc, norientations, dom_checker);
-  #pragma omp critical
   std::cerr<<"Dominants size ("<<fileprefix<<") = "<<dominants.size()<<std::endl;
   const auto refined_osc = RefineDominants(osc,dominants,wgs84pc,landmass,dom_checker);
-  #pragma omp critical
   std::cerr<<"Refined dominants size ("<<fileprefix<<") = "<<dominants.size()<<std::endl;
   PrintOrientations(fileprefix, refined_osc);
 }
