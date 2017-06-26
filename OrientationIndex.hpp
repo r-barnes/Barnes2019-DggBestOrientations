@@ -6,6 +6,7 @@
 #include "Solid.hpp"
 #include <memory>
 #include <limits>
+#include <unordered_map>
 
 class OrientationIndex {
  private:
@@ -29,12 +30,14 @@ class OrientationIndex {
   const double Rearth = 6371;
   static const unsigned int NO_IGNORE = std::numeric_limits<unsigned int>::max();
   
-  const double DIST_LIMIT = 100*100; //Search radius in km (distance squared)
+  mutable std::vector<double> distance_distribution;
 
   OrientationIndex(const OCollection &orients);
   OrientationIndex(const OSCollection &orients);
 
   ~OrientationIndex();
+  
+  void printExtrema() const;
 
   // Must return the number of data points
   inline size_t kdtree_get_point_count() const;
@@ -53,10 +56,10 @@ class OrientationIndex {
   template <class BBOX>
   bool kdtree_get_bbox(BBOX& /* bb */) const;
 
-  std::vector<std::pair<unsigned int, double> > query(const Point3D &qp) const;
-  std::vector<unsigned int> query(const unsigned int qpn) const;
-  std::vector<unsigned int> query(const std::vector<Point3D>::const_iterator qvec_begin, const std::vector<Point3D>::const_iterator qvec_end, const unsigned int ignore_pt) const;
-  std::vector<unsigned int> query(const Orientation &o) const;
+  std::vector<std::pair<unsigned int, double> > query(const Point3D &qp, const double distance) const;
+  std::unordered_map<unsigned int,double> distancesToNearbyOrientations(const std::vector<Point3D>::const_iterator qvec_begin, const std::vector<Point3D>::const_iterator qvec_end, const unsigned int ignore_pt, const double distance) const;
+  std::vector<unsigned int> query(const unsigned int qpn, const double distance) const;
+  std::vector<unsigned int> query(const Orientation &o, const double distance) const;
 };
 
 #endif

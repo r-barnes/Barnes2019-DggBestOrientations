@@ -73,7 +73,7 @@ inline double OrientationIndex::kdtree_get_pt(const size_t idx, int dim) const {
 template <class BBOX>
 bool OrientationIndex::kdtree_get_bbox(BBOX& /* bb */) const { return false; }
 
-std::vector<std::pair<unsigned int, double> > OrientationIndex::query(const Point3D &qp) const {
+std::vector<std::pair<unsigned int, double> > OrientationIndex::query(const Point3D &qp, const double distance) const {
   double query_pt[3] = {qp.x,qp.y,qp.z};
 
   // const size_t num_results = 3000;
@@ -91,7 +91,7 @@ std::vector<std::pair<unsigned int, double> > OrientationIndex::query(const Poin
   std::vector<std::pair<size_t, double> > temp;
   nanoflann::SearchParams params;
 
-  index->radiusSearch(query_pt, DIST_LIMIT, temp, params);
+  index->radiusSearch(query_pt, distance*distance, temp, params);
   std::sort(temp.begin(),temp.end(),[&](const std::pair<size_t, double> &a, const std::pair<size_t, double> &b){return a.second<b.second;});
 
   std::vector<std::pair<unsigned int, double> > matches;
@@ -106,7 +106,7 @@ std::vector<std::pair<unsigned int, double> > OrientationIndex::query(const Poin
 
 
 
-std::vector<unsigned int> OrientationIndex::query(const unsigned int qpn) const {
+std::vector<unsigned int> OrientationIndex::query(const unsigned int qpn, const double distance) const {
   //Locate the first point corresponding to qpn, we'll iterate forward to
   //identify the rest
   auto it_pidx = std::lower_bound(pidx.begin(), pidx.end(), qpn);
@@ -121,27 +121,51 @@ std::vector<unsigned int> OrientationIndex::query(const unsigned int qpn) const 
     it3d_end++;
   }
 
-  return query(it3d_start,it3d_end,qpn);
+  const auto ori_dist = distancesToNearbyOrientations(it3d_start,it3d_end,qpn,distance);
+
+  //Put all neighbours which are close enough into the vector
+  std::vector<unsigned int> closest_n;
+  for(const auto &nd: ori_dist)
+    closest_n.emplace_back(nd.first);
+  std::sort(closest_n.begin(), closest_n.end(), [&](const size_t a, const size_t b){return ori_dist.at(a)<ori_dist.at(b);});
+
+  for(const auto &nd: ori_dist)
+    distance_distribution.emplace_back(nd.second);
+
+  return closest_n;
 }
 
 
 
-std::vector<unsigned int> OrientationIndex::query(const Orientation &o) const {
+std::vector<unsigned int> OrientationIndex::query(const Orientation &o, const double distance) const {
   const SolidXYZ sxyz = SolidXY(o).toXYZ(Rearth);
   std::vector<Point3D> qps;
   qps.reserve(12);
   for(const auto v: sxyz.v)
     if(vertexInSubdivision(v))
       qps.push_back(v);
-  return query(qps.begin(), qps.end(), NO_IGNORE);
+
+  const auto ori_dist = distancesToNearbyOrientations(qps.begin(), qps.end(), NO_IGNORE, distance);
+
+  //Put all neighbours which are close enough into the vector
+  std::vector<unsigned int> closest_n;
+  for(const auto &nd: ori_dist)
+    closest_n.emplace_back(nd.first);
+  std::sort(closest_n.begin(), closest_n.end(), [&](const size_t a, const size_t b){return ori_dist.at(a)<ori_dist.at(b);});
+
+  for(const auto &nd: ori_dist)
+    distance_distribution.emplace_back(nd.second);
+
+  return closest_n;
 }
 
 
 
-std::vector<unsigned int> OrientationIndex::query(
+std::unordered_map<unsigned int,double> OrientationIndex::distancesToNearbyOrientations(
   const std::vector<Point3D>::const_iterator qvec_begin,
   const std::vector<Point3D>::const_iterator qvec_end,
-  const unsigned int ignore_pt
+  const unsigned int ignore_pt,
+  const double distance
 ) const {
   //For each 3D point of the query POI, find its nearest neighbours in 3-space
   std::vector< std::vector<std::pair<unsigned int, double> > > matches;
@@ -149,7 +173,7 @@ std::vector<unsigned int> OrientationIndex::query(
   //Iterate through all of the points associated with qpn that we have in the
   //index, finding their nearest neighbours
   for(auto qviter = qvec_begin;qviter!=qvec_end;++qviter)
-    matches.push_back(query(*qviter));
+    matches.push_back(query(*qviter, distance));
 
   //Look at the neighbours of each point and determine how many times each
   //neighbour is seen total. Ignore qpn itself.
@@ -170,7 +194,7 @@ std::vector<unsigned int> OrientationIndex::query(
       ++it;
 
   //For those that remain, sum their distances to the query point
-  std::unordered_map<size_t,double> distances(10000);
+  std::unordered_map<unsigned int,double> distances(10000);
   //For each vertex of qpn that falls in the search zone, get the distances from
   //that vertex to all of its nearest neighbours. However, ignore those
   //neighbours which did not also appear near at least one other vertex of qpn.
@@ -180,29 +204,13 @@ std::vector<unsigned int> OrientationIndex::query(
       continue;
     //const auto dist = GeoDistanceHaversine(p2ds[x.first], p2ds[fs+i]);
     const auto dist = x.second;
-    if(dist>DIST_LIMIT) //Is neighbor too distant? If so, trash the whole orientation (20 km limit)
+    if(dist>distance*distance) //Is neighbor too distant? If so, trash the whole orientation (20 km limit)
       distances[pidx[x.first]] += std::numeric_limits<double>::infinity();
     else
       distances[pidx[x.first]] += dist;
   }
 
-  //Put all neighbours which are close enough into the vector
-  std::vector<unsigned int> closest_n;
-  for(const auto &nd: distances){
-    if(nd.second<std::numeric_limits<double>::infinity())
-      closest_n.emplace_back(nd.first);
-  }
-  std::sort(closest_n.begin(), closest_n.end(), [&](const size_t a, const size_t b){return distances[a]<distances[b];});
-
-  // std::cerr<<"Closest (qpn="<<qpn<<"): "<<std::endl;
-  // for(const auto &nd: closest_n){
-  //   std::cerr<<"\t"<<nd<<" "<<distances[nd]<<std::endl;
-  // }
-
-  //if(closest_n.size()>30)
-  //  closest_n.resize(30);
-
-  return closest_n;
+  return distances;
 }
 
 
@@ -216,21 +224,21 @@ TEST_CASE("OrientationIndex"){
 
   SUBCASE("No result"){
     OrientationIndex oidx(orients);
-    auto result = oidx.query(0);
+    auto result = oidx.query(0,100);
     CHECK(result.size()==0);
   }
 
   SUBCASE("One result"){
     orients.emplace_back(Point2D(-93,45).toRadians(), 72.0*DEG_TO_RAD);
     OrientationIndex oidx(orients);
-    auto result = oidx.query(0);
+    auto result = oidx.query(0,100);
     CHECK(result[0]==1);
   }
 
   SUBCASE("Partial overlap with no results"){
     orients.emplace_back(Point2D(-93,45).toRadians(), 36.0*DEG_TO_RAD);
     OrientationIndex oidx(orients);
-    auto result = oidx.query(0);
+    auto result = oidx.query(0,100);
     CHECK(result.size()==0);
   }
 
@@ -242,7 +250,7 @@ TEST_CASE("OrientationIndex"){
     orients.emplace_back(Point2D(-93.2,45.2).toRadians(), 36*DEG_TO_RAD);
     orients.emplace_back(Point2D(23,-23.2).toRadians(), 36*DEG_TO_RAD);
     OrientationIndex oidx(orients);
-    auto result = oidx.query(0);
+    auto result = oidx.query(0,100);
     CHECK(result.size()==4);
     CHECK(result[0]==1);
   }
@@ -262,7 +270,7 @@ TEST_CASE("OrientationsWithStats"){
   ows.emplace_back(Point2D(-93.2,45.2).toRadians(), 36*DEG_TO_RAD);
   ows.emplace_back(Point2D(23,-23.2).toRadians(), 36*DEG_TO_RAD);
   OrientationIndex oidx(ows);
-  auto result = oidx.query(0);
+  auto result = oidx.query(0,100);
   CHECK(result.size()==4);
   CHECK(result[0]==1);
 }
