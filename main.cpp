@@ -136,6 +136,37 @@ PointCloud ReadPointCloudFromShapefile(std::string filename, std::string layer){
 
 
 
+void CalculateLongestCoastlineDistance(std::string filename, std::string layer){
+  std::cerr<<"Calculating longest coastline distance..."<<std::endl;
+  auto lm_wgs84 = ReadShapefile(filename, layer);
+  for(auto &ll: lm_wgs84)
+    ll.toRadians(); 
+
+  std::vector<double> distances;
+  ProgressBar pg(lm_wgs84.size());
+  #pragma omp declare reduction (merge : std::vector<double> : omp_out.insert(omp_out.end(), omp_in.begin(), omp_in.end()))
+  #pragma omp parallel for default(none) shared(lm_wgs84,pg) reduction(merge: distances)
+  for(unsigned int i=0;i<lm_wgs84.size();i++){
+    auto &ext = lm_wgs84[i].exterior;
+    for(unsigned int c=0;c<ext.size()-1;c++)
+      distances.emplace_back(GeoDistanceHaversine(ext[c],ext[c+1]));
+    distances.emplace_back(GeoDistanceHaversine(ext.front(),ext.back()));
+    ++pg;
+  }
+  std::cerr<<"Time taken = "<<pg.stop()<<std::endl;
+
+  std::sort(distances.begin(),distances.end());
+
+  std::cout<<"Min coastline distance = "<<distances.front()<<std::endl;
+  std::cout<<"Max coastline distances = "<<distances.back()<<std::endl;
+
+  std::cerr<<"Writing coastline distances to disk..."<<std::endl;
+  std::ofstream fout(FILE_OUTPUT_PREFIX + "save_distances.csv");
+  for(const auto &x: distances)
+    fout<<x<<"\n";
+  std::cerr<<"Done."<<std::endl;
+}
+
 //Orientations with no vertices on land are always of interest, as are overlaps
 //with many orientations on land. This convenience function is used elsewhere to
 //filter by overlaps
@@ -847,6 +878,8 @@ int main(){
   std::cout<<"FINE_RADIAL_LIMIT   = " << FINE_RADIAL_LIMIT   <<std::endl;
 
   assert(!omp_get_nested());
+
+  CalculateLongestCoastlineDistance(FILE_WGS84_LANDMASS, "land_polygons");
 
   const auto landmass = IndexedShapefile(FILE_MERC_LANDMASS,"land_polygons");
 
