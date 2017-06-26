@@ -613,7 +613,7 @@ norientations_t FindNearbyOrientations(const T &osc){
   norientations_t oneighbors(osc.size());
   #pragma omp parallel for default(none) schedule(static) shared(osc,oneighbors,oidx,pg)
   for(unsigned int i=0;i<osc.size();i++){
-    oneighbors[i] = oidx.query(i);
+    oneighbors[i] = oidx.query(i,100);
     ++pg;
   }
 
