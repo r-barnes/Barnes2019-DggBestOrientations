@@ -99,17 +99,37 @@ void SaveToArchive(const T &poic, std::string filename){
 
 
 PointCloud ReadPointCloudFromShapefile(std::string filename, std::string layer){
-  std::cerr<<"Generating point cloud from shapefile..."<<std::endl;
+  std::cerr<<"Reading point cloud from shapefile..."<<std::endl;
   auto landmass_wgs84 = ReadShapefile(filename, layer);
-  for(auto &ll: landmass_wgs84)
-    ll.toRadians();
+
+  std::cerr<<"Crushing point cloud into flat vector..."<<std::endl;
+  std::vector<Point2D> wgs84_ll_flat;
+  for(const auto &poly: landmass_wgs84)
+    wgs84_ll_flat.insert(wgs84_ll_flat.end(),poly.exterior.begin(),poly.exterior.end());
+
+  landmass_wgs84.clear();
+  landmass_wgs84.shrink_to_fit();
+
+  std::cerr<<"Converting points to radians"<<std::endl;
+  #pragma omp parallel for default(none) schedule(static) shared(wgs84_ll_flat)
+  for(unsigned int i=0;i<wgs84_ll_flat.size();i++)
+    wgs84_ll_flat[i].toRadians();
+
+  std::cerr<<"Converting points to WGS84 Cartesian..."<<std::endl;
+  std::vector<Point3D> wgs84_xyz;
+  #pragma omp declare reduction (merge : std::vector<Point3D> : omp_out.insert(omp_out.end(), omp_in.begin(), omp_in.end()))
+  #pragma omp parallel for default(none) schedule(static) shared(wgs84_ll_flat) reduction(merge:wgs84_xyz)
+  for(unsigned int i=0;i<wgs84_ll_flat.size();i++)
+    wgs84_xyz.push_back(WGS84toEllipsoidCartesian(wgs84_ll_flat[i]));
+
+  wgs84_ll_flat.clear();
+  wgs84_ll_flat.shrink_to_fit();
+
+  wgs84_xyz.shrink_to_fit();
 
   PointCloud wgs84pc;
   std::cerr<<"Adding polygon points to PointCloud..."<<std::endl;
-  for(const auto &poly: landmass_wgs84)
-  for(const auto &ll: poly.exterior)
-    wgs84pc.addPoint(ll.toXYZ(1));
-  std::cerr<<"Building kd-tree..."<<std::endl;
+  wgs84pc.pts.swap(wgs84_xyz);
 
   return wgs84pc;
 }
