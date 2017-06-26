@@ -3,6 +3,8 @@
 #include "doctest.h"
 #include <ogrsf_frmts.h>
 #include <cmath>
+#include <GeographicLib/Geocentric.hpp>
+#include <GeographicLib/Constants.hpp>
 
 const double RAD_TO_DEG = 180.0/M_PI;
 
@@ -109,6 +111,19 @@ TEST_CASE("EuclideanDistance"){
 
 
 
+Point3D WGS84toEllipsoidCartesian(const Point2D &p) {
+  static const GeographicLib::Geocentric& earth = GeographicLib::Geocentric::WGS84();
+
+  Point3D temp;
+
+  //earth.Forward(lat, lon, h, X, Y, Z);
+  earth.Forward(p.y*RAD_TO_DEG,p.x*RAD_TO_DEG,0,temp.x,temp.y,temp.z);
+
+  return temp;
+}
+
+
+
 Polygons ReadShapefile(std::string filename, std::string layername){
   GDALAllRegister();
   GDALDataset *poDS;
@@ -164,6 +179,8 @@ Polygons ReadShapefile(std::string filename, std::string layername){
 TEST_CASE("Shapefile open failure"){
   CHECK_THROWS(ReadShapefile("asdfjasfdlkjasdf", "ajdsfajsfdklajsfd"));
 }
+
+
 
 GeographicLib::Geodesic GreatCircleGenerator::geod = GeographicLib::Geodesic(GeographicLib::Constants::WGS84_a(), GeographicLib::Constants::WGS84_f());
 

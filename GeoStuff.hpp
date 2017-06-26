@@ -5,13 +5,14 @@
 #include "Polygon.hpp"
 #include <GeographicLib/Geodesic.hpp>
 #include <GeographicLib/GeodesicLine.hpp>
-#include <GeographicLib/Constants.hpp>
 
 double GeoDistanceFlatEarth(const Point2D &a, const Point2D &b);
 
 double GeoDistanceHaversine(const Point2D &pa, const Point2D &pb);
 
 Point2D WGS84toEPSG3857(const Point2D &p);
+
+Point3D WGS84toEllipsoidCartesian(const Point2D &p);
 
 template<class T>
 void ToMercator(T &pts);
