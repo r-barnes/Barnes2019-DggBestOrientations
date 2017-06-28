@@ -909,10 +909,13 @@ int main(){
   std::cout<<"COARSE_THETA_MAX    = " << COARSE_THETA_MAX    <<std::endl;
   std::cout<<"COARSE_THETA_STEP   = " << COARSE_THETA_STEP   <<std::endl;
 
-  std::cout<<"FINE_SPACING        = " << FINE_SPACING        <<std::endl;
-  std::cout<<"FINE_THETA_STEP     = " << FINE_THETA_STEP     <<std::endl;
-  std::cout<<"FINE_THETA_INTERVAL = " << FINE_THETA_INTERVAL <<std::endl;
-  std::cout<<"FINE_RADIAL_LIMIT   = " << FINE_RADIAL_LIMIT   <<std::endl;
+  for(int i=0;i<RLEVELS;i++){
+    std::cout<<"RLEVEL = "<<i<<std::endl;
+    std::cout<<"\tFINE_SPACING        = " << FINE_SPACING[i]        <<std::endl;
+    std::cout<<"\tFINE_THETA_STEP     = " << FINE_THETA_STEP[i]     <<std::endl;
+    std::cout<<"\tFINE_THETA_INTERVAL = " << FINE_THETA_INTERVAL[i] <<std::endl;
+    std::cout<<"\tFINE_RADIAL_LIMIT   = " << FINE_RADIAL_LIMIT[i]   <<std::endl;
+  }
 
   assert(!omp_get_nested());
 
