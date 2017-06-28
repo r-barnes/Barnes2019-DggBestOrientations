@@ -587,7 +587,7 @@ void DetermineDominantsHelper(
   T dom_checker
 ){
   std::cerr<<"Orientations size ("<<fileprefix<<") = "<<osc.size()<<std::endl;
-  auto refined = osc;
+  OSCollection refined = osc;
   for(int rlevel=0;rlevel<RLEVELS;rlevel++){
     std::cerr<<"\tRefinement level = "<<rlevel<<std::endl;
     refined = RefineOrientations(refined,wgs84pc,landmass,rlevel,dom_checker);
