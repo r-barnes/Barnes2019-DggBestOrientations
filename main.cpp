@@ -52,10 +52,11 @@ const double RAD_TO_DEG = 180.0/M_PI;
   const double COARSE_THETA_MAX    = 72*DEG_TO_RAD;
   const double COARSE_THETA_STEP   = 1*DEG_TO_RAD;
 
-  const double FINE_SPACING        = 10; //km - Desired interpoint spacing for zooming in on orientations of interest
-  const double FINE_RADIAL_LIMIT   = COARSE_SPACING/Rearth; //Arc Length=Angle*Radius => Angle=(Arc Lenth)/Radius
-  const double FINE_THETA_STEP     = 0.1*DEG_TO_RAD;
-  const double FINE_THETA_INTERVAL = COARSE_THETA_STEP;
+  const int    RLEVELS                      = 3; //Number of refinement levels
+  const double FINE_SPACING[RLEVELS]        = {10,1,0.1}; //km
+  const double FINE_RADIAL_LIMIT[RLEVELS]   = {100/Rearth, 10/Rearth, 1/Rearth}; //Arc Length=Angle*Radius => Angle=(Arc Lenth)/Radius
+  const double FINE_THETA_STEP[RLEVELS]     = {0.1*DEG_TO_RAD, 0.01*DEG_TO_RAD, 0.001*DEG_TO_RAD};
+  const double FINE_THETA_INTERVAL[RLEVELS] = {COARSE_THETA_STEP, FINE_THETA_STEP[0], FINE_THETA_STEP[1]};
 #elif COARSE_RESOLUTION //Used for profiling
   const double COARSE_SPACING      = 200;  //km - Desired interpoint spacing for finding prospective orienations
   const double COARSE_RADIAL_LIMIT = 90*DEG_TO_RAD;
@@ -63,10 +64,11 @@ const double RAD_TO_DEG = 180.0/M_PI;
   const double COARSE_THETA_MAX    = 72*DEG_TO_RAD;
   const double COARSE_THETA_STEP   = 1.0*DEG_TO_RAD;
 
-  const double FINE_SPACING        = 50; //km - Desired interpoint spacing for zooming in on orientations of interest
-  const double FINE_RADIAL_LIMIT   = COARSE_SPACING/Rearth;
-  const double FINE_THETA_STEP     = 0.5*DEG_TO_RAD;
-  const double FINE_THETA_INTERVAL = COARSE_THETA_STEP;
+  const int    RLEVELS                      = 3; //Number of refinement levels
+  const double FINE_SPACING[RLEVELS]        = {10,1,0.1}; //km
+  const double FINE_RADIAL_LIMIT[RLEVELS]   = {100/Rearth, 10/Rearth, 1/Rearth}; //Arc Length=Angle*Radius => Angle=(Arc Lenth)/Radius
+  const double FINE_THETA_STEP[RLEVELS]     = {0.1*DEG_TO_RAD, 0.01*DEG_TO_RAD, 0.001*DEG_TO_RAD};
+  const double FINE_THETA_INTERVAL[RLEVELS] = {COARSE_THETA_STEP, FINE_THETA_STEP[0], FINE_THETA_STEP[1]};
 #else
   this-is-an-error
 #endif
@@ -393,33 +395,31 @@ std::vector<unsigned int> Dominants(
 //For a set of dominants, look at nearby orientations to see if there's
 //something better. Return a collection of those better things.
 template<class T>
-OrientationWithStats RefineDominant(
+OrientationWithStats RefineOrientation(
   const OrientationWithStats &this_o,
   const PointCloud           &wgs84pc,
   const IndexedShapefile     &landmass,
+  const int                  rlevel, //Level of refinement
   T dom_checker
 ){
-  std::cerr<<"Generating neighbouring orientations for refining dominant..."<<std::endl;
+//  std::cerr<<"Generating neighbouring orientations for refining dominant..."<<std::endl;
   Timer tmr_nor;
   const auto norientations = GenerateNearbyOrientations(
     this_o.pole,
-    FINE_SPACING,
-    FINE_RADIAL_LIMIT,
-    this_o.theta-FINE_THETA_INTERVAL,
-    this_o.theta+FINE_THETA_INTERVAL, 
-    FINE_THETA_STEP
+    FINE_SPACING[rlevel],
+    FINE_RADIAL_LIMIT[rlevel],
+    this_o.theta-FINE_THETA_INTERVAL[rlevel],
+    this_o.theta+FINE_THETA_INTERVAL[rlevel], 
+    FINE_THETA_STEP[rlevel]
   );
-  std::cerr<<"Time = "<<tmr_nor.elapsed()<<" s"<<std::endl;
+//  std::cerr<<"Time = "<<tmr_nor.elapsed()<<" s"<<std::endl;
 
-  std::cerr<<"Refining the dominant over "<<norientations.size()<<" nearby orientations..."<<std::endl;
+//  std::cerr<<"Refining the dominant over "<<norientations.size()<<" nearby orientations..."<<std::endl;
 
   ProgressBar pg(norientations.size());
   std::vector<OrientationWithStats> best(omp_get_max_threads(),this_o);
-  #pragma omp parallel for default(none) schedule(static) shared(std::cerr,wgs84pc,landmass,dom_checker,best,pg)
+  //#pragma omp parallel for default(none) schedule(static) shared(std::cerr,wgs84pc,landmass,dom_checker,best,pg)
   for(unsigned int no=0;no<norientations.size();no++){
-    //pg.update((uint32_t)no);
-    #pragma omp critical
-    std::cerr<<"RefineDominant: "<<no<<std::endl;
     const SolidXY sxy(norientations[no]);
     const auto overlaps = OrientationOverlaps(sxy, landmass);
     if(!OverlapOfInterest(overlaps))
@@ -427,7 +427,7 @@ OrientationWithStats RefineDominant(
     const OrientationWithStats nos = OrientationStats(norientations[no], wgs84pc, landmass);
     if(dom_checker(nos,best[omp_get_thread_num()])) //If neighbouring orientation is better than best
       best[omp_get_thread_num()] = nos;             //Keep it
-    ++pg;
+    //++pg;
   }
 
   auto bestbest = best.front();
@@ -435,23 +435,32 @@ OrientationWithStats RefineDominant(
     if(dom_checker(x,bestbest))
       bestbest = x;
 
+//  std::cerr<<"Time taken = "<<pg.stop()<<std::endl;
+
   return bestbest;
 }
 
 
 
 template<class T>
-OSCollection RefineDominants(
+OSCollection RefineOrientations(
   const OSCollection              &osc,
-  const std::vector<unsigned int> &dominants,
   const PointCloud                &wgs84pc,
   const IndexedShapefile          &landmass,
+  const int                        rlevel, //Level of refinement
   T dom_checker
 ){
-  OSCollection best;
-  for(unsigned int d=0;d<dominants.size();d++)
-    best.push_back(RefineDominant(osc[d],wgs84pc,landmass,dom_checker));
-  return best;
+  OSCollection refined;
+  ProgressBar pg(osc.size());
+  #pragma omp declare reduction (merge : OSCollection : omp_out.insert(omp_out.end(), omp_in.begin(), omp_in.end()))
+  #pragma omp parallel for default(none) schedule(static) shared(osc,wgs84pc,landmass,pg) reduction(merge: refined)
+  for(unsigned int i=0;i<osc.size();i++){
+    //std::cerr<<"Refining dominant "<<d<<" of "<<dominants.size()<<std::endl;
+    refined.push_back(RefineOrientation(osc[i],wgs84pc,landmass,rlevel,dom_checker));
+    ++pg;
+  }
+  std::cerr<<"Time taken = "<<pg.stop()<<std::endl;
+  return refined;
 }
 
 
@@ -528,23 +537,21 @@ template<class T>
 void DetermineDominantsHelper(
   const std::string      fileprefix,
   const OSCollection     &osc,
-  const norientations_t  &norientations,
   const PointCloud       &wgs84pc,
   const IndexedShapefile &landmass,
   T dom_checker
 ){
-  const auto dominants = Dominants(osc, norientations, dom_checker);
-  std::cerr<<"Dominants size ("<<fileprefix<<") = "<<dominants.size()<<std::endl;
-  const auto refined_osc = RefineDominants(osc,dominants,wgs84pc,landmass,dom_checker);
-  std::cerr<<"Refined dominants size ("<<fileprefix<<") = "<<dominants.size()<<std::endl;
-  PrintOrientations(fileprefix, refined_osc);
+  std::cerr<<"Orientations size ("<<fileprefix<<") = "<<osc.size()<<std::endl;
+  auto refined = osc;
+  for(int rlevel=0;rlevel<RLEVELS;rlevel++)
+    refined = RefineOrientations(refined,wgs84pc,landmass,rlevel,dom_checker);
+  PrintOrientations(fileprefix, refined);
 }
 
 
 
 void DetermineDominants(
   OSCollection           &osc,
-  const norientations_t  &norientations,
   const PointCloud       &wgs84pc,
   const IndexedShapefile &landmass
 ){
@@ -554,41 +561,41 @@ void DetermineDominants(
   //#pragma omp parallel sections 
   {
     //#pragma omp section  
-    DetermineDominantsHelper("out_min_mindist", osc, norientations, wgs84pc, landmass,
+    DetermineDominantsHelper("out_min_mindist", osc, wgs84pc, landmass,
       [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.mindist<b.mindist; }
     );
     //#pragma omp section    
-    DetermineDominantsHelper("out_max_mindist", osc, norientations, wgs84pc, landmass,
+    DetermineDominantsHelper("out_max_mindist", osc, wgs84pc, landmass,
       [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.mindist>b.mindist; }
     );
     
 
     //#pragma omp section
-    DetermineDominantsHelper("out_min_maxdist", osc, norientations, wgs84pc, landmass,
+    DetermineDominantsHelper("out_min_maxdist", osc, wgs84pc, landmass,
       [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.maxdist<b.maxdist; }
     );
     //#pragma omp section    
-    DetermineDominantsHelper("out_max_maxdist", osc, norientations, wgs84pc, landmass,
+    DetermineDominantsHelper("out_max_maxdist", osc, wgs84pc, landmass,
       [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.maxdist>b.maxdist; }
     );
 
     
     //#pragma omp section
-    DetermineDominantsHelper("out_min_avgdist", osc, norientations, wgs84pc, landmass,
+    DetermineDominantsHelper("out_min_avgdist", osc, wgs84pc, landmass,
       [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.avgdist<b.avgdist; }
     );
     //#pragma omp section    
-    DetermineDominantsHelper("out_max_avgdist", osc, norientations, wgs84pc, landmass,
+    DetermineDominantsHelper("out_max_avgdist", osc, wgs84pc, landmass,
       [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.avgdist>b.avgdist; }
     );
     
 
     //#pragma omp section
-    DetermineDominantsHelper("out_min_edge_overlaps", osc, norientations, wgs84pc, landmass,
+    DetermineDominantsHelper("out_min_edge_overlaps", osc, wgs84pc, landmass,
       [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.edge_overlaps<b.edge_overlaps; }
     );
     //#pragma omp section    
-    DetermineDominantsHelper("out_max_edge_overlaps", osc, norientations, wgs84pc, landmass,
+    DetermineDominantsHelper("out_max_edge_overlaps", osc, wgs84pc, landmass,
       [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.edge_overlaps>b.edge_overlaps; }
     );
   }
@@ -908,7 +915,7 @@ int main(){
     SaveToArchive(norientations, FILE_OUTPUT_PREFIX + "save_norientations.save");
   }
 
-  DetermineDominants(osc, norientations, wgs84pc, landmass);
+  DetermineDominants(osc, wgs84pc, landmass);
 
   return 0;
 }
