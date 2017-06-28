@@ -129,8 +129,8 @@ std::vector<unsigned int> OrientationIndex::query(const unsigned int qpn, const 
     closest_n.emplace_back(nd.first);
   std::sort(closest_n.begin(), closest_n.end(), [&](const size_t a, const size_t b){return ori_dist.at(a)<ori_dist.at(b);});
 
-  for(const auto &nd: ori_dist)
-    distance_distribution.emplace_back(nd.second);
+  //for(const auto &nd: ori_dist)
+  //  distance_distribution.emplace_back(nd.second);
 
   return closest_n;
 }
@@ -153,8 +153,8 @@ std::vector<unsigned int> OrientationIndex::query(const Orientation &o, const do
     closest_n.emplace_back(nd.first);
   std::sort(closest_n.begin(), closest_n.end(), [&](const size_t a, const size_t b){return ori_dist.at(a)<ori_dist.at(b);});
 
-  for(const auto &nd: ori_dist)
-    distance_distribution.emplace_back(nd.second);
+//  for(const auto &nd: ori_dist)
+//    distance_distribution.emplace_back(nd.second);
 
   return closest_n;
 }

@@ -30,7 +30,7 @@ class OrientationIndex {
   const double Rearth = 6371;
   static const unsigned int NO_IGNORE = std::numeric_limits<unsigned int>::max();
   
-  mutable std::vector<double> distance_distribution;
+  //mutable std::vector<double> distance_distribution;
 
   OrientationIndex(const OCollection &orients);
   OrientationIndex(const OSCollection &orients);
