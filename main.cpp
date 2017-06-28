@@ -179,6 +179,41 @@ void CalculateLongestCoastlineDistance(std::string filename, std::string layer){
   std::cerr<<"Done."<<std::endl;
 }
 
+
+
+//Determine which orientations are in the local neighbourhood of another
+//orientation
+template<class T>
+norientations_t FindNearbyOrientations(const std::vector<T> &osc){
+  Timer tmr_bi;
+  std::cerr<<"Building kd-tree"<<std::endl;
+  OrientationIndex oidx(osc);
+  std::cerr<<"Time = "<<tmr_bi.elapsed()<<std::endl;
+
+  std::cerr<<"Finding nearby orientations..."<<std::endl;
+
+  ProgressBar pg(osc.size());
+  norientations_t oneighbors(osc.size());
+  #pragma omp parallel for default(none) schedule(static) shared(osc,oneighbors,oidx,pg)
+  for(unsigned int i=0;i<osc.size();i++){
+    oneighbors[i] = oidx.query(i,100);
+    ++pg;
+  }
+
+  // {
+  //   std::ofstream fout(FILE_OUTPUT_PREFIX + "save_norientations_dist_distrib.save");
+  //   std::sort(oidx.distance_distribution.begin(),oidx.distance_distribution.end());
+  //   for(const auto &x: oidx.distance_distribution)
+  //     fout<<x<<"\n";
+  // }
+
+  std::cerr<<"Time taken = "<<pg.stop()<<std::endl;
+
+  return oneighbors;
+}
+
+
+
 //Orientations with no vertices on land are always of interest, as are overlaps
 //with many orientations on land. This convenience function is used elsewhere to
 //filter by overlaps
@@ -613,38 +648,6 @@ void DetermineDominants(
   std::cerr<<"Time taken = "<<tmr.elapsed()<<std::endl;
 }
 
-
-
-//Determine which orientations are in the local neighbourhood of another
-//orientation
-template<class T>
-norientations_t FindNearbyOrientations(const T &osc){
-  Timer tmr_bi;
-  std::cerr<<"Building kd-tree"<<std::endl;
-  OrientationIndex oidx(osc);
-  std::cerr<<"Time = "<<tmr_bi.elapsed()<<std::endl;
-
-  std::cerr<<"Finding nearby orientations..."<<std::endl;
-
-  ProgressBar pg(osc.size());
-  norientations_t oneighbors(osc.size());
-  #pragma omp parallel for default(none) schedule(static) shared(osc,oneighbors,oidx,pg)
-  for(unsigned int i=0;i<osc.size();i++){
-    oneighbors[i] = oidx.query(i,100);
-    ++pg;
-  }
-
-  // {
-  //   std::ofstream fout(FILE_OUTPUT_PREFIX + "save_norientations_dist_distrib.save");
-  //   std::sort(oidx.distance_distribution.begin(),oidx.distance_distribution.end());
-  //   for(const auto &x: oidx.distance_distribution)
-  //     fout<<x<<"\n";
-  // }
-
-  std::cerr<<"Time taken = "<<pg.stop()<<std::endl;
-
-  return oneighbors;
-}
 
 
 TEST_CASE("Check orientation of generated points"){
