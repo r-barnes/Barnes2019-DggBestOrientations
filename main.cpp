@@ -942,12 +942,6 @@ int main(){
     SaveToArchive(osc, FILE_OUTPUT_PREFIX + "save_osc.save");
   }
 
-  norientations_t norientations;
-  if(!LoadFromArchive(norientations, FILE_OUTPUT_PREFIX + "save_norientations.save")){
-    norientations = FindNearbyOrientations(osc);
-    SaveToArchive(norientations, FILE_OUTPUT_PREFIX + "save_norientations.save");
-  }
-
   DetermineDominants(osc, wgs84pc, landmass);
 
   return 0;
