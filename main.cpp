@@ -166,6 +166,7 @@ void CalculateLongestCoastlineDistance(std::string filename, std::string layer){
   }
   std::cerr<<"Time taken = "<<pg.stop()<<std::endl;
 
+  std::cerr<<"Sorting by distance..."<<std::endl;
   std::sort(distances.begin(),distances.end());
 
   std::cout<<"Min coastline distance = "<<distances.front()<<std::endl;
