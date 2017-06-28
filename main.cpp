@@ -140,6 +140,15 @@ PointCloud ReadPointCloudFromShapefile(std::string filename, std::string layer){
 
 void CalculateLongestCoastlineDistance(std::string filename, std::string layer){
   std::cerr<<"Calculating longest coastline distance..."<<std::endl;
+
+  {
+    std::ifstream fin(FILE_OUTPUT_PREFIX + "save_distances.csv");
+    if(fin.good()){
+      std::cerr<<"Existing file found: distance already calculated."<<std::endl;
+      return;
+    }
+  }
+
   auto lm_wgs84 = ReadShapefile(filename, layer);
   for(auto &ll: lm_wgs84)
     ll.toRadians(); 
