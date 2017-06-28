@@ -11,7 +11,6 @@
 ///of the progress bar is shown in ProgressBar.hpp.
 class ProgressBar{
  private:
-  int secs_between_updates = 5;
   uint32_t total_work;      ///< Total work to be accomplished
   uint32_t prev_work   = 0; ///< Work done at last update
   double   prev_time   = 0; ///< Time of last update
@@ -25,6 +24,8 @@ class ProgressBar{
   void clearConsoleLine() const;
 
  public:
+  int secs_between_updates = 5;
+  
   ///@brief Start the progress bar.
   ///@param total_work  The amount of work to be completed, usually specified in cells.
   ProgressBar(uint32_t total_work0);

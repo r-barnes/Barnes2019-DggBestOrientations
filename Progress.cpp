@@ -119,6 +119,7 @@ ProgressBar& ProgressBar::operator++(){
 ///@return The number of seconds the progress bar was running.
 double ProgressBar::stop(){
   clearConsoleLine();
+  std::cerr<<std::endl;
 
   return timer.elapsed();
 }
