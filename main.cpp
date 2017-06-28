@@ -591,7 +591,16 @@ void DetermineDominantsHelper(
   for(int rlevel=0;rlevel<RLEVELS;rlevel++){
     std::cerr<<"\tRefinement level = "<<rlevel<<std::endl;
     refined = RefineOrientations(refined,wgs84pc,landmass,rlevel,dom_checker);
-  PrintOrientations(fileprefix, refined);
+  }
+
+  auto norientations = FindNearbyOrientations(refined);
+  auto dom_tree      = Dominants(refined,norientations,dom_checker);
+  std::vector<OrientationWithStats> doms;
+  for(unsigned int i=0;i<dom_tree.size();i++)
+    if(dom_tree[i]==i)
+      doms.push_back(refined[i]);
+
+  PrintOrientations(fileprefix, doms);
 }
 
 
