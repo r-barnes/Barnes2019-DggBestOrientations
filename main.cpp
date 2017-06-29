@@ -457,32 +457,19 @@ OrientationWithStats RefineOrientation(
     this_o.theta+FINE_THETA_INTERVAL[rlevel], 
     FINE_THETA_STEP[rlevel]
   );
-//  std::cerr<<"Time = "<<tmr_nor.elapsed()<<" s"<<std::endl;
 
-//  std::cerr<<"Refining the dominant over "<<norientations.size()<<" nearby orientations..."<<std::endl;
-
-  ProgressBar pg(norientations.size());
-  std::vector<OrientationWithStats> best(omp_get_max_threads(),this_o);
-  //#pragma omp parallel for default(none) schedule(static) shared(std::cerr,wgs84pc,landmass,dom_checker,best,pg)
+  auto best = this_o;
   for(unsigned int no=0;no<norientations.size();no++){
     const SolidXY sxy(norientations[no]);
     const auto overlaps = OrientationOverlaps(sxy, landmass);
     if(!OverlapOfInterest(overlaps))
       continue;
-    const OrientationWithStats nos = OrientationStats(norientations[no], wgs84pc, landmass);
-    if(dom_checker(nos,best[omp_get_thread_num()])) //If neighbouring orientation is better than best
-      best[omp_get_thread_num()] = nos;             //Keep it
-    //++pg;
+    const OrientationWithStats nows = OrientationStats(norientations[no], wgs84pc, landmass, do_edge);
+    if(dom_checker(nows,best)) //If neighbouring orientation is better than best
+      best = nows;             //Keep it
   }
 
-  auto bestbest = best.front();
-  for(auto &x: best)
-    if(dom_checker(x,bestbest))
-      bestbest = x;
-
-//  std::cerr<<"Time taken = "<<pg.stop()<<std::endl;
-
-  return bestbest;
+  return best;
 }
 
 
