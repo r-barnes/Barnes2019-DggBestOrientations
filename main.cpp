@@ -354,7 +354,7 @@ unsigned int OrientationEdgeOverlaps(const SolidXY &sxy, const IndexedShapefile 
 
 
 //Generate distance statistic for an orientation
-OrientationWithStats OrientationStats(const Orientation &o, const PointCloud &wgs84pc, const IndexedShapefile &landmass){
+OrientationWithStats OrientationStats(const Orientation &o, const PointCloud &wgs84pc, const IndexedShapefile &landmass, const bool do_edge){
   OrientationWithStats ows(o);
   SolidXY sxy(o);
 
@@ -370,7 +370,9 @@ OrientationWithStats OrientationStats(const Orientation &o, const PointCloud &wg
     ows.maxdist = std::max(ows.maxdist,dist);
     ows.avgdist += dist;
   }
-  ows.edge_overlaps = OrientationEdgeOverlaps(sxy, landmass);
+
+  if(do_edge)
+    ows.edge_overlaps = OrientationEdgeOverlaps(sxy, landmass);
 
   return ows;
 }
@@ -443,9 +445,9 @@ OrientationWithStats RefineOrientation(
   const PointCloud           &wgs84pc,
   const IndexedShapefile     &landmass,
   const int                  rlevel, //Level of refinement
+  const bool                 do_edge,
   T dom_checker
 ){
-//  std::cerr<<"Generating neighbouring orientations for refining dominant..."<<std::endl;
   Timer tmr_nor;
   const auto norientations = GenerateNearbyOrientations(
     this_o.pole,
@@ -491,6 +493,7 @@ OSCollection RefineOrientations(
   const PointCloud                &wgs84pc,
   const IndexedShapefile          &landmass,
   const int                        rlevel, //Level of refinement
+  const bool                       do_edge,
   T dom_checker
 ){
   OSCollection refined;
@@ -499,7 +502,7 @@ OSCollection RefineOrientations(
   #pragma omp parallel for default(none) schedule(static) shared(osc,wgs84pc,landmass,pg) reduction(merge: refined)
   for(unsigned int i=0;i<osc.size();i++){
     //std::cerr<<"Refining dominant "<<d<<" of "<<dominants.size()<<std::endl;
-    refined.push_back(RefineOrientation(osc[i],wgs84pc,landmass,rlevel,dom_checker));
+    refined.push_back(RefineOrientation(osc[i],wgs84pc,landmass,rlevel,do_edge,dom_checker));
     ++pg;
   }
   std::cerr<<"Time taken = "<<pg.stop()<<std::endl;
@@ -582,13 +585,14 @@ void DetermineDominantsHelper(
   const OSCollection     &osc,
   const PointCloud       &wgs84pc,
   const IndexedShapefile &landmass,
+  const bool             do_edge,
   T dom_checker
 ){
   std::cerr<<"Orientations size ("<<fileprefix<<") = "<<osc.size()<<std::endl;
   OSCollection refined = osc;
   for(int rlevel=0;rlevel<RLEVELS;rlevel++){
     std::cerr<<"\tRefinement level = "<<rlevel<<std::endl;
-    refined = RefineOrientations(refined,wgs84pc,landmass,rlevel,dom_checker);
+    refined = RefineOrientations(refined,wgs84pc,landmass,rlevel,do_edge,dom_checker);
   }
 
   auto norientations = FindNearbyOrientations(refined);
@@ -597,6 +601,9 @@ void DetermineDominantsHelper(
   for(unsigned int i=0;i<dom_tree.size();i++)
     if(dom_tree[i]==i)
       doms.push_back(refined[i]);
+
+  for(unsigned int i=0;i<doms.size();i++)
+    doms[i] = OrientationStats(doms[i], wgs84pc, landmass, true);
 
   PrintOrientations(fileprefix, doms);
 }
@@ -611,44 +618,35 @@ void DetermineDominants(
   Timer tmr;
   std::cerr<<"Determining dominants..."<<std::endl;
 
-  //#pragma omp parallel sections 
   {
-    //#pragma omp section  
-    DetermineDominantsHelper("out_min_mindist", osc, wgs84pc, landmass,
+    DetermineDominantsHelper("out_min_mindist", osc, wgs84pc, landmass, false,
       [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.mindist<b.mindist; }
     );
-    //#pragma omp section    
-    DetermineDominantsHelper("out_max_mindist", osc, wgs84pc, landmass,
+    DetermineDominantsHelper("out_max_mindist", osc, wgs84pc, landmass, false,
       [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.mindist>b.mindist; }
     );
     
 
-    //#pragma omp section
-    DetermineDominantsHelper("out_min_maxdist", osc, wgs84pc, landmass,
+    DetermineDominantsHelper("out_min_maxdist", osc, wgs84pc, landmass, false,
       [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.maxdist<b.maxdist; }
     );
-    //#pragma omp section    
-    DetermineDominantsHelper("out_max_maxdist", osc, wgs84pc, landmass,
+    DetermineDominantsHelper("out_max_maxdist", osc, wgs84pc, landmass, false,
       [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.maxdist>b.maxdist; }
     );
 
     
-    //#pragma omp section
-    DetermineDominantsHelper("out_min_avgdist", osc, wgs84pc, landmass,
+    DetermineDominantsHelper("out_min_avgdist", osc, wgs84pc, landmass, false,
       [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.avgdist<b.avgdist; }
     );
-    //#pragma omp section    
-    DetermineDominantsHelper("out_max_avgdist", osc, wgs84pc, landmass,
+    DetermineDominantsHelper("out_max_avgdist", osc, wgs84pc, landmass, false,
       [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.avgdist>b.avgdist; }
     );
     
 
-    //#pragma omp section
-    DetermineDominantsHelper("out_min_edge_overlaps", osc, wgs84pc, landmass,
+    DetermineDominantsHelper("out_min_edge_overlaps", osc, wgs84pc, landmass, true,
       [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.edge_overlaps<b.edge_overlaps; }
     );
-    //#pragma omp section    
-    DetermineDominantsHelper("out_max_edge_overlaps", osc, wgs84pc, landmass,
+    DetermineDominantsHelper("out_max_edge_overlaps", osc, wgs84pc, landmass, true,
       [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.edge_overlaps>b.edge_overlaps; }
     );
   }
