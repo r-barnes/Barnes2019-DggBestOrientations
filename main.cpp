@@ -1,6 +1,3 @@
-//https://gis.stackexchange.com/questions/70800/how-to-read-vector-datasets-using-gdal-library
-//https://math.stackexchange.com/questions/44080/approximating-geodesic-distances-on-the-sphere-by-euclidean-distances-of-a-trans
-
 #ifndef DOCTEST_CONFIG_DISABLE
   #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #endif
