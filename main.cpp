@@ -119,7 +119,8 @@ PointCloud ReadPointCloudFromShapefile(std::string filename, std::string layer){
   #pragma omp declare reduction (merge : std::vector<Point3D> : omp_out.insert(omp_out.end(), omp_in.begin(), omp_in.end()))
   #pragma omp parallel for default(none) schedule(static) shared(wgs84_ll_flat) reduction(merge:wgs84_xyz)
   for(unsigned int i=0;i<wgs84_ll_flat.size();i++)
-    wgs84_xyz.push_back(WGS84toEllipsoidCartesian(wgs84_ll_flat[i]));
+    //wgs84_xyz.push_back(WGS84toEllipsoidCartesian(wgs84_ll_flat[i]));
+    wgs84_xyz.push_back(wgs84_ll_flat[i].toXYZ(1));
 
   wgs84_ll_flat.clear();
   wgs84_ll_flat.shrink_to_fit();
