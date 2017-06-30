@@ -11,7 +11,7 @@ WARNINGS=-Wall -Wextra -Wfloat-equal -Wundef -Wcast-align -Wwrite-strings -Wlogi
 TESTING=--coverage -O3
 NOTESTING=-O3 -DDOCTEST_CONFIG_DISABLE
 #FLAGS=$(GDAL_CFLAGS) $(ARCH_FLAGS) $(CXXFLAGS) 
-FLAGS=$(CXXFLAGS) $(TESTING) $(DEFINES) $(INCLUDES) $(LIBS) $(WARNINGS)
+FLAGS=$(CXXFLAGS) $(NOTESTING) $(DEFINES) $(INCLUDES) $(LIBS) $(WARNINGS)
 
 # File names
 EXEC = dgfinder.exe
