@@ -101,26 +101,49 @@ PointCloud ReadPointCloudFromShapefile(std::string filename, std::string layer){
   std::cerr<<"Reading point cloud from shapefile..."<<std::endl;
   auto landmass_wgs84 = ReadShapefile(filename, layer);
 
-  std::cerr<<"Crushing point cloud into flat vector..."<<std::endl;
+  std::cerr<<"Converting WGS84 polygons to radians..."<<std::endl;
+  for(auto &p: landmass_wgs84)
+    p.toRadians();
+
+  const auto poly_fill_point = [&](const Point2D &a, const Point2D &b){
+    std::vector<Point2D> ret;
+    const auto quickdist = GeoDistanceFlatEarth(a,b);
+    if(quickdist>0.5){
+      const GreatCircleGenerator gcg(a,b,0.5);
+      for(unsigned int i=0;i<gcg.size();i++)
+        ret.push_back(gcg(i));
+    }
+    ret.push_back(b);
+    return ret;
+  };
+
+  const auto poly_filler = [&](const std::vector<Point2D> &poly){
+    std::vector<Point2D> ret;
+    for(unsigned int i=0;i<poly.size()-1;i++)
+      poly_fill_point(poly[i],poly[i+1]);
+    poly_fill_point(poly.back(),poly.front());
+    return ret;
+  };
+
+  std::cerr<<"Ensuring polygon edges are not too long..."<<std::endl;
   std::vector<Point2D> wgs84_ll_flat;
-  for(const auto &poly: landmass_wgs84)
-    wgs84_ll_flat.insert(wgs84_ll_flat.end(),poly.exterior.begin(),poly.exterior.end());
+  #pragma omp declare reduction (merge : std::vector<Point2D> : omp_out.insert(omp_out.end(), omp_in.begin(), omp_in.end()))
+  #pragma omp parallel for default(none) schedule(static) shared(landmass_wgs84) reduction(merge: wgs84_ll_flat)
+  for(unsigned int pi=0;pi<landmass_wgs84.size();pi++){
+    const auto filled_poly = poly_filler(landmass_wgs84[pi].exterior);
+    wgs84_ll_flat.insert(wgs84_ll_flat.end(),filled_poly.begin(),filled_poly.end());
+  }
 
   landmass_wgs84.clear();
   landmass_wgs84.shrink_to_fit();
-
-  std::cerr<<"Converting points to radians"<<std::endl;
-  #pragma omp parallel for default(none) schedule(static) shared(wgs84_ll_flat)
-  for(unsigned int i=0;i<wgs84_ll_flat.size();i++)
-    wgs84_ll_flat[i].toRadians();
 
   std::cerr<<"Converting points to WGS84 Cartesian..."<<std::endl;
   std::vector<Point3D> wgs84_xyz;
   #pragma omp declare reduction (merge : std::vector<Point3D> : omp_out.insert(omp_out.end(), omp_in.begin(), omp_in.end()))
   #pragma omp parallel for default(none) schedule(static) shared(wgs84_ll_flat) reduction(merge:wgs84_xyz)
   for(unsigned int i=0;i<wgs84_ll_flat.size();i++)
-    //wgs84_xyz.push_back(WGS84toEllipsoidCartesian(wgs84_ll_flat[i]));
-    wgs84_xyz.push_back(wgs84_ll_flat[i].toXYZ(1));
+    wgs84_xyz.push_back(WGS84toEllipsoidCartesian(wgs84_ll_flat[i]));
+    //wgs84_xyz.push_back(wgs84_ll_flat[i].toXYZ(1));
 
   wgs84_ll_flat.clear();
   wgs84_ll_flat.shrink_to_fit();
@@ -361,9 +384,10 @@ OrientationWithStats OrientationStats(const Orientation &o, const PointCloud &wg
   ows.overlaps = OrientationOverlaps(sxy, landmass);
 
   for(unsigned int i=0;i<sxy.v.size();i++){
-    const auto cp = wgs84pc.queryPoint(sxy.v[i].toXYZ(1)); //Closest point
-    auto llc      = cp.toLatLon();
-    auto dist     = GeoDistanceFlatEarth(llc,sxy.v[i]);
+    const auto cp = wgs84pc.queryPoint(WGS84toEllipsoidCartesian(sxy.v[i])); //Closest point
+    auto llc      = EllipsoidCartesiantoWGS84(cp);
+    auto dist     = GeoDistanceEllipsoid(llc,sxy.v[i]);
+    //auto dist     = GeoDistanceFlatEarth(llc,sxy.v[i]);
     if(ows.overlaps.test(i))
       dist = -dist;
     ows.mindist = std::min(ows.mindist,dist);
