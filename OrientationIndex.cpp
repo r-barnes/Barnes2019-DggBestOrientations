@@ -129,6 +129,10 @@ std::vector<unsigned int> OrientationIndex::query(const unsigned int qpn, const 
     closest_n.emplace_back(nd.first);
   std::sort(closest_n.begin(), closest_n.end(), [&](const size_t a, const size_t b){return ori_dist.at(a)<ori_dist.at(b);});
 
+  if(ori_dist.size()>0){
+    CHECK(ori_dist.at(closest_n.front())<=ori_dist.at(closest_n.back()));
+  }
+
   //for(const auto &nd: ori_dist)
   //  distance_distribution.emplace_back(nd.second);
 
@@ -152,6 +156,10 @@ std::vector<unsigned int> OrientationIndex::query(const Orientation &o, const do
   for(const auto &nd: ori_dist)
     closest_n.emplace_back(nd.first);
   std::sort(closest_n.begin(), closest_n.end(), [&](const size_t a, const size_t b){return ori_dist.at(a)<ori_dist.at(b);});
+
+  if(ori_dist.size()>0){
+    CHECK(ori_dist.at(closest_n.front())<=ori_dist.at(closest_n.back()));
+  }
 
 //  for(const auto &nd: ori_dist)
 //    distance_distribution.emplace_back(nd.second);
@@ -213,6 +221,11 @@ std::unordered_map<unsigned int,double> OrientationIndex::distancesToNearbyOrien
   return distances;
 }
 
+// void OrientationIndex::print() const {
+  // for(unsigned int i=0;i<pidx.size();i++)
+    // std::cout<<std::setw(8)<<pidx[i]<<" "<<std::setw(8)<<(p2ds[i].x*RAD_TO_DEG)<<" "<<std::setw(8)<<(p2ds[i].y*RAD_TO_DEG)<<" "<<std::setw(8)<<p3ds[i].x<<" "<<std::setw(8)<<p3ds[i].y<<" "<<std::setw(8)<<p3ds[i].z<<std::endl;
+// }
+
 
 
 TEST_CASE("OrientationIndex"){
@@ -247,12 +260,21 @@ TEST_CASE("OrientationIndex"){
     orients.emplace_back(Point2D(-93.2,45.1).toRadians(), 0*DEG_TO_RAD);
     orients.emplace_back(Point2D(-93.1,45.2).toRadians(), 0*DEG_TO_RAD);
     orients.emplace_back(Point2D(-93.2,45.2).toRadians(), 0*DEG_TO_RAD);
-    orients.emplace_back(Point2D(-93.2,45.2).toRadians(), 36*DEG_TO_RAD);
+    orients.emplace_back(Point2D(-93.0,45.0).toRadians(), 36*DEG_TO_RAD);
     orients.emplace_back(Point2D(23,-23.2).toRadians(), 36*DEG_TO_RAD);
     OrientationIndex oidx(orients);
-    auto result = oidx.query(0,100);
-    CHECK(result.size()==4);
-    CHECK(result[0]==1);
+
+    {
+      auto result = oidx.query(0,100);
+      CHECK(result.size()==4);
+      CHECK(result[0]==1);
+    }
+    {
+      auto result = oidx.query(orients.front(),100);
+      CHECK(result.size()==5);
+      CHECK(result.at(0)==0);
+    }
+
   }
 }
 
