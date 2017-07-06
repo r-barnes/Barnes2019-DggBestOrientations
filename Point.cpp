@@ -180,6 +180,11 @@ TEST_CASE("rotateTheta"){
     p.rotateTheta(-67*DEG_TO_RAD);
     CHECK(p.x==doctest::Approx(-67*DEG_TO_RAD));
   }
+  SUBCASE("Test3"){
+    auto p = Point2D(144,90).toRadians();
+    p.rotateTheta(72*DEG_TO_RAD);
+    CHECK(p.x==doctest::Approx(-144*DEG_TO_RAD));
+  }
 }
 
 
