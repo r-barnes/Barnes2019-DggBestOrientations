@@ -216,7 +216,7 @@ GeographicLib::Geodesic GreatCircleGenerator::geod = GeographicLib::Geodesic(Geo
 GreatCircleGenerator::GreatCircleGenerator(
   const Point2D &a,
   const Point2D &b,
-  const int num_pts0
+  const double spacing0
 ){
   gline = geod.InverseLine(
     a.y*RAD_TO_DEG,
@@ -225,9 +225,11 @@ GreatCircleGenerator::GreatCircleGenerator(
     b.x*RAD_TO_DEG
   );
 
-  num_pts = num_pts0;
+  spacing = spacing0;
 
-  da = gline.Arc() / num_pts;
+  const auto dist = gline.Distance()/1000; //km
+  num_pts         = (int)std::ceil(dist/spacing);
+  da              = gline.Arc()/num_pts;
 }
 
 Point2D GreatCircleGenerator::operator()(int i) const {
@@ -237,6 +239,10 @@ Point2D GreatCircleGenerator::operator()(int i) const {
   return temp;
 }
   
-int GreatCircleGenerator::size() const {
+unsigned int GreatCircleGenerator::size() const {
   return num_pts;
+}
+
+double GreatCircleGenerator::getSpacing() const {
+  return spacing;
 }

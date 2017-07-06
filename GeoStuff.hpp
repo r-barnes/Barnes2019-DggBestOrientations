@@ -30,12 +30,14 @@ class GreatCircleGenerator {
   static GeographicLib::Geodesic geod;
  private:
   GeographicLib::GeodesicLine gline;
+  double spacing;
   double da;
-  int num_pts;
+  unsigned int num_pts;
  public:
-  GreatCircleGenerator(const Point2D &a, const Point2D &b, const int num_pts0);
+  GreatCircleGenerator(const Point2D &a, const Point2D &b, const double spacing0);
   Point2D operator()(int i) const;
-  int size() const;
+  unsigned int size() const;
+  double getSpacing() const;
 };
 
 #endif
