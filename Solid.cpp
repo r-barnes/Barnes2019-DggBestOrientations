@@ -47,13 +47,22 @@ SolidXY& SolidXY::rotateTheta(const double rtheta){
   
   assert(std::abs(v[0].y-M_PI/2)<1e-6); //Can only rotate when icosahedron is North-South aligned
 
-  for(auto &p: v)
-    p.rotateTheta(rtheta);
+  //0 and 1 are the poles, which do not rotate
+  for(unsigned int i=2;i<v.size();i++)
+    v[i].rotateTheta(rtheta);
+
   return *this;
 }
 
 TEST_CASE("rotateTheta"){
-  SolidXY().rotateTheta(23*DEG_TO_RAD);
+  SolidXY s;
+  CHECK(s.v.at(0).x==doctest::Approx(0));
+  CHECK(s.v.at(7).x==doctest::Approx(0));
+  CHECK(s.v.at(11).x==doctest::Approx(4*36*DEG_TO_RAD));
+  s.rotateTheta(72*DEG_TO_RAD);
+  CHECK(s.v.at(0).x==doctest::Approx(0));
+  CHECK(s.v.at(7).x==doctest::Approx(72*DEG_TO_RAD));
+  CHECK(s.v.at(11).x==doctest::Approx(-144*DEG_TO_RAD));
 }
 
 
