@@ -106,7 +106,7 @@ std::vector<std::pair<unsigned int, double> > OrientationIndex::query(const Poin
 
 
 
-std::vector<unsigned int> OrientationIndex::query(const unsigned int qpn, const double distance) const {
+std::vector<std::pair<unsigned int,double> > OrientationIndex::queryWithDistance(const unsigned int qpn, const double distance) const {
   //Locate the first point corresponding to qpn, we'll iterate forward to
   //identify the rest
   auto it_pidx = std::lower_bound(pidx.begin(), pidx.end(), qpn);
@@ -124,24 +124,32 @@ std::vector<unsigned int> OrientationIndex::query(const unsigned int qpn, const 
   const auto ori_dist = distancesToNearbyOrientations(it3d_start,it3d_end,qpn,distance);
 
   //Put all neighbours which are close enough into the vector
-  std::vector<unsigned int> closest_n;
+  std::vector<std::pair<unsigned int, double> > ret;
   for(const auto &nd: ori_dist)
-    closest_n.emplace_back(nd.first);
-  std::sort(closest_n.begin(), closest_n.end(), [&](const size_t a, const size_t b){return ori_dist.at(a)<ori_dist.at(b);});
+    ret.emplace_back(nd.first,nd.second);
 
-  if(ori_dist.size()>0){
-    CHECK(ori_dist.at(closest_n.front())<=ori_dist.at(closest_n.back()));
+  std::sort(ret.begin(), ret.end(), [](const std::pair<unsigned int, double> &a, const std::pair<unsigned int, double> &b){ return a.second<b.second;});
+
+  if(ret.size()>0){
+    CHECK(ret.front().second<=ret.back().second);
   }
 
-  //for(const auto &nd: ori_dist)
-  //  distance_distribution.emplace_back(nd.second);
+  return ret;
+}
+
+std::vector<unsigned int> OrientationIndex::query(const unsigned int qpn, const double distance) const {
+  const auto ori_dist = queryWithDistance(qpn, distance);
+
+  std::vector<unsigned int> closest_n;
+  for(const auto &x: ori_dist)
+    closest_n.emplace_back(x.first);
 
   return closest_n;
 }
 
 
 
-std::vector<unsigned int> OrientationIndex::query(const Orientation &o, const double distance) const {
+std::vector<std::pair<unsigned int,double> > OrientationIndex::queryWithDistance(const Orientation &o, const double distance) const {
   const SolidXYZ sxyz = SolidXY(o).toXYZ(Rearth);
   std::vector<Point3D> qps;
   qps.reserve(12);
@@ -152,17 +160,25 @@ std::vector<unsigned int> OrientationIndex::query(const Orientation &o, const do
   const auto ori_dist = distancesToNearbyOrientations(qps.begin(), qps.end(), NO_IGNORE, distance);
 
   //Put all neighbours which are close enough into the vector
-  std::vector<unsigned int> closest_n;
+  std::vector<std::pair<unsigned int, double> > ret;
   for(const auto &nd: ori_dist)
-    closest_n.emplace_back(nd.first);
-  std::sort(closest_n.begin(), closest_n.end(), [&](const size_t a, const size_t b){return ori_dist.at(a)<ori_dist.at(b);});
+    ret.emplace_back(nd.first,nd.second);
 
-  if(ori_dist.size()>0){
-    CHECK(ori_dist.at(closest_n.front())<=ori_dist.at(closest_n.back()));
+  std::sort(ret.begin(), ret.end(), [](const std::pair<unsigned int, double> &a, const std::pair<unsigned int, double> &b){ return a.second<b.second;});
+
+  if(ret.size()>0){
+    CHECK(ret.front().second<=ret.back().second);
   }
 
-//  for(const auto &nd: ori_dist)
-//    distance_distribution.emplace_back(nd.second);
+  return ret;
+}
+
+std::vector<unsigned int> OrientationIndex::query(const Orientation &o, const double distance) const {
+  const auto ori_dist = queryWithDistance(o, distance);
+
+  std::vector<unsigned int> closest_n;
+  for(const auto &x: ori_dist)
+    closest_n.emplace_back(x.first);
 
   return closest_n;
 }

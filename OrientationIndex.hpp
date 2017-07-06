@@ -58,6 +58,10 @@ class OrientationIndex {
 
   std::vector<std::pair<unsigned int, double> > query(const Point3D &qp, const double distance) const;
   std::unordered_map<unsigned int,double> distancesToNearbyOrientations(const std::vector<Point3D>::const_iterator qvec_begin, const std::vector<Point3D>::const_iterator qvec_end, const unsigned int ignore_pt, const double distance) const;
+
+  std::vector<std::pair<unsigned int,double> > queryWithDistance(const unsigned int qpn, const double distance) const;
+  std::vector<std::pair<unsigned int,double> > queryWithDistance(const Orientation &o, const double distance) const;
+
   std::vector<unsigned int> query(const unsigned int qpn, const double distance) const;
   std::vector<unsigned int> query(const Orientation &o, const double distance) const;
 
