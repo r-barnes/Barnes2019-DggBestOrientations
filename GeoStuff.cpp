@@ -59,6 +59,24 @@ TEST_CASE("GeoDistanceHaversine"){
 
 
 
+double GeoDistanceEllipsoid(
+  const Point2D &a,
+  const Point2D &b
+){
+  static auto geod = GeographicLib::Geodesic(GeographicLib::Constants::WGS84_a(), GeographicLib::Constants::WGS84_f());
+
+  const auto gline = geod.InverseLine(
+    a.y*RAD_TO_DEG,
+    a.x*RAD_TO_DEG,
+    b.y*RAD_TO_DEG,
+    b.x*RAD_TO_DEG
+  );
+
+  return gline.Distance()/1000; //km
+}
+
+
+
 //See: https://github.com/proj4js/proj4js/blob/2006b0a06d000308caa3625005f3d5734ef11f61/lib/projections/merc.js
 Point2D WGS84toEPSG3857(
   const Point2D &p //Specified in radians
@@ -73,7 +91,7 @@ Point2D WGS84toEPSG3857(
   );
 }
 
-TEST_CASE("EuclideanDistance"){
+TEST_CASE("WGS84toEPSG3857"){
   SUBCASE("Minneapolis"){
     const auto a = WGS84toEPSG3857(Point2D(-93.2167,44.8803).toRadians());
     CHECK(a.x==doctest::Approx(-10376835.57891));
@@ -119,6 +137,17 @@ Point3D WGS84toEllipsoidCartesian(const Point2D &p) {
   //earth.Forward(lat, lon, h, X, Y, Z);
   earth.Forward(p.y*RAD_TO_DEG,p.x*RAD_TO_DEG,0,temp.x,temp.y,temp.z);
 
+  return temp;
+}
+
+Point2D EllipsoidCartesiantoWGS84(const Point3D &p){
+  static const GeographicLib::Geocentric& earth = GeographicLib::Geocentric::WGS84();
+
+  Point2D temp;
+  double height;
+  earth.Reverse(p.x,p.y,p.z,temp.y,temp.x,height);
+  CHECK(height==doctest::Approx(0));
+  temp.toRadians();
   return temp;
 }
 

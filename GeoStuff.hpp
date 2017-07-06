@@ -10,9 +10,13 @@ double GeoDistanceFlatEarth(const Point2D &a, const Point2D &b);
 
 double GeoDistanceHaversine(const Point2D &pa, const Point2D &pb);
 
+double GeoDistanceEllipsoid(const Point2D &a, const Point2D &b);
+
 Point2D WGS84toEPSG3857(const Point2D &p);
 
 Point3D WGS84toEllipsoidCartesian(const Point2D &p);
+
+Point2D EllipsoidCartesiantoWGS84(const Point3D &p);
 
 template<class T>
 void ToMercator(T &pts);
