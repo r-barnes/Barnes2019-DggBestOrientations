@@ -825,19 +825,30 @@ TEST_CASE("Test with data [expensive]"){
     for(const auto &x: cities)
       CHECK(PointInLandmass(x, landmass)==true);
 
+    for(unsigned int i=0;i<cities.size();i++)
+    for(unsigned int j=0;j<cities.size();j++)
+      CHECK(std::abs(GeoDistanceEllipsoid(cities[i],cities[j])-GeoDistanceHaversine(cities[i],cities[j]))<=37);
+
+    for(const auto &c: cities){
+      const auto converted = EllipsoidCartesiantoWGS84(WGS84toEllipsoidCartesian(c));
+      CHECK(c.x==doctest::Approx(converted.x));
+      CHECK(c.y==doctest::Approx(converted.y));
+    }
+    
+
     //Check that all GC arcs between cities include at least some land
     for(unsigned int i=0;i<cities.size();i++)
     for(unsigned int j=0;j<cities.size();j++){
       if(i==j)
         continue;
-      CHECK(GreatCircleOverlaps(landmass,cities[i],cities[j],1000)>0);
+      CHECK(GreatCircleOverlaps(landmass,cities[i],cities[j],100)>0);
     }
 
     //Route from Minneapolis to Denver should be entirely on land
     {
       auto a = Point2D(-93,45).toRadians();
       auto b = Point2D(-104.9903, 39.7392).toRadians();
-      CHECK(GreatCircleOverlaps(landmass,a,b,100)==101);
+      CHECK(GreatCircleOverlaps(landmass,a,b,50)==24); //TODO: Unsure how many points there will be now that we are using distance instead of point counts
     }
   }
 }
@@ -894,7 +905,8 @@ TEST_CASE("Generate great cicles between points"){
     const auto &a = sxy.v[neighbors[n]];
     const auto &b = sxy.v[neighbors[n+1]];
     const GreatCircleGenerator gcg(a,b,100);
-    for(int i=0;i<gcg.size();i++){
+    CHECK(gcg.getSpacing()==100);
+    for(unsigned int i=0;i<gcg.size();i++){
       auto temp = gcg(i);
       fout<<(temp.y*RAD_TO_DEG)<<","<<(temp.x*RAD_TO_DEG)<<"\n";
     }
@@ -942,7 +954,7 @@ int main(){
 
   OSCollection osc;
   if(!LoadFromArchive(osc, FILE_OUTPUT_PREFIX + "save_osc.save")){
-    osc = GetStatsForOrientations(orients,wgs84pc,landmass);
+    osc = GetStatsForOrientations(orients,wgs84pc,landmass,true);
     SaveToArchive(osc, FILE_OUTPUT_PREFIX + "save_osc.save");
   }
 
