@@ -131,6 +131,12 @@ TEST_CASE("PointCloud Save/Load"){
 
   {
     PointCloud pc;
+    auto ret = pc.loadFromArchive("asdfasfdjkjdsf");
+    CHECK(!ret);
+  }
+
+  {
+    PointCloud pc;
     pc.loadFromArchive("test/test_pc_save");
     Point3D lclosest = pc.queryPoint(qp);
     CHECK(lclosest.x==closest.x);
