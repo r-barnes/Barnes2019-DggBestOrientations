@@ -346,11 +346,11 @@ OCollection GenerateNearbyOrientations(
 //For a great circle connecting two points, generate sample points along the
 //circle. Then count how many of these sample points fall within landmasses.
 //Maximum value returned is `num_pts+1`
-unsigned int GreatCircleOverlaps(const IndexedShapefile &landmass, const Point2D &a, const Point2D &b, const int num_pts){
-  GreatCircleGenerator gcg(a,b,num_pts);
+unsigned int GreatCircleOverlaps(const IndexedShapefile &landmass, const Point2D &a, const Point2D &b, const double spacing){
+  GreatCircleGenerator gcg(a,b,spacing);
 
   unsigned int edge_overlaps = 0;
-  for(int i=0;i<=gcg.size();i++)
+  for(unsigned int i=0;i<=gcg.size();i++)
     edge_overlaps += PointInLandmass(gcg(i),landmass);
 
   return edge_overlaps;
@@ -361,15 +361,12 @@ unsigned int GreatCircleOverlaps(const IndexedShapefile &landmass, const Point2D
 //For all the great circle edges of a polyhedron, determine how many sample
 //points along the circles fall within landmasses.
 unsigned int OrientationEdgeOverlaps(const SolidXY &sxy, const IndexedShapefile &landmass){
-  static const auto   neighbors = SolidXY().neighbors();             //Get a list of neighbouring vertices on the polyhedron
-  static const double ndist     = SolidXY().neighborDistance()*1000; //Approximate spacing between vertices in metres
-  static const double spacing   = 10e3;                              //Spacing between points = 10km
-  static const int    num_pts   = int(std::ceil(ndist / spacing));   //The number of intervals
+  static const auto   neighbors = SolidXY().neighbors(); //Get a list of neighbouring vertices on the polyhedron
   unsigned int edge_overlaps = 0;
   for(unsigned int n=0;n<neighbors.size();n+=2){
     const auto &a = sxy.v[neighbors[n]];
     const auto &b = sxy.v[neighbors[n+1]];
-    edge_overlaps += GreatCircleOverlaps(landmass, a, b, num_pts);
+    edge_overlaps += GreatCircleOverlaps(landmass, a, b, 10); //TODO: Should be using a constant for this
   }
   return edge_overlaps;
 }
@@ -403,14 +400,14 @@ OrientationWithStats OrientationStats(const Orientation &o, const PointCloud &wg
 
 
 
-OSCollection GetStatsForOrientations(const OCollection &orients, const PointCloud &wgs84pc, const IndexedShapefile &landmass){
+OSCollection GetStatsForOrientations(const OCollection &orients, const PointCloud &wgs84pc, const IndexedShapefile &landmass, const bool do_edge){
   OSCollection osc;
   ProgressBar pg(orients.size());
   std::cerr<<"Calculating orientation statistics..."<<std::endl;
   #pragma omp declare reduction (merge : OSCollection : omp_out.insert(omp_out.end(), omp_in.begin(), omp_in.end()))
   #pragma omp parallel for default(none) shared(wgs84pc,landmass,orients,pg) reduction(merge:osc)
   for(unsigned int pn=0;pn<orients.size();pn++){
-    osc.push_back(OrientationStats(orients[pn],wgs84pc,landmass));
+    osc.push_back(OrientationStats(orients[pn],wgs84pc,landmass, do_edge));
     ++pg;
   }
   std::cout << "Time taken = " << pg.stop() <<"s"<< std::endl;
