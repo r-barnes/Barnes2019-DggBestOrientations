@@ -34,7 +34,7 @@
   const std::string FILE_OUTPUT_PREFIX  = "/z/";
   const std::string FILE_MERC_LANDMASS  = "data/land-polygons-split-3857/land_polygons.shp";
 #else
-  this-is-an-error
+  #error "ENV_XSEDE or ENV_LAPTOP must be defined!"
 #endif
 
 const double Rearth = 6371; //km
