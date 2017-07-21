@@ -126,9 +126,12 @@ PointCloud ReadPointCloudFromShapefile(std::string filename, std::string layer){
 
   const auto poly_filler = [&](const std::vector<Point2D> &poly){
     std::vector<Point2D> ret;
-    for(unsigned int i=0;i<poly.size()-1;i++)
-      poly_fill_point(poly[i],poly[i+1]);
-    poly_fill_point(poly.back(),poly.front());
+    for(unsigned int i=0;i<poly.size()-1;i++){
+      auto pfp = poly_fill_point(poly[i],poly[i+1]);
+      ret.insert(ret.end(),pfp.begin(),pfp.end());
+    }
+    auto pfp = poly_fill_point(poly.back(),poly.front());
+    ret.insert(ret.end(),pfp.begin(),pfp.end());
     return ret;
   };
 
