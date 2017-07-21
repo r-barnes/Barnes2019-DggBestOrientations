@@ -29,10 +29,17 @@
   const std::string FILE_WGS84_LANDMASS = "/home/rbarnes1/scratch/dgg_best/land-polygons-complete-4326/land_polygons.shp";
   const std::string FILE_OUTPUT_PREFIX  = "/home/rbarnes1/scratch/dgg_best/";
   const std::string FILE_MERC_LANDMASS  = "/home/rbarnes1/scratch/dgg_best/land-polygons-split-3857/land_polygons.shp";
+  const double MUTATION_WIDTH           = 0.01;
+#elif ENV_CORI
+  const std::string FILE_WGS84_LANDMASS = "/global/homes/r/rbarnes/dgg_best/land-polygons-complete-4326/land_polygons.shp";
+  const std::string FILE_OUTPUT_PREFIX  = "/global/homes/r/rbarnes/dgg_best/";
+  const std::string FILE_MERC_LANDMASS  = "/global/homes/r/rbarnes/dgg_best/land-polygons-split-3857/land_polygons.shp";
+  const double MUTATION_WIDTH           = 0.01;
 #elif ENV_LAPTOP
   const std::string FILE_WGS84_LANDMASS = "data/land-polygons-complete-4326/land_polygons.shp";
   const std::string FILE_OUTPUT_PREFIX  = "/z/";
   const std::string FILE_MERC_LANDMASS  = "data/land-polygons-split-3857/land_polygons.shp";
+  const double MUTATION_WIDTH           = 0.05;
 #else
   #error "ENV_XSEDE or ENV_LAPTOP must be defined!"
 #endif
