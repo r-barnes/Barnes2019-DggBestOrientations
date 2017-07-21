@@ -180,13 +180,6 @@ norientations_t FindNearbyOrientations(const std::vector<T> &osc){
     ++pg;
   }
 
-  // {
-  //   std::ofstream fout(FILE_OUTPUT_PREFIX + "save_norientations_dist_distrib.save");
-  //   std::sort(oidx.distance_distribution.begin(),oidx.distance_distribution.end());
-  //   for(const auto &x: oidx.distance_distribution)
-  //     fout<<x<<"\n";
-  // }
-
   std::cerr<<"Time taken = "<<pg.stop()<<std::endl;
 
   return oneighbors;
