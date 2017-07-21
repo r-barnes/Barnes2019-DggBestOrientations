@@ -51,6 +51,8 @@ const double Rearth = 6371; //km
 const double DEG_TO_RAD = M_PI/180.0;
 const double RAD_TO_DEG = 180.0/M_PI;
 
+const double FILTER_COARSE_ORIENTATIONS_WITHIN = 100; //km
+
 #ifdef FINE_RESOLUTION //Used for science
   const double COARSE_SPACING      = 100;  //km - Desired interpoint spacing for finding prospective orienations
   const double COARSE_RADIAL_LIMIT = 90*DEG_TO_RAD;
@@ -164,7 +166,7 @@ PointCloud ReadPointCloudFromShapefile(std::string filename, std::string layer){
 //Determine which orientations are in the local neighbourhood of another
 //orientation
 template<class T>
-norientations_t FindNearbyOrientations(const std::vector<T> &osc){
+norientations_t FindNearbyOrientations(const std::vector<T> &osc, const double distance){
   Timer tmr_bi;
   std::cerr<<"Building kd-tree"<<std::endl;
   OrientationIndex oidx(osc);
@@ -176,7 +178,7 @@ norientations_t FindNearbyOrientations(const std::vector<T> &osc){
   norientations_t oneighbors(osc.size());
   #pragma omp parallel for default(none) schedule(static) shared(osc,oneighbors,oidx,pg)
   for(unsigned int i=0;i<osc.size();i++){
-    oneighbors[i] = oidx.query(i,100);
+    oneighbors[i] = oidx.query(i,distance);
     ++pg;
   }
 
@@ -187,8 +189,8 @@ norientations_t FindNearbyOrientations(const std::vector<T> &osc){
 
 
 
-OCollection FilterOutOrienationsWithNeighbours(const OCollection &oc){
-  const auto norients = FindNearbyOrientations(oc);
+OCollection FilterOutOrienationsWithNeighbours(const OCollection &oc, const double distance){
+  const auto norients = FindNearbyOrientations(oc, distance);
   std::vector<bool> keep(oc.size(),true);
   for(unsigned int focal=0;focal<norients.size();focal++){
     if(!keep.at(focal))
@@ -201,6 +203,28 @@ OCollection FilterOutOrienationsWithNeighbours(const OCollection &oc){
   for(unsigned int o=0;o<oc.size();o++)
     if(keep.at(o))
       keep_these.push_back(oc.at(o));
+
+  return keep_these;
+}
+
+OSCollection FilterOutDominatedOrienations(
+  const OSCollection &osc,
+  const double distance,
+  std::function<bool(const OrientationWithStats&, const OrientationWithStats&)> dom_checker
+){
+  std::vector<bool> dominated(osc.size(),false);
+  const auto norients = FindNearbyOrientations(osc, distance);
+
+  for(unsigned int focal=0;focal<norients.size();focal++){
+    for(const auto &n: norients[focal])
+      if(dom_checker(osc[focal],osc[n])) //If focal dominats n
+        dominated.at(n) = true;
+  }
+
+  OSCollection keep_these;
+  for(unsigned int o=0;o<osc.size();o++)
+    if(!dominated.at(o))
+      keep_these.push_back(osc.at(o));
 
   return keep_these;
 }
@@ -761,7 +785,7 @@ TEST_CASE("POIindex"){
   oc.emplace_back(Point2D(-93.2,45.2).toRadians(), 0*DEG_TO_RAD);
   oc.emplace_back(Point2D(-93.2,45.2).toRadians(), 36*DEG_TO_RAD);
   oc.emplace_back(Point2D(23,-23.2).toRadians(), 36*DEG_TO_RAD);
-  auto oneighbors = FindNearbyOrientations(oc);
+  auto oneighbors = FindNearbyOrientations(oc,100);
   CHECK(oneighbors[0].size()==5);
   CHECK(oneighbors[7].size()==0);
 }
@@ -805,7 +829,7 @@ int main(){
   OCollection orients;
   orients = OrientationsFilteredByOverlaps(landmass);
   std::cout<<"Orientations generated with overlaps of interest = "<<orients.size()<<std::endl;
-  orients = FilterOutOrienationsWithNeighbours(orients);
+  orients = FilterOutOrienationsWithNeighbours(orients, FILTER_COARSE_ORIENTATIONS_WITHIN);
   std::cout<<"Orientations remaining after filtering those with neighbours = "<<orients.size()<<std::endl;
 
   PointCloud wgs84pc;
@@ -823,9 +847,11 @@ int main(){
 
   auto ret = Bestify(orients,wgs84pc,landmass,false,dom_checker);
 
-  PrintOrientations("max-avgdist",ret);
+  std::cerr<<"Bestified orientations = "<<ret.size()<<std::endl;
+  ret = FilterOutDominatedOrienations(ret,100,dom_checker);
+  std::cerr<<"Filtered bestified orientations = "<<ret.size()<<std::endl;
 
-  std::cout<<"hc val = "<<ret.front().avgdist<<std::endl;
+  PrintOrientations("max-avgdist",ret);
 
   return 0;
 }
