@@ -924,17 +924,14 @@ int main(){
   const auto landmass = IndexedShapefile(FILE_MERC_LANDMASS,"land_polygons");
 
   OCollection orients;
-  if(!LoadFromArchive(orients, FILE_OUTPUT_PREFIX + "save_orients.save")){  
-    orients = OrientationsFilteredByOverlaps(landmass);
-    SaveToArchive(orients, FILE_OUTPUT_PREFIX + "save_orients.save");
-  }
+  orients = OrientationsFilteredByOverlaps(landmass);
+  std::cout<<"Orientations generated with overlaps of interest = "<<orients.size()<<std::endl;
+  orients = FilterOutOrienationsWithNeighbours(orients);
+  std::cout<<"Orientations remaining after filtering those with neighbours = "<<orients.size()<<std::endl;
 
   PointCloud wgs84pc;
-  if(!wgs84pc.loadFromArchive(FILE_OUTPUT_PREFIX + "save_pointcloud.save")){
-    wgs84pc = ReadPointCloudFromShapefile(FILE_WGS84_LANDMASS, "land_polygons");
-    wgs84pc.buildIndex();
-    wgs84pc.saveToArchive(FILE_OUTPUT_PREFIX + "save_pointcloud.save");
-  }
+  wgs84pc = ReadPointCloudFromShapefile(FILE_WGS84_LANDMASS, "land_polygons");
+  wgs84pc.buildIndex();
 
   OSCollection osc;
   if(!LoadFromArchive(osc, FILE_OUTPUT_PREFIX + "save_osc.save")){
