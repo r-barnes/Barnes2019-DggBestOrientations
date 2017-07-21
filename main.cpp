@@ -23,6 +23,7 @@
 #include <iomanip>
 #include <cassert>
 #include <fstream>
+#include <functional>
 #include "doctest.h"
 #include <omp.h>
 
@@ -57,11 +58,6 @@ const double RAD_TO_DEG = 180.0/M_PI;
   const double COARSE_THETA_MAX    = 72*DEG_TO_RAD;
   const double COARSE_THETA_STEP   = 1*DEG_TO_RAD;
 
-  const int    RLEVELS                      = 3; //Number of refinement levels
-  const double FINE_SPACING[RLEVELS]        = {10,1,0.1}; //km
-  const double FINE_RADIAL_LIMIT[RLEVELS]   = {100/Rearth, 10/Rearth, 1/Rearth}; //Arc Length=Angle*Radius => Angle=(Arc Lenth)/Radius
-  const double FINE_THETA_STEP[RLEVELS]     = {0.1*DEG_TO_RAD, 0.01*DEG_TO_RAD, 0.001*DEG_TO_RAD};
-  const double FINE_THETA_INTERVAL[RLEVELS] = {COARSE_THETA_STEP, FINE_THETA_STEP[0], FINE_THETA_STEP[1]};
 #elif COARSE_RESOLUTION //Used for profiling
   const double COARSE_SPACING      = 200;  //km - Desired interpoint spacing for finding prospective orienations
   const double COARSE_RADIAL_LIMIT = 90*DEG_TO_RAD;
@@ -69,11 +65,6 @@ const double RAD_TO_DEG = 180.0/M_PI;
   const double COARSE_THETA_MAX    = 72*DEG_TO_RAD;
   const double COARSE_THETA_STEP   = 1.0*DEG_TO_RAD;
 
-  const int    RLEVELS                      = 3; //Number of refinement levels
-  const double FINE_SPACING[RLEVELS]        = {10,1,0.1}; //km
-  const double FINE_RADIAL_LIMIT[RLEVELS]   = {100/Rearth, 10/Rearth, 1/Rearth}; //Arc Length=Angle*Radius => Angle=(Arc Lenth)/Radius
-  const double FINE_THETA_STEP[RLEVELS]     = {0.1*DEG_TO_RAD, 0.01*DEG_TO_RAD, 0.001*DEG_TO_RAD};
-  const double FINE_THETA_INTERVAL[RLEVELS] = {COARSE_THETA_STEP, FINE_THETA_STEP[0], FINE_THETA_STEP[1]};
 #else
   this-is-an-error
 #endif
@@ -301,35 +292,6 @@ OCollection OrientationsFilteredByOverlaps(
 
 
 
-//Generate orientations spiraling outward from the indicated pole
-OCollection GenerateNearbyOrientations(
-  const Point2D &p2d,
-  const double point_spacingkm,
-  const double radial_limit,
-  const double theta_min,
-  const double theta_max,
-  const double theta_step
-){
-  const OrientationGenerator og(point_spacingkm,radial_limit);
-  const Rotator r(Point3D(0,0,1), p2d.toXYZ(1)); //Rotates from North Pole to alternate location
-
-  CHECK(og.size()>0);
-
-  OCollection orientations;
-  #pragma omp declare reduction (merge : OCollection : omp_out.insert(omp_out.end(), omp_in.begin(), omp_in.end()))
-  #pragma omp parallel for default(none) schedule(static) reduction(merge: orientations)
-  for(long i=0;i<og.size();i++){
-    auto pole = og(i);
-    pole = r(pole.toXYZ(1)).toLatLon();
-    for(double theta=theta_min;theta<=theta_max;theta+=theta_step)
-      orientations.emplace_back(pole,theta);
-  }
-
-  return orientations;
-}
-
-
-
 //For a great circle connecting two points, generate sample points along the
 //circle. Then count how many of these sample points fall within landmasses.
 //Maximum value returned is `num_pts+1`
@@ -387,123 +349,159 @@ OrientationWithStats OrientationStats(const Orientation &o, const PointCloud &wg
 
 
 
-OSCollection GetStatsForOrientations(const OCollection &orients, const PointCloud &wgs84pc, const IndexedShapefile &landmass, const bool do_edge){
-  OSCollection osc;
-  ProgressBar pg(orients.size());
-  std::cerr<<"Calculating orientation statistics..."<<std::endl;
-  #pragma omp declare reduction (merge : OSCollection : omp_out.insert(omp_out.end(), omp_in.begin(), omp_in.end()))
-  #pragma omp parallel for default(none) shared(wgs84pc,landmass,orients,pg) reduction(merge:osc)
-  for(unsigned int pn=0;pn<orients.size();pn++){
-    osc.push_back(OrientationStats(orients[pn],wgs84pc,landmass, do_edge));
-    ++pg;
+class HillClimber {
+ public:
+  static const int coords = 3;
+  int steps        = 0;
+  OrientationWithStats start;
+  OrientationWithStats best;
+ private:
+  double wrapPolar(double x, const double rangemin, const double rangemax) const {
+    if(x<rangemin)
+      x = std::abs(x-rangemin)+rangemin;
+    else if(x>rangemax)
+      x = rangemax-std::abs(x-rangemax);
+    return x;    
   }
-  std::cout << "Time taken = " << pg.stop() <<"s"<< std::endl;
-  return osc;
-}
-
-
-
-//For a set of orientations and their neighbours, determine which orientations
-//locally maximize a criterion specified by a function `dom_checker`.
-template<class T>
-std::vector<unsigned int> Dominants(
-  const OSCollection &osc,
-  const norientations_t &norientations,
-  T dom_checker
-){
-  std::vector<size_t> dominates(osc.size());
-  for(unsigned int i=0;i<dominates.size();i++)
-    dominates[i] = i;
-
-  ProgressBar pg(norientations.size());
-
-  #pragma omp parallel for default(none) schedule(static) shared(norientations,osc,dom_checker,dominates,pg)
-  for(unsigned int i=0;i<norientations.size();i++){
-    for(const auto &n: norientations[i]){
-      //n is already dominated
-      if(dominates[n]!=n) 
-        continue;
-      //Don't dominate orientations with differing coverages
-      if(osc[i].overlaps.count()!=osc[n].overlaps.count()) 
-        continue;
-      //If i doesn't dominate n, then it doesn't
-      if(!dom_checker(osc[i],osc[n])) 
-        continue;
-      //Make i dominate n
-      dominates[n] = i;                                 
+  double wrapLong(double x, const double rangemin, const double rangemax) const {
+    if(x<rangemin)
+      x = rangemax + (x-rangemin);
+    else if(x>rangemax)
+      x = rangemin + (x-rangemax);
+    return x;
+  }
+  std::uniform_int_distribution<> coord_dist;
+  std::normal_distribution<> mut_dist;
+  int fail_max = 20;
+  int fail_count = 0;
+  int getNextCoord() {
+    return coord_dist(rand_engine());
+  }
+  double getMutation() {
+    return mut_dist(rand_engine());
+  }
+  Orientation mutateBest(){
+    Orientation mutated = best;
+    int nextcoord = getNextCoord();
+    switch(nextcoord){
+      case 0:
+        mutated.pole.x += getMutation();
+        mutated.pole.x = wrapLong(mutated.pole.x,-M_PI,M_PI);
+        break;
+      case 1:
+        mutated.pole.y += getMutation();
+        mutated.pole.y = wrapPolar(mutated.pole.y,-M_PI/2,M_PI/2);
+        break;
+      case 2:
+        mutated.theta += getMutation();
+        mutated.theta = wrapLong(mutated.theta,-M_PI,M_PI);
+        break;
+      default:
+        throw std::runtime_error("Unrecognized coordinate to mutate!");
     }
-    ++pg;
+    return mutated;
   }
+ public:
+  HillClimber(OrientationWithStats start0, int fail_max0){
+    coord_dist = std::uniform_int_distribution<>(0,coords-1);
+    mut_dist   = std::normal_distribution<>(0,0.1*DEG_TO_RAD);
+    start      = start0;
+    best       = start;
+    fail_max   = fail_max0;
+  }
+  void climb(
+    const PointCloud &wgs84pc,
+    const IndexedShapefile &landmass,
+    bool do_edge,
+    std::function<bool(const OrientationWithStats&, const OrientationWithStats&)> dom_checker
+  ){
+    while(fail_count<fail_max){
+      steps++;
+      auto cand_orient    = mutateBest();
+      auto cand_orient_ws = OrientationStats(cand_orient, wgs84pc, landmass, do_edge);
+      if(cand_orient_ws.overlaps.count()!=start.overlaps.count()){
+        fail_count++;
+        continue;
+      }
+      if(!dom_checker(cand_orient_ws,best)){
+        fail_count++;
+        continue;
+      }
+      best       = cand_orient_ws;
+      fail_count = 0;
+    }
+  }
+  void reset(){
+    best       = start;
+    fail_count = 0;
+    steps      = 0;
+  }
+};
 
-  std::vector<unsigned int> ret;
-  for(unsigned int i=0;i<dominates.size();i++)
-    if(dominates[i]==i) //Nothing dominates *this* point
-      ret.push_back(i);
 
-  return ret;
-}
-
-
-
-//For a set of dominants, look at nearby orientations to see if there's
-//something better. Return a collection of those better things.
-template<class T>
-OrientationWithStats RefineOrientation(
-  const OrientationWithStats &this_o,
-  const PointCloud           &wgs84pc,
-  const IndexedShapefile     &landmass,
-  const int                  rlevel, //Level of refinement
-  const bool                 do_edge,
-  T dom_checker
+OrientationWithStats GetBestOrientationWithStats(
+  const OSCollection &osc,
+  std::function<bool(const OrientationWithStats&, const OrientationWithStats&)> dom_checker
 ){
-  Timer tmr_nor;
-  const auto norientations = GenerateNearbyOrientations(
-    this_o.pole,
-    FINE_SPACING[rlevel],
-    FINE_RADIAL_LIMIT[rlevel],
-    this_o.theta-FINE_THETA_INTERVAL[rlevel],
-    this_o.theta+FINE_THETA_INTERVAL[rlevel], 
-    FINE_THETA_STEP[rlevel]
-  );
-
-  auto best = this_o;
-  for(unsigned int no=0;no<norientations.size();no++){
-    const SolidXY sxy(norientations[no]);
-    const auto overlaps = OrientationOverlaps(sxy, landmass);
-    if(!OverlapOfInterest(overlaps))
-      continue;
-    const OrientationWithStats nows = OrientationStats(norientations[no], wgs84pc, landmass, do_edge);
-    if(dom_checker(nows,best)) //If neighbouring orientation is better than best
-      best = nows;             //Keep it
-  }
-
+  OrientationWithStats best = osc.front();
+  for(auto &x: osc)
+    if(dom_checker(x,best))
+      best = x;
   return best;
 }
 
-
-
-template<class T>
-OSCollection RefineOrientations(
-  const OSCollection              &osc,
-  const PointCloud                &wgs84pc,
-  const IndexedShapefile          &landmass,
-  const int                        rlevel, //Level of refinement
-  const bool                       do_edge,
-  T dom_checker
+//Run `attempts` different hillclimbing runs, each of which gives up after
+//`fail_max` attempts at improvement
+OrientationWithStats HillClimb(
+  const Orientation &orient,
+  const PointCloud &wgs84pc,
+  const IndexedShapefile &landmass,
+  bool do_edge,
+  std::function<bool(const OrientationWithStats&, const OrientationWithStats&)> dom_checker,
+  const int attempts,
+  const int fail_max
 ){
-  OSCollection refined;
-  ProgressBar pg(osc.size());
-  #pragma omp declare reduction (merge : OSCollection : omp_out.insert(omp_out.end(), omp_in.begin(), omp_in.end()))
-  #pragma omp parallel for default(none) schedule(static) shared(osc,wgs84pc,landmass,pg) reduction(merge: refined)
-  for(unsigned int i=0;i<osc.size();i++){
-    //std::cerr<<"Refining dominant "<<d<<" of "<<dominants.size()<<std::endl;
-    refined.push_back(RefineOrientation(osc[i],wgs84pc,landmass,rlevel,do_edge,dom_checker));
-    ++pg;
+  OrientationWithStats ows = OrientationStats(orient, wgs84pc, landmass, do_edge);
+  std::vector<OrientationWithStats> bestv(omp_get_max_threads(), ows);
+
+  HillClimber hc(ows,fail_max);
+
+  //Start a large number of hill-climbing walks from the origin
+  #pragma omp parallel for default(none) schedule(static) firstprivate(hc) shared(bestv,landmass,wgs84pc,do_edge,dom_checker)
+  for(int i=0;i<attempts;i++){
+    hc.reset();
+    hc.climb(wgs84pc, landmass, do_edge, dom_checker);
+    if(dom_checker(hc.best,bestv.at(omp_get_thread_num())))
+      bestv.at(omp_get_thread_num()) = hc.best;
   }
-  std::cerr<<"Time taken = "<<pg.stop()<<std::endl;
-  return refined;
+
+  return GetBestOrientationWithStats(bestv, dom_checker);
 }
 
+OrientationWithStats ComplexHillClimb(
+  const Orientation &orient,
+  const PointCloud &wgs84pc,
+  const IndexedShapefile &landmass,
+  bool do_edge,
+  std::function<bool(const OrientationWithStats&, const OrientationWithStats&)> dom_checker
+){
+  auto best = HillClimb(orient,wgs84pc,landmass,do_edge,dom_checker,1000,20);
+  best      = HillClimb(best,wgs84pc,landmass,do_edge,dom_checker,48,100);
+  return best;
+}
+
+OSCollection Bestify(
+  const OCollection &orients,
+  const PointCloud &wgs84pc,
+  const IndexedShapefile &landmass,
+  bool do_edge,
+  std::function<bool(const OrientationWithStats&, const OrientationWithStats&)> dom_checker
+){
+  OSCollection ret;
+  for(const auto &o: orients)
+    ret.push_back(ComplexHillClimb(o,wgs84pc,landmass,do_edge,dom_checker));
+  return ret;
+}
 
 
 std::ofstream& PrintPOI(std::ofstream& fout, const OSCollection &osc, const int i, bool header){
@@ -574,83 +572,6 @@ void PrintOrientations(
 
 
 
-template<class T>
-void DetermineDominantsHelper(
-  const std::string      fileprefix,
-  const OSCollection     &osc,
-  const PointCloud       &wgs84pc,
-  const IndexedShapefile &landmass,
-  const bool             do_edge,
-  T dom_checker
-){
-  std::cerr<<"Orientations size ("<<fileprefix<<") = "<<osc.size()<<std::endl;
-  OSCollection refined = osc;
-  for(int rlevel=0;rlevel<RLEVELS;rlevel++){
-    std::cerr<<"\tRefinement level = "<<rlevel<<std::endl;
-    refined = RefineOrientations(refined,wgs84pc,landmass,rlevel,do_edge,dom_checker);
-  }
-
-  auto norientations = FindNearbyOrientations(refined);
-  auto dom_tree      = Dominants(refined,norientations,dom_checker);
-  std::vector<OrientationWithStats> doms;
-  for(unsigned int i=0;i<dom_tree.size();i++)
-    if(dom_tree[i]==i)
-      doms.push_back(refined[i]);
-
-  for(unsigned int i=0;i<doms.size();i++)
-    doms[i] = OrientationStats(doms[i], wgs84pc, landmass, true);
-
-  PrintOrientations(fileprefix, doms);
-}
-
-
-
-void DetermineDominants(
-  OSCollection           &osc,
-  const PointCloud       &wgs84pc,
-  const IndexedShapefile &landmass
-){
-  Timer tmr;
-  std::cerr<<"Determining dominants..."<<std::endl;
-
-  {
-    DetermineDominantsHelper("out_min_mindist", osc, wgs84pc, landmass, false,
-      [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.mindist<b.mindist; }
-    );
-    DetermineDominantsHelper("out_max_mindist", osc, wgs84pc, landmass, false,
-      [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.mindist>b.mindist; }
-    );
-    
-
-    DetermineDominantsHelper("out_min_maxdist", osc, wgs84pc, landmass, false,
-      [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.maxdist<b.maxdist; }
-    );
-    DetermineDominantsHelper("out_max_maxdist", osc, wgs84pc, landmass, false,
-      [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.maxdist>b.maxdist; }
-    );
-
-    
-    DetermineDominantsHelper("out_min_avgdist", osc, wgs84pc, landmass, false,
-      [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.avgdist<b.avgdist; }
-    );
-    DetermineDominantsHelper("out_max_avgdist", osc, wgs84pc, landmass, false,
-      [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.avgdist>b.avgdist; }
-    );
-    
-
-    DetermineDominantsHelper("out_min_edge_overlaps", osc, wgs84pc, landmass, true,
-      [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.edge_overlaps<b.edge_overlaps; }
-    );
-    DetermineDominantsHelper("out_max_edge_overlaps", osc, wgs84pc, landmass, true,
-      [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.edge_overlaps>b.edge_overlaps; }
-    );
-  }
-  
-  std::cerr<<"Time taken = "<<tmr.elapsed()<<std::endl;
-}
-
-
-
 TEST_CASE("Check orientation of generated points"){
   //Use NaN to ensure that all points are generated
   OrientationGenerator og(200,180*DEG_TO_RAD);
@@ -690,36 +611,7 @@ TEST_CASE("Counting orientations [expensive]"){
   CHECK(maxcount==4);
 }
 
-TEST_CASE("GenerateNearbyOrientations"){
-  const auto focal           = Point2D(-93,45).toRadians();
-  const auto point_spacingkm = 0.1;
-  const auto radial_limit    = 0.1*DEG_TO_RAD;
-  const auto orientations    = GenerateNearbyOrientations(focal, point_spacingkm, radial_limit, 0, 0, 1);
 
-  CHECK (orientations.size()>0);
-
-  {
-    std::ofstream fout("test_nearby_orientations.csv");
-    fout<<"lon,lat\n";
-    for(const auto &o: orientations)
-      fout<<(o.pole.x*RAD_TO_DEG)<<","<<(o.pole.y*RAD_TO_DEG)<<"\n";
-  }
-
-  //Check that distances to all points are within the desired angular radius of
-  //the specified focal point, to within a 5% tolerance
-  double mindist = std::numeric_limits<double>::infinity();
-  double maxdist = -std::numeric_limits<double>::infinity();
-  for(const auto &o: orientations){
-    const auto dist = GeoDistanceHaversine(focal,o.pole);
-    maxdist = std::max(maxdist,dist);
-    mindist = std::min(mindist,dist);
-    CHECK(dist<radial_limit*Rearth*1.05);
-  }
-  //CHECK(mindist==doctest::Approx(0).epsilon(0.02));
-  CHECK(maxdist==doctest::Approx(radial_limit*Rearth).epsilon(0.02));
-  std::cerr<<"Minimum nearby rotated orientation distance = "<<mindist<<std::endl;
-  std::cerr<<"Maximum nearby rotated orientation distance = "<<maxdist<<std::endl;
-}
 
 TEST_CASE("Test with data [expensive]"){
   const auto landmass = IndexedShapefile(FILE_MERC_LANDMASS,"land_polygons");
@@ -912,13 +804,6 @@ int main(){
   std::cout<<"COARSE_THETA_MAX    = " << COARSE_THETA_MAX    <<std::endl;
   std::cout<<"COARSE_THETA_STEP   = " << COARSE_THETA_STEP   <<std::endl;
 
-  for(int i=0;i<RLEVELS;i++){
-    std::cout<<"RLEVEL = "<<i<<std::endl;
-    std::cout<<"\tFINE_SPACING        = " << FINE_SPACING[i]        <<std::endl;
-    std::cout<<"\tFINE_THETA_STEP     = " << FINE_THETA_STEP[i]     <<std::endl;
-    std::cout<<"\tFINE_THETA_INTERVAL = " << FINE_THETA_INTERVAL[i] <<std::endl;
-    std::cout<<"\tFINE_RADIAL_LIMIT   = " << FINE_RADIAL_LIMIT[i]   <<std::endl;
-  }
 
   assert(!omp_get_nested());
 
@@ -934,13 +819,20 @@ int main(){
   wgs84pc = ReadPointCloudFromShapefile(FILE_WGS84_LANDMASS, "land_polygons");
   wgs84pc.buildIndex();
 
-  OSCollection osc;
-  if(!LoadFromArchive(osc, FILE_OUTPUT_PREFIX + "save_osc.save")){
-    osc = GetStatsForOrientations(orients,wgs84pc,landmass,true);
-    SaveToArchive(osc, FILE_OUTPUT_PREFIX + "save_osc.save");
-  }
+  std::cerr<<"wgs84pc size = "<<wgs84pc.pts.size()<<std::endl;
 
-  DetermineDominants(osc, wgs84pc, landmass);
+  //Seed a PRNG for each thread from the machine's entropy
+  seed_rand(0);
+
+  std::cerr<<"Climbing hills..."<<std::endl;
+
+  auto dom_checker = [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.avgdist>b.avgdist; };
+
+  auto ret = Bestify(orients,wgs84pc,landmass,false,dom_checker);
+
+  PrintOrientations("max-avgdist",ret);
+
+  std::cout<<"hc val = "<<ret.front().avgdist<<std::endl;
 
   return 0;
 }
