@@ -202,6 +202,25 @@ norientations_t FindNearbyOrientations(const std::vector<T> &osc){
 
 
 
+OCollection FilterOutOrienationsWithNeighbours(const OCollection &oc){
+  const auto norients = FindNearbyOrientations(oc);
+  std::vector<bool> keep(oc.size(),true);
+  for(unsigned int focal=0;focal<norients.size();focal++){
+    if(!keep.at(focal))
+      continue;
+    for(const auto &n: norients[focal])
+      keep.at(n) = false;
+  }
+
+  OCollection keep_these;
+  for(unsigned int o=0;o<oc.size();o++)
+    if(keep.at(o))
+      keep_these.push_back(oc.at(o));
+
+  return keep_these;
+}
+
+
 //Orientations with no vertices on land are always of interest, as are overlaps
 //with many orientations on land. This convenience function is used elsewhere to
 //filter by overlaps
