@@ -26,11 +26,11 @@ inline double PointCloud::kdtree_distance(const double *p1, const size_t idx_p2,
 //  "if/else's" are actually solved at compile time.
 inline double PointCloud::kdtree_get_pt(const size_t idx, int dim) const {
   if (dim==0)
-    return pts[idx].x;
+    return pts.at(idx).x;
   else if (dim==1)
-    return pts[idx].y;
+    return pts.at(idx).y;
   else
-    return pts[idx].z;
+    return pts.at(idx).z;
 }
 
 void PointCloud::newIndex() {
