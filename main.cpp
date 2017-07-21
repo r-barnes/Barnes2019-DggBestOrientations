@@ -13,6 +13,7 @@
 #include "IndexedShapefile.hpp"
 #include "OrientationIndex.hpp"
 #include "Progress.hpp"
+#include "random.hpp"
 #include <iostream>
 #include <vector>
 #include <stdexcept>
