@@ -1,0 +1,33 @@
+# Declaration of variables
+CC = g++
+CC_FLAGS = -w
+
+#Libraries
+CXXFLAGS=--std=c++14 -g -ffast-math -march=native -mtune=native -fopenmp 
+DEFINES=-DENV_CORI -DFINE_RESOLUTION
+INCLUDES=-I$(HOME)/anaconda3/envs/py2/include `gdal-config --cflags` -Ilibs/ -I$(HOME)/os/include
+LIBS=`gdal-config --libs` `gdal-config --dep-libs` -L$(HOME)/os/lib -lGeographic -lgeos -lproj -ljpeg -ltiff -llzma -lcurl -lssl -lcrypto
+WARNINGS=-Wall -Wextra -Wfloat-equal -Wundef -Wcast-align -Wwrite-strings -Wlogical-op -Wredundant-decls -Wshadow -Woverloaded-virtual
+TESTING=--coverage -O3
+NOTESTING=-O3 -DDOCTEST_CONFIG_DISABLE
+#FLAGS=$(GDAL_CFLAGS) $(ARCH_FLAGS) $(CXXFLAGS) 
+FLAGS=$(CXXFLAGS) $(NOTESTING) $(DEFINES) $(INCLUDES) $(LIBS) $(WARNINGS)
+
+# File names
+EXEC = dgfinder.exe
+#SOURCES = $(subst cpp_attempt.cpp,,$(wildcard *.cpp))
+SOURCES = $(subst test.cpp,,$(wildcard *.cpp))
+#SOURCES = $(wildcard *.cpp)
+OBJECTS = $(SOURCES:.cpp=.o)
+ 
+# Main target
+$(EXEC): $(OBJECTS)
+	$(CC) $(FLAGS) $(OBJECTS) -o $(EXEC)
+ 
+# To obtain object files
+%.o: %.cpp
+	$(CC) -c $(FLAGS) $< -o $@ 
+ 
+# To remove generated files
+clean:
+	rm -f $(EXEC) $(OBJECTS)
