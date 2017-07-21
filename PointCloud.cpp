@@ -50,6 +50,7 @@ template <class BBOX>
 bool PointCloud::kdtree_get_bbox(BBOX& /* bb */) const { return false; }
 
 void PointCloud::buildIndex() {
+  std::cerr<<"Building point cloud index..."<<std::endl;
   newIndex();
   index->buildIndex();
 }
