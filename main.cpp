@@ -591,6 +591,8 @@ OSCollection FindBestHelper(
   bool do_edge,
   std::function<bool(const OrientationWithStats&, const OrientationWithStats&)> dom_checker
 ){
+  Timer tmr;
+  std::cerr<<"Finding best for '"<<prefix<<"'"<<std::endl;
   OSCollection ret;
   for(const auto &o: orients)
     ret.push_back(ComplexHillClimb(o,wgs84pc,landmass,do_edge,dom_checker));
@@ -598,6 +600,8 @@ OSCollection FindBestHelper(
   ret = FilterOutDominatedOrienations(ret,100,dom_checker);
 
   PrintOrientations(prefix,ret);
+
+  std::cerr<<"Finished '"<<prefix<<"' in time = "<<tmr.elapsed()<<std::endl;
 
   return ret;
 }
