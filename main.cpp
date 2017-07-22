@@ -419,9 +419,9 @@ class HillClimber {
     return mutated;
   }
  public:
-  HillClimber(OrientationWithStats start0, int fail_max0){
+  HillClimber(OrientationWithStats start0, int fail_max0, double mutation_std){
     coord_dist = std::uniform_int_distribution<>(0,coords-1);
-    mut_dist   = std::normal_distribution<>(0,0.1*DEG_TO_RAD);
+    mut_dist   = std::normal_distribution<>(0,mutation_std);
     start      = start0;
     best       = start;
     fail_max   = fail_max0;
@@ -479,12 +479,13 @@ OrientationWithStats HillClimb(
   bool do_edge,
   std::function<bool(const OrientationWithStats&, const OrientationWithStats&)> dom_checker,
   const int attempts,
-  const int fail_max
+  const int fail_max,
+  const double mutation_std
 ){
   OrientationWithStats ows = OrientationStats(orient, wgs84pc, landmass, do_edge);
   std::vector<OrientationWithStats> bestv(omp_get_max_threads(), ows);
 
-  HillClimber hc(ows,fail_max);
+  HillClimber hc(ows,fail_max,mutation_std);
 
   //Start a large number of hill-climbing walks from the origin
   #pragma omp parallel for default(none) schedule(static) firstprivate(hc) shared(bestv,landmass,wgs84pc,do_edge,dom_checker)
@@ -507,8 +508,8 @@ OrientationWithStats ComplexHillClimb(
   bool do_edge,
   std::function<bool(const OrientationWithStats&, const OrientationWithStats&)> dom_checker
 ){
-  auto best = HillClimb(orient,wgs84pc,landmass,do_edge,dom_checker,1000,20);
-  best      = HillClimb(best,wgs84pc,landmass,do_edge,dom_checker,48,100);
+  auto best = HillClimb(orient,wgs84pc,landmass,do_edge,dom_checker,1000,20,0.1*DEG_TO_RAD);
+  best      = HillClimb(best,wgs84pc,landmass,do_edge,dom_checker,48,100,0.1*DEG_TO_RAD);
   return best;
 }
 
