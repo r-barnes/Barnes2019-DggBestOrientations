@@ -512,18 +512,6 @@ OrientationWithStats ComplexHillClimb(
   return best;
 }
 
-OSCollection Bestify(
-  const OCollection &orients,
-  const PointCloud &wgs84pc,
-  const IndexedShapefile &landmass,
-  bool do_edge,
-  std::function<bool(const OrientationWithStats&, const OrientationWithStats&)> dom_checker
-){
-  OSCollection ret;
-  for(const auto &o: orients)
-    ret.push_back(ComplexHillClimb(o,wgs84pc,landmass,do_edge,dom_checker));
-  return ret;
-}
 
 
 std::ofstream& PrintPOI(std::ofstream& fout, const OSCollection &osc, const int i, bool header){
@@ -590,6 +578,73 @@ void PrintOrientations(
     for(unsigned int o=0;o<osc.size();o++)
       PrintPOICoordinates(fout, osc, o, false);
   }
+}
+
+
+
+OSCollection FindBestHelper(
+  const std::string prefix,
+  const OCollection &orients,
+  const PointCloud &wgs84pc,
+  const IndexedShapefile &landmass,
+  bool do_edge,
+  std::function<bool(const OrientationWithStats&, const OrientationWithStats&)> dom_checker
+){
+  OSCollection ret;
+  for(const auto &o: orients)
+    ret.push_back(ComplexHillClimb(o,wgs84pc,landmass,do_edge,dom_checker));
+
+  ret = FilterOutDominatedOrienations(ret,100,dom_checker);
+
+  PrintOrientations(prefix,ret);
+
+  return ret;
+}
+
+
+
+void FindBest(
+  const OCollection      &orients,
+  const PointCloud       &wgs84pc,
+  const IndexedShapefile &landmass
+){
+  Timer tmr;
+  std::cerr<<"Find best..."<<std::endl;
+
+  {
+    FindBestHelper("out_min_mindist", orients, wgs84pc, landmass, false,
+      [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.mindist<b.mindist; }
+    );
+    FindBestHelper("out_max_mindist", orients, wgs84pc, landmass, false,
+      [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.mindist>b.mindist; }
+    );
+    
+
+    FindBestHelper("out_min_maxdist", orients, wgs84pc, landmass, false,
+      [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.maxdist<b.maxdist; }
+    );
+    FindBestHelper("out_max_maxdist", orients, wgs84pc, landmass, false,
+      [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.maxdist>b.maxdist; }
+    );
+
+    
+    FindBestHelper("out_min_avgdist", orients, wgs84pc, landmass, false,
+      [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.avgdist<b.avgdist; }
+    );
+    FindBestHelper("out_max_avgdist", orients, wgs84pc, landmass, false,
+      [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.avgdist>b.avgdist; }
+    );
+    
+
+    FindBestHelper("out_min_edge_overlaps", orients, wgs84pc, landmass, true,
+      [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.edge_overlaps<b.edge_overlaps; }
+    );
+    FindBestHelper("out_max_edge_overlaps", orients, wgs84pc, landmass, true,
+      [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.edge_overlaps>b.edge_overlaps; }
+    );
+  }
+  
+  std::cerr<<"Found best in = "<<tmr.elapsed()<<std::endl;
 }
 
 
@@ -848,15 +903,7 @@ int main(){
 
   std::cerr<<"Climbing hills..."<<std::endl;
 
-  auto dom_checker = [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.avgdist>b.avgdist; };
-
-  auto ret = Bestify(orients,wgs84pc,landmass,false,dom_checker);
-
-  std::cerr<<"Bestified orientations = "<<ret.size()<<std::endl;
-  ret = FilterOutDominatedOrienations(ret,100,dom_checker);
-  std::cerr<<"Filtered bestified orientations = "<<ret.size()<<std::endl;
-
-  PrintOrientations("max-avgdist",ret);
+  FindBest(orients, wgs84pc, landmass);
 
   return 0;
 }
