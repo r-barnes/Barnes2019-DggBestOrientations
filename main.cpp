@@ -456,6 +456,7 @@ class HillClimber {
 };
 
 
+
 OrientationWithStats GetBestOrientationWithStats(
   const OSCollection &osc,
   std::function<bool(const OrientationWithStats&, const OrientationWithStats&)> dom_checker
@@ -466,6 +467,8 @@ OrientationWithStats GetBestOrientationWithStats(
       best = x;
   return best;
 }
+
+
 
 //Run `attempts` different hillclimbing runs, each of which gives up after
 //`fail_max` attempts at improvement
@@ -494,6 +497,8 @@ OrientationWithStats HillClimb(
 
   return GetBestOrientationWithStats(bestv, dom_checker);
 }
+
+
 
 OrientationWithStats ComplexHillClimb(
   const Orientation &orient,
