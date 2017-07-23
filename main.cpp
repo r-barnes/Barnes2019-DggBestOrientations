@@ -437,7 +437,7 @@ class HillClimber {
       steps++;
       auto cand_orient    = mutateBest();
       auto cand_orient_ws = OrientationStats(cand_orient, wgs84pc, landmass, do_edge);
-      if(cand_orient_ws.overlaps.count()!=start.overlaps.count()){
+      if( !(cand_orient_ws.overlaps.count()==0 || cand_orient_ws.overlaps.count()>=OVERLAPS_TO_BEAT)){
         fail_count++;
         continue;
       }
