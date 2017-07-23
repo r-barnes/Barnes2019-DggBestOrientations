@@ -348,10 +348,10 @@ OrientationWithStats OrientationStats(const Orientation &o, const PointCloud &wg
   ows.overlaps = OrientationOverlaps(sxy, landmass);
 
   for(unsigned int i=0;i<sxy.v.size();i++){
-    const auto cp = wgs84pc.queryPoint(WGS84toEllipsoidCartesian(sxy.v[i])); //Closest point
-    auto llc      = EllipsoidCartesiantoWGS84(cp);
-    auto dist     = GeoDistanceEllipsoid(llc,sxy.v[i]);
-    //auto dist     = GeoDistanceFlatEarth(llc,sxy.v[i]);
+    const auto cp  = wgs84pc.queryPoint(WGS84toEllipsoidCartesian(sxy.v[i])); //Closest point
+    const auto llc = EllipsoidCartesiantoWGS84(cp);
+    auto dist      = GeoDistanceEllipsoid(llc,sxy.v[i]);
+    //auto dist    = GeoDistanceFlatEarth(llc,sxy.v[i]);
     if(ows.overlaps.test(i))
       dist = -dist;
     ows.mindist = std::min(ows.mindist,dist);
