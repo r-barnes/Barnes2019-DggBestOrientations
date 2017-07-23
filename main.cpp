@@ -50,6 +50,7 @@ const double Rearth = 6371; //km
 
 const double DEG_TO_RAD = M_PI/180.0;
 const double RAD_TO_DEG = 180.0/M_PI;
+const double MAX_COAST_INTERPOINT_DIST = 0.5; //km
 
 const double FILTER_COARSE_ORIENTATIONS_WITHIN = 100; //km
 
@@ -109,8 +110,8 @@ PointCloud ReadPointCloudFromShapefile(std::string filename, std::string layer){
   const auto poly_fill_point = [&](const Point2D &a, const Point2D &b){
     std::vector<Point2D> ret;
     const auto quickdist = GeoDistanceFlatEarth(a,b);
-    if(quickdist>0.5){
-      const GreatCircleGenerator gcg(a,b,0.5);
+    if(quickdist>MAX_COAST_INTERPOINT_DIST){
+      const GreatCircleGenerator gcg(a,b,MAX_COAST_INTERPOINT_DIST);
       for(unsigned int i=0;i<gcg.size();i++)
         ret.push_back(gcg(i));
     }
