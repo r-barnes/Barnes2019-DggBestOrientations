@@ -51,6 +51,7 @@ const double Rearth = 6371; //km
 const double DEG_TO_RAD = M_PI/180.0;
 const double RAD_TO_DEG = 180.0/M_PI;
 const double MAX_COAST_INTERPOINT_DIST = 0.5; //km
+const double EDGE_OVERLAPS_SAMPLE_DIST = 10; //km
 
 const double FILTER_COARSE_ORIENTATIONS_WITHIN = 100; //km
 
@@ -333,7 +334,7 @@ unsigned int OrientationEdgeOverlaps(const SolidXY &sxy, const IndexedShapefile 
   for(unsigned int n=0;n<neighbors.size();n+=2){
     const auto &a = sxy.v[neighbors[n]];
     const auto &b = sxy.v[neighbors[n+1]];
-    edge_overlaps += GreatCircleOverlaps(landmass, a, b, 10); //TODO: Should be using a constant for this
+    edge_overlaps += GreatCircleOverlaps(landmass, a, b, EDGE_OVERLAPS_SAMPLE_DIST);
   }
   return edge_overlaps;
 }
