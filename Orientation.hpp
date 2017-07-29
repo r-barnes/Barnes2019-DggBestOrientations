@@ -3,8 +3,8 @@
 
 #include "Point.hpp"
 #include <limits>
-#include <bitset>
 #include <string>
+#include <vector>
 
 class Orientation {
  public:
@@ -17,8 +17,8 @@ class Orientation {
 
 class OrientationWithStats : public Orientation {
  public:
-  static const unsigned int dim = 12;
-  std::bitset<dim>    overlaps      = 0;
+  std::vector<bool>   overlaps;
+  unsigned char       overlap_count;
   double              mindist       = std::numeric_limits<double>::infinity();
   double              maxdist       = -std::numeric_limits<double>::infinity();
   double              avgdist       = 0;

@@ -19,7 +19,6 @@
 #include <stdexcept>
 #include <algorithm>
 #include <array>
-#include <bitset>
 #include <iomanip>
 #include <cassert>
 #include <fstream>
@@ -77,6 +76,11 @@ const int    OVERLAPS_TO_BEAT    = 8; //Number of overlaps beyond (and including
 
 typedef std::vector< std::vector<unsigned int> > norientations_t;
 
+//Orientations with no vertices on land are always of interest, as are overlaps
+//with many orientations on land. This convenience function is used elsewhere to
+//filter by overlaps
+bool OverlapOfInterest(unsigned char overlap_count){
+  return overlap_count==0 || overlap_count>=OVERLAPS_TO_BEAT; //TODO
 }
 
 }
@@ -215,11 +219,11 @@ OSCollection FilterOutDominatedOrienations(
 }
 
 
-//Orientations with no vertices on land are always of interest, as are overlaps
-//with many orientations on land. This convenience function is used elsewhere to
-//filter by overlaps
-bool OverlapOfInterest(const std::bitset<OrientationWithStats::dim> &overlaps){
-  return overlaps.count()==0 || overlaps.count()>=OVERLAPS_TO_BEAT;
+
+std::ostream& operator<<(std::ostream &out, const std::vector<bool> &v){
+  for(const auto x: v)
+    out<<(int)x;
+  return out;
 }
 
 
@@ -245,11 +249,11 @@ bool PointInLandmass(const Point2D &ll, const IndexedShapefile &landmass){
 
 //Returns a bitset indicating indicating which vertices of a polyhedron lie
 //within a landmass
-auto OrientationOverlaps(const SolidXY &i2d, const IndexedShapefile &landmass){
-  std::bitset<SolidXY::verts> overlaps = 0;
-  for(unsigned int vi=0;vi<i2d.v.size();vi++)
-    if(PointInLandmass(i2d.v[vi],landmass))
-      overlaps.set(vi); 
+auto OrientationOverlaps(const SolidXY &sxy, const IndexedShapefile &landmass){
+  std::vector<bool> overlaps(sxy.v.size(),false);
+  for(unsigned int vi=0;vi<sxy.v.size();vi++)
+    if(PointInLandmass(sxy.v[vi],landmass))
+      overlaps.at(vi) = true;
   return overlaps;
 }
 
@@ -279,8 +283,9 @@ OCollection OrientationsFilteredByOverlaps(
     for(double theta=COARSE_THETA_MIN;theta<=COARSE_THETA_MAX;theta+=COARSE_THETA_STEP){
       const Orientation ori(pole,theta);
       SolidXY sxy(ori);
-      const auto overlaps = OrientationOverlaps(sxy, landmass);
-      if(OverlapOfInterest(overlaps))
+      const auto overlaps     = OrientationOverlaps(sxy, landmass);
+      const int overlap_count = std::accumulate(overlaps.begin(),overlaps.end(),0);
+      if(OverlapOfInterest(overlap_count))
         ret.push_back(ori);
     }
     ++pg;
@@ -329,14 +334,15 @@ OrientationWithStats OrientationStats(const Orientation &o, const PointCloud &wg
   OrientationWithStats ows(o);
   SolidXY sxy(o);
 
-  ows.overlaps = OrientationOverlaps(sxy, landmass);
+  ows.overlaps      = OrientationOverlaps(sxy, landmass);
+  ows.overlap_count = std::accumulate(ows.overlaps.begin(),ows.overlaps.end(),0);
 
   for(unsigned int i=0;i<sxy.v.size();i++){
     const auto cp  = wgs84pc.queryPoint(WGS84toEllipsoidCartesian(sxy.v[i])); //Closest point
     const auto llc = EllipsoidCartesiantoWGS84(cp);
     auto dist      = GeoDistanceEllipsoid(llc,sxy.v[i]);
     //auto dist    = GeoDistanceFlatEarth(llc,sxy.v[i]);
-    if(ows.overlaps.test(i))
+    if(ows.overlaps.at(i))
       dist = -dist;
     ows.mindist = std::min(ows.mindist,dist);
     ows.maxdist = std::max(ows.maxdist,dist);
@@ -421,7 +427,7 @@ class HillClimber {
       steps++;
       auto cand_orient    = mutateBest();
       auto cand_orient_ws = OrientationStats(cand_orient, wgs84pc, landmass, do_edge);
-      if( !(cand_orient_ws.overlaps.count()==0 || cand_orient_ws.overlaps.count()>=OVERLAPS_TO_BEAT)){
+      if(!OverlapOfInterest(cand_orient_ws.overlap_count)){
         fail_count++;
         continue;
       }
@@ -515,8 +521,8 @@ std::ofstream& PrintPOI(std::ofstream& fout, const OSCollection &osc, const int 
         <<"\n";
   } else {
     fout<<i<<","
-        <<osc[i].overlaps.to_string()<<","
-        <<osc[i].overlaps.count()    <<","
+        <<osc[i].overlaps            <<","
+        <<osc[i].overlap_count       <<","
         <<(osc[i].pole.y*RAD_TO_DEG) <<","
         <<(osc[i].pole.x*RAD_TO_DEG) <<","
         <<(osc[i].theta*RAD_TO_DEG)  <<","
@@ -540,7 +546,7 @@ std::ofstream& PrintPOICoordinates(std::ofstream& fout, const OSCollection &osc,
       fout<<pn                    <<","
           <<p.v[i].y*RAD_TO_DEG<<","
           <<p.v[i].x*RAD_TO_DEG<<","
-          <<osc[pn].overlaps.test(i)
+          <<(int)osc[pn].overlaps.at(i)
           <<"\n";
   }
   return fout;
