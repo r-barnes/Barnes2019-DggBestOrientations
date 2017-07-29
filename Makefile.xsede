@@ -5,7 +5,7 @@ CC_FLAGS = -w
 #Libraries
 CXXFLAGS=--std=c++14 -g -ffast-math -march=native -mtune=native -fopenmp 
 DEFINES=-DENV_XSEDE -DFINE_RESOLUTION
-INCLUDES=-I/home/rbarnes1/os/include -Ilibs -I/home/rbarnes1/os/anaconda3/include -I/opt/boost/intel/mvapich2_ib/include/
+INCLUDES=-I/home/rbarnes1/os/include -I/home/rbarnes1/os/anaconda3/include -I/opt/boost/intel/mvapich2_ib/include/
 LIBS=-L/home/rbarnes1/os/anaconda3/lib -lgdal -lgeos_c -lxerces-c -lpthread -lnetcdf -lhdf5 -lmfhdf -ldf -lgeotiff -ltiff -lz -lpthread -lm -lrt -ldl -lcurl -lkea -lhdf5 -lhdf5_hl -lhdf5_cpp -ljpeg -lgeos -lproj -llzma -lssl -lcrypto -lGeographic
 WARNINGS=-Wall -Wextra -Wfloat-equal -Wundef -Wcast-align -Wwrite-strings -Wlogical-op -Wredundant-decls -Wshadow -Woverloaded-virtual
 TESTING=--coverage -O3

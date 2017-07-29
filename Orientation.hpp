@@ -5,9 +5,6 @@
 #include <limits>
 #include <bitset>
 #include <string>
-#include <cereal/archives/binary.hpp>
-#include <cereal/types/vector.hpp>
-#include <cereal/types/bitset.hpp>
 
 class Orientation {
  public:
@@ -16,10 +13,6 @@ class Orientation {
   Orientation(const Point2D &pole0, const double theta0);
   Point2D pole;
   double theta;
-  template<class Archive>
-  void serialize( Archive & ar ){
-    ar(pole,theta);
-  }
 };
 
 class OrientationWithStats : public Orientation {
@@ -34,19 +27,6 @@ class OrientationWithStats : public Orientation {
   OrientationWithStats() = default;
   OrientationWithStats(const Point2D &pole0, const double theta0);
   OrientationWithStats(const Orientation &o);
-
-  template <class Archive>
-  void serialize( Archive & ar ){
-    ar(
-      pole,
-      theta,
-      overlaps,
-      mindist,
-      maxdist,
-      avgdist,
-      edge_overlaps
-    );
-  }
 };
 
 typedef std::vector<Orientation> OCollection;

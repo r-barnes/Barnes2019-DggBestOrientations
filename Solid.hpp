@@ -6,8 +6,6 @@
 #include <cmath>
 #include <array>
 #include <vector>
-#include <cereal/archives/binary.hpp>
-#include <cereal/types/array.hpp>
 
 const double IEL = std::atan(0.5); //Icosahedron equatorial latitudes
 const double IES = 36*M_PI/180;    //Icosahedron equatorial spacing
@@ -42,11 +40,6 @@ class SolidXY{
   std::vector<int> neighbors() const;
   double neighborDistance() const;
   SolidXYZ toXYZ(const double radius) const;
-
-  template <class Archive>
-  void serialize( Archive & ar ){
-    ar(v);
-  }
 };
 
 
@@ -77,11 +70,6 @@ class SolidXYZ {
   SolidXY toLatLon() const;
   SolidXYZ& rotateTo(const Point3D &o);
   std::vector<int> neighbors() const;
-
-  template <class Archive>
-  void serialize( Archive & ar ) {
-    ar(v);
-  }
 };
 
 

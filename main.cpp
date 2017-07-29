@@ -77,25 +77,8 @@ const int    OVERLAPS_TO_BEAT    = 8; //Number of overlaps beyond (and including
 
 typedef std::vector< std::vector<unsigned int> > norientations_t;
 
-template<class T>
-bool LoadFromArchive(T &poic, std::string filename){
-  std::ifstream os(filename, std::ios::binary);
-  if(!os.good())
-    return false;
-  std::cerr<<"Loading from archive '"<<filename<<"'..."<<std::endl;
-  Timer tmr;
-  cereal::BinaryInputArchive archive( os );
-  archive(poic);
-  std::cerr<<"Time = "<<tmr.elapsed()<<" s"<<std::endl;
-  return true;
 }
 
-template<class T>
-void SaveToArchive(const T &poic, std::string filename){
-  std::cerr<<"Saving to archive '"<<filename<<"'..."<<std::endl;
-  std::ofstream os(filename, std::ios::binary);
-  cereal::BinaryOutputArchive archive( os );
-  archive(poic);
 }
 
 

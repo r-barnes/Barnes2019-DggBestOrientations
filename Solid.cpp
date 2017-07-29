@@ -6,8 +6,6 @@
 #include <cassert>
 #include "doctest.h"
 
-#include <cereal/types/array.hpp>
-
 const double DEG_TO_RAD = M_PI/180.0;
 const double RAD_TO_DEG = 180.0/M_PI;
 

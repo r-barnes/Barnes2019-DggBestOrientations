@@ -41,14 +41,6 @@ class PointCloud {
   void buildIndex();
   void addPoint(const Point3D &xyz);
   const Point3D& queryPoint(const Point3D &xyz) const;
-
-  void saveToArchive(std::string filename) const;
-  bool loadFromArchive(std::string filename);
-
-  template <class Archive>
-  void serialize( Archive & ar ){
-    ar(pts);
-  }
 };
 
 #endif

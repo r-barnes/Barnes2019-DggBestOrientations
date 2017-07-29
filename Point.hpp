@@ -1,8 +1,6 @@
 #ifndef _point_hpp_
 #define _point_hpp_
 
-#include <cereal/archives/binary.hpp>
-
 class Point3D;
 
 class Point2D {
@@ -15,10 +13,6 @@ class Point2D {
   Point2D& toDegrees();
   Point2D& rotateTheta(const double rtheta);
   Point3D toXYZ(const double radius) const;
-  template <class Archive>
-  void serialize( Archive & ar ) {
-    ar(x,y);
-  }
 };
 
 class Point3D {
@@ -28,10 +22,6 @@ class Point3D {
   Point3D(double x0, double y0, double z0);
   Point2D toLatLon() const;
   double dot(const Point3D &b) const;
-  template <class Archive>
-  void serialize( Archive & ar ){
-    ar(x,y,z);
-  }
 };
 
 class Rotator {
