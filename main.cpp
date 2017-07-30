@@ -428,7 +428,7 @@ class HillClimber {
     const PointCloud &wgs84pc,
     const IndexedShapefile &landmass,
     bool do_edge,
-    std::function<bool(const OrientationWithStats&, const OrientationWithStats&)> dom_checker
+    const std::function<bool(const OrientationWithStats&, const OrientationWithStats&)> dom_checker
   ){
     while(fail_count<fail_max){
       steps++;
