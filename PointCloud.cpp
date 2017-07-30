@@ -5,8 +5,6 @@
 #include <string>
 #include <cstdlib>
 #include <iostream>
-#include <cereal/archives/binary.hpp>
-#include <cereal/types/vector.hpp>
 
 inline size_t PointCloud::kdtree_get_point_count() const {
   return pts.size();
