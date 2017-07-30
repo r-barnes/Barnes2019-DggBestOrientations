@@ -12,7 +12,7 @@ Optimal orientations of discrete global grids
 TODO
 
 **Code Repositories**
- * [Author's GitHub Repository](https://github.com/r-barnes/2017-DggBestOrientations)
+ * [Author's GitHub Repository](https://github.com/r-barnes/Barnes2017-DggBestOrientations)
  * [Journal's GitHub Repository](TODO)
 
 This repository contains the algorithms and program described in the manuscript
