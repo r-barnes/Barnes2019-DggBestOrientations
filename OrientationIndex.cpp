@@ -259,21 +259,21 @@ TEST_CASE("OrientationIndex"){
   orients.emplace_back(Point2D(-93,45).toRadians(), 0);
 
   SUBCASE("No result"){
-    OrientationIndex oidx(orients, OrientationToIcosahedron);
+    OrientationIndex oidx(orients, OrientationToRegularIcosahedron);
     auto result = oidx.query(0,100);
     CHECK(result.size()==0);
   }
 
   SUBCASE("One result"){
     orients.emplace_back(Point2D(-93,45).toRadians(), 72.0*DEG_TO_RAD);
-    OrientationIndex oidx(orients, OrientationToIcosahedron);
+    OrientationIndex oidx(orients, OrientationToRegularIcosahedron);
     auto result = oidx.query(0,100);
     CHECK(result[0]==1);
   }
 
   SUBCASE("Partial overlap with no results"){
     orients.emplace_back(Point2D(-93,45).toRadians(), 36.0*DEG_TO_RAD);
-    OrientationIndex oidx(orients, OrientationToIcosahedron);
+    OrientationIndex oidx(orients, OrientationToRegularIcosahedron);
     auto result = oidx.query(0,100);
     CHECK(result.size()==0);
   }
@@ -285,7 +285,7 @@ TEST_CASE("OrientationIndex"){
     orients.emplace_back(Point2D(-93.2,45.2).toRadians(), 0*DEG_TO_RAD);
     orients.emplace_back(Point2D(-93.0,45.0).toRadians(), 36*DEG_TO_RAD);
     orients.emplace_back(Point2D(23,-23.2).toRadians(), 36*DEG_TO_RAD);
-    OrientationIndex oidx(orients, OrientationToIcosahedron);
+    OrientationIndex oidx(orients, OrientationToRegularIcosahedron);
 
     {
       auto result = oidx.query(0,100);
@@ -293,7 +293,7 @@ TEST_CASE("OrientationIndex"){
       CHECK(result[0]==1);
     }
     {
-      auto result = oidx.query(OrientationToIcosahedron(orients.front()),100);
+      auto result = oidx.query(OrientationToRegularIcosahedron(orients.front()),100);
       CHECK(result.size()==5);
       CHECK(result.at(0)==0);
     }
@@ -314,7 +314,7 @@ TEST_CASE("OrientationsWithStats"){
   ows.emplace_back(Point2D(-93.2,45.2).toRadians(), 0*DEG_TO_RAD);
   ows.emplace_back(Point2D(-93.2,45.2).toRadians(), 36*DEG_TO_RAD);
   ows.emplace_back(Point2D(23,-23.2).toRadians(), 36*DEG_TO_RAD);
-  OrientationIndex oidx(ows, OrientationToIcosahedron);
+  OrientationIndex oidx(ows, OrientationToRegularIcosahedron);
   auto result = oidx.query(0,100);
   CHECK(result.size()==4);
   CHECK(result[0]==1);

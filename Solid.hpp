@@ -10,7 +10,7 @@
 class SolidXY;
 
 SolidXY OrientationFullerIcosahedron();
-SolidXY OrientationToIcosahedron(const Orientation &o);
+SolidXY OrientationToRegularIcosahedron(const Orientation &o);
 SolidXY OrientationToRegularDodecahedron(const Orientation &o);
 SolidXY OrientationToRegularTetrahedron(const Orientation &o);
 SolidXY OrientationToRegularOctahedron(const Orientation &o);
@@ -21,7 +21,7 @@ class SolidXY{
  private:
   friend class SolidXYZ;
   friend SolidXY OrientationFullerIcosahedron();
-  friend SolidXY OrientationToIcosahedron(const Orientation &o);
+  friend SolidXY OrientationToRegularIcosahedron(const Orientation &o);
   friend SolidXY OrientationToRegularDodecahedron(const Orientation &o);
   friend SolidXY OrientationToRegularTetrahedron(const Orientation &o);
   friend SolidXY OrientationToRegularOctahedron(const Orientation &o);
