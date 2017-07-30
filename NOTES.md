@@ -95,3 +95,38 @@ Source: http://gcc.gnu.org/onlinedocs/gcc-4.7.2/gcc/Optimize-Options.html#Optimi
 
 PS. Information about LTO also on that page.
 
+
+
+
+
+
+
+
+
+
+
+
+#!/bin/bash
+#SBATCH --job-name="dgg-job"
+#SBATCH --output="dgg-job.%j.%N.out"
+#SBATCH --partition=compute
+##SBATCH --partition=large-shared
+#SBATCH --nodes=1
+##SBATCH --ntasks-per-node=64
+##SBATCH --mem=1400G
+#SBATCH --export=ALL
+#SBATCH -t 05:00:00
+
+export PATH="$HOME/bin:$PATH"
+export PATH="/home/rbarnes1/os/anaconda3/bin:$PATH"
+
+cd /home/rbarnes1/dgg_best_poles2
+
+export LD_LIBRARY_PATH=$HOME/os/anaconda3/lib:$LD_LIBRARY_PATH
+
+ulimit -c unlimited
+
+./dgfinder.exe
+
+
+
