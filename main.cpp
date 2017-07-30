@@ -670,29 +670,6 @@ TEST_CASE("Check orientation of generated points"){
     fout<<o<<","<<(orients[o].y*RAD_TO_DEG)<<","<<(orients[o].x*RAD_TO_DEG)<<"\n";
 }
 
-//Determine the number of orientations in one quadrant of the 3-space
-TEST_CASE("Counting orientations [expensive]"){
-  const OrientationGenerator og(200,90*DEG_TO_RAD);
-
-  CHECK(og.size()>0);
-
-  int mincount = std::numeric_limits<int>::max();
-  int maxcount = std::numeric_limits<int>::lowest();
-  Timer tmr;
-  #pragma omp parallel for default(none) schedule(static) reduction(min:mincount) reduction(max:maxcount)
-  for(long i=0;i<og.size();i++){
-    SolidXYZ p = Solidifier(Orientation(og(i),0)).toXYZ(1);
-    int count  = 0;
-    for(const auto &v: p.v)
-      if(v.y>=0 && v.z>=0)
-        count++;
-    mincount = std::min(count,mincount);
-    maxcount = std::max(count,maxcount);
-  }
-  CHECK(mincount==2);
-  CHECK(maxcount==4);
-}
-
 
 
 TEST_CASE("Test with data [expensive]"){
@@ -931,10 +908,59 @@ void FuncGetMultiOrientStats(std::string filename){
     PrintPOI(std::cout, osc, i, false);
 }
 
+void FuncPolyhedronInfo(){
+  Timer tmr;
+
+  const std::vector< std::pair<std::string,SolidifyingFunc> > sfs = {
+    {"Icosahedron",         OrientationToIcosahedron},
+    {"RegularDodecahedron", OrientationToRegularDodecahedron},
+    {"RegularTetrahedron",  OrientationToRegularTetrahedron},
+    {"RegularOctahedron",   OrientationToRegularOctahedron},
+    {"Cuboctahedron",       OrientationToCuboctahedron},
+  };
+
+  const auto quad_select = [](const double y, const double z){
+    return y>=0 && z>=0;
+  };
+
+  const auto half_select = [](const double y, const double z){
+    (void)z;
+    return y>=0;
+  };
+
+  const auto in_volume = [](
+    const std::string note,
+    const SolidifyingFunc &sf,
+    const std::function<bool(const double y, const double z)> vol_select
+  ){
+    const OrientationGenerator og(200,90*DEG_TO_RAD);
+
+    int mincount = std::numeric_limits<int>::max();
+    int maxcount = std::numeric_limits<int>::lowest();
+    //#pragma omp parallel for default(none) shared(sf) schedule(static) reduction(min:mincount) reduction(max:maxcount)
+    for(long i=0;i<og.size();i++){
+      SolidXYZ p = sf(Orientation(og(i),0)).toXYZ(1);
+      int count = 0;
+      for(const auto &v: p.v)
+        count += vol_select(v.y,v.z);
+      mincount = std::min(count,mincount);
+      maxcount = std::max(count,maxcount);
+    }
+    std::cout<<note<<", min="<<mincount<<", max="<<maxcount<<std::endl;
+  };
+
+  for(const auto &x: sfs){
+    in_volume(x.first+" quad", x.second, quad_select);
+    in_volume(x.first+" half", x.second, half_select);
+  }
+}
+
+
 void FuncHelp(int argc, char **argv){
   std::cerr<<argv[0]<<" optimize"<<std::endl;
   std::cerr<<argv[0]<<" get_great_circle <Shape> <Lat Deg> <Lon Deg> <Theta Deg>"<<std::endl;
   std::cerr<<argv[0]<<" get_many_orient_stats <FILE>"<<std::endl;
+  std::cerr<<argv[0]<<" get_polyhedron_info"<<std::endl;
 }
 
 #ifdef DOCTEST_CONFIG_DISABLE
@@ -949,6 +975,8 @@ int main(int argc, char **argv){
     FuncGetGreatCircle(argc,argv);
   else if(argv[1]==std::string("get_many_orient_stats"))
     FuncGetMultiOrientStats(argv[2]);
+  else if(argv[1]==std::string("get_polyhedron_info"))
+    FuncPolyhedronInfo();
   else 
     FuncHelp(argc,argv);
   
