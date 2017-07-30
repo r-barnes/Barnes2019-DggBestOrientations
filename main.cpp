@@ -925,27 +925,7 @@ void FuncGetGreatCircle(int argc, char **argv){
   }
 }
 
-void FuncGetMultiOrientStats(std::string filename){
-  const auto landmass = IndexedShapefile(FILE_MERC_LANDMASS,"land_polygons");
 
-  PointCloud wgs84pc;
-  wgs84pc = ReadPointCloudFromShapefile(FILE_WGS84_LANDMASS, "land_polygons");
-  wgs84pc.buildIndex();
-
-  std::ifstream fin(filename);
-
-  OSCollection osc;
-  while(fin.good()){
-    double lat_deg,lon_deg,theta_deg;
-    fin>>lat_deg>>lon_deg>>theta_deg;
-    Orientation o(Point2D(lon_deg,lat_deg).toRadians(),theta_deg*DEG_TO_RAD);
-    osc.push_back(OrientationStats(o, wgs84pc, landmass, true));
-  }
-
-  PrintPOI(std::cout, OSCollection(), 0, true);
-  for(unsigned int i=0;i<osc.size();i++)
-    PrintPOI(std::cout, osc, i, false);
-}
 
 void FuncPolyhedronInfo(){
   const auto quad_select = [](const double y, const double z){
@@ -1031,7 +1011,6 @@ int FuncHelp(int argc, char **argv){
   (void)argc;
   std::cout<<argv[0]<<" optimize <Polyhedron>"<<std::endl;
   std::cout<<argv[0]<<" get_great_circle <Polyhedron> <Lat Deg> <Lon Deg> <Theta Deg>"<<std::endl;
-  std::cout<<argv[0]<<" get_many_orient_stats <FILE>"<<std::endl;
   std::cout<<argv[0]<<" get_polyhedron_info"<<std::endl;
   std::cout<<std::endl;
 
