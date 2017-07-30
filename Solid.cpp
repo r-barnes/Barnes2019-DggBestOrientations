@@ -306,6 +306,38 @@ SolidXY OrientationToCuboctahedron(const Orientation &o){
   return sxy;
 }
 
+SolidXY OrientationFullerIcosahedron(){
+  static std::vector<Point2D> v;
+  if(v.size()==0){
+    v = {{
+      {  10.53620,  64.7     },
+      {  -5.24539,   2.300882},
+      {  58.15771,  10.447378},
+      { 122.3    ,  39.1     },
+      {-143.47849,  50.103201},
+      { -67.13233,  23.717925},
+      { -57.7    , -39.1     },
+      {  36.5215 , -50.1032  },
+      { 112.86767, -23.717925},
+      { 174.7546 ,  -2.3009  },
+      {-121.84229, -10.447345},
+      {-169.4638 , -64.7     }
+    }};
+    SolidXY sxy;
+    sxy.v = v;
+    sxy.toRadians();
+    v = sxy.v;
+  }
+
+  SolidXY sxy;
+  sxy.v = v;
+
+  return sxy;
+}
+
+
+
+
 
 
 TEST_CASE("Shape metrics"){

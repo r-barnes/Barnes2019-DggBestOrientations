@@ -9,6 +9,7 @@
 
 class SolidXY;
 
+SolidXY OrientationFullerIcosahedron();
 SolidXY OrientationToIcosahedron(const Orientation &o);
 SolidXY OrientationToRegularDodecahedron(const Orientation &o);
 SolidXY OrientationToRegularTetrahedron(const Orientation &o);
@@ -19,13 +20,14 @@ class SolidXYZ;
 class SolidXY{
  private:
   friend class SolidXYZ;
+  friend SolidXY OrientationFullerIcosahedron();
   friend SolidXY OrientationToIcosahedron(const Orientation &o);
   friend SolidXY OrientationToRegularDodecahedron(const Orientation &o);
   friend SolidXY OrientationToRegularTetrahedron(const Orientation &o);
   friend SolidXY OrientationToRegularOctahedron(const Orientation &o);
   friend SolidXY OrientationToCuboctahedron(const Orientation &o);
   SolidXY() = default;
-  
+
  public:
   std::vector<Point2D> v;
 

@@ -699,26 +699,8 @@ TEST_CASE("Test with data [expensive]"){
   const auto landmass = IndexedShapefile(FILE_MERC_LANDMASS,"land_polygons");
 
   SUBCASE("Check that Fuller orientation has no overlaps"){
-    const Orientation o(Point2D(0,90).toRadians(),0);
-    SolidXY p = OrientationToIcosahedron(o);
-    //Fuller's orientation
-    p.v = {{
-      {  10.53620,  64.7     },
-      {  -5.24539,   2.300882},
-      {  58.15771,  10.447378},
-      { 122.3    ,  39.1     },
-      {-143.47849,  50.103201},
-      { -67.13233,  23.717925},
-      { -57.7    , -39.1     },
-      {  36.5215 , -50.1032  },
-      { 112.86767, -23.717925},
-      { 174.7546 ,  -2.3009  },
-      {-121.84229, -10.447345},
-      {-169.4638 , -64.7     }
-    }};
-    //p.lon = {{10.53620,  -5.24539,  58.15771, 122.3    ,-143.47849, -67.13233, -57.7    ,  36.5215 , 112.86767, 174.7546 ,-121.84229,-169.4638}};
-    //p.lat = {{64.7,   2.300882,  10.447378,  39.1,  50.103201,  23.717925, -39.1, -50.1032, -23.717925,  -2.3009, -10.447345, -64.7}};
-    p.toRadians();
+    SolidXY p = OrientationFullerIcosahedron();
+
     int ocount = 0;
     for(const auto &v: p.v)
       if(PointInLandmass(v,landmass))
