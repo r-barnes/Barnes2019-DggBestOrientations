@@ -45,6 +45,14 @@
   #error "ENV_XSEDE or ENV_LAPTOP must be defined!"
 #endif
 
+const std::vector<std::string> polyhedra_names = {{
+  "regular_icosahedron",
+  "regular_dodecahedron",
+  "regular_tetrahedron",
+  "regular_octahedron",
+  "cuboctahedron"
+}};
+
 const double Rearth = 6371; //km
 
 const double DEG_TO_RAD = M_PI/180.0;
@@ -54,27 +62,29 @@ const double EDGE_OVERLAPS_SAMPLE_DIST = 10; //km
 
 const double FILTER_COARSE_ORIENTATIONS_WITHIN = 100; //km
 
+const double COARSE_THETA_MIN    = 0;
+
 #ifdef FINE_RESOLUTION //Used for science
   const double COARSE_SPACING      = 100;  //km - Desired interpoint spacing for finding prospective orienations
-  const double COARSE_RADIAL_LIMIT = 90*DEG_TO_RAD;
-  const double COARSE_THETA_MIN    = 0;
-  const double COARSE_THETA_MAX    = 72*DEG_TO_RAD;
   const double COARSE_THETA_STEP   = 1*DEG_TO_RAD;
 
 #elif COARSE_RESOLUTION //Used for profiling
   const double COARSE_SPACING      = 200;  //km - Desired interpoint spacing for finding prospective orienations
-  const double COARSE_RADIAL_LIMIT = 90*DEG_TO_RAD;
-  const double COARSE_THETA_MIN    = 0;
-  const double COARSE_THETA_MAX    = 72*DEG_TO_RAD;
-  const double COARSE_THETA_STEP   = 1.0*DEG_TO_RAD;
+  const double COARSE_THETA_STEP   = 1*DEG_TO_RAD;
 
 #else
-  this-is-an-error
+  #error Resolution is not defined.
 #endif
 
-const int    OVERLAPS_TO_BEAT    = 8; //Number of overlaps beyond (and including) which we are interested
-
 typedef std::vector< std::vector<unsigned int> > norientations_t;
+
+
+//GLOBALS
+double COARSE_RADIAL_LIMIT = 0;
+double COARSE_THETA_MAX    = 999999;
+int OVERLAPS_TO_BEAT       = 999999; //Number of overlaps beyond (and including) which we are interested
+SolidifyingFunc solidifier_func;
+
 
 //Orientations with no vertices on land are always of interest, as are overlaps
 //with many orientations on land. This convenience function is used elsewhere to
@@ -84,7 +94,40 @@ bool OverlapOfInterest(unsigned char overlap_count){
 }
 
 SolidXY Solidifier(const Orientation &o){
-  return OrientationToIcosahedron(o);
+  return solidifier_func(o);
+}
+
+
+
+void SetupForPolyhedron(const std::string polyhedron){
+  if(polyhedron=="regular_icosahedron"){
+    solidifier_func     = OrientationToRegularIcosahedron;
+    OVERLAPS_TO_BEAT    = 8;
+    COARSE_THETA_MAX    = 72*DEG_TO_RAD;
+    COARSE_RADIAL_LIMIT = 90*DEG_TO_RAD;
+  } else if(polyhedron=="regular_dodecahedron"){
+    solidifier_func     = OrientationToRegularDodecahedron;
+    OVERLAPS_TO_BEAT    = 12;
+    COARSE_THETA_MAX    = 120*DEG_TO_RAD;
+    COARSE_RADIAL_LIMIT = 90*DEG_TO_RAD;
+  } else if(polyhedron=="regular_tetrahedron"){
+    solidifier_func     = OrientationToRegularTetrahedron;
+    OVERLAPS_TO_BEAT    = 4;
+    COARSE_THETA_MAX    = 120*DEG_TO_RAD;
+    COARSE_RADIAL_LIMIT = 180*DEG_TO_RAD;
+  } else if(polyhedron=="regular_octahedron"){
+    solidifier_func     = OrientationToRegularOctahedron;
+    OVERLAPS_TO_BEAT    = 6;
+    COARSE_THETA_MAX    = 90*DEG_TO_RAD;
+    COARSE_RADIAL_LIMIT = 90*DEG_TO_RAD;
+  } else if(polyhedron=="cuboctahedron"){
+    solidifier_func     = OrientationToCuboctahedron;
+    OVERLAPS_TO_BEAT    = 9;
+    COARSE_THETA_MAX    = 180*DEG_TO_RAD;
+    COARSE_RADIAL_LIMIT = 90*DEG_TO_RAD;
+  } else {
+    throw std::runtime_error("Unrecognized polyhedron!");
+  }
 }
 
 
@@ -279,7 +322,7 @@ OCollection OrientationsFilteredByOverlaps(
   ProgressBar pg(og.size());
   OCollection ret;
   #pragma omp declare reduction (merge : OCollection : omp_out.insert(omp_out.end(), omp_in.begin(), omp_in.end()))
-  #pragma omp parallel for default(none) schedule(static) shared(landmass,pg) reduction(merge: ret)
+  #pragma omp parallel for default(none) schedule(static) shared(COARSE_THETA_MAX,landmass,pg) reduction(merge: ret)
   for(unsigned int o=0;o<og.size();o++){
     const auto pole = og(o);
     for(double theta=COARSE_THETA_MIN;theta<=COARSE_THETA_MAX;theta+=COARSE_THETA_STEP){
@@ -529,7 +572,7 @@ std::ostream& PrintPOI(std::ostream& fout, const OSCollection &osc, const int i,
   } else {
     fout<<i<<","
         <<osc[i].overlaps            <<","
-        <<osc[i].overlap_count       <<","
+        <<(int)osc[i].overlap_count  <<","
         <<(osc[i].pole.y*RAD_TO_DEG) <<","
         <<(osc[i].pole.x*RAD_TO_DEG) <<","
         <<(osc[i].theta*RAD_TO_DEG)  <<","
@@ -808,27 +851,26 @@ TEST_CASE("Generate great cicles between points"){
   };
 
   const Orientation o(Point2D(0,90).toRadians(),0);
-  const auto icosahedron         = OrientationToIcosahedron(o);
-  const auto regulardodecahedron = OrientationToRegularDodecahedron(o);
-  const auto regulartetrahedron  = OrientationToRegularTetrahedron(o);
-  const auto regularoctahedron   = OrientationToRegularOctahedron(o);
-  const auto cuboctahedron       = OrientationToCuboctahedron(o);
 
-  SUBCASE("icosahedron")         { gc_generator(FILE_OUTPUT_PREFIX + "gc_icosahedron.csv",         icosahedron         ); }
-  SUBCASE("regulardodecahedron") { gc_generator(FILE_OUTPUT_PREFIX + "gc_regulardodecahedron.csv", regulardodecahedron ); }
-  SUBCASE("regulartetrahedron")  { gc_generator(FILE_OUTPUT_PREFIX + "gc_regulartetrahedron.csv",  regulartetrahedron  ); }
-  SUBCASE("regularoctahedron")   { gc_generator(FILE_OUTPUT_PREFIX + "gc_regularoctahedron.csv",   regularoctahedron   ); }
-  SUBCASE("cuboctahedron")       { gc_generator(FILE_OUTPUT_PREFIX + "gc_cuboctahedron.csv",       cuboctahedron       ); }
+  for(const auto &pn: polyhedra_names){
+    SetupForPolyhedron(pn);
+    const auto sxy = Solidifier(o);
+    gc_generator(FILE_OUTPUT_PREFIX + "gc_" + pn + ".csv", sxy);
+  }
 }
 
 
-void FuncOptimize(){
+
+void FuncOptimize(int argc, char **argv){
   std::cout<<"Rearth              = " << Rearth              <<std::endl;
   std::cout<<"COARSE_SPACING      = " << COARSE_SPACING      <<std::endl;
   std::cout<<"COARSE_RADIAL_LIMIT = " << COARSE_RADIAL_LIMIT <<std::endl;
   std::cout<<"COARSE_THETA_MIN    = " << COARSE_THETA_MIN    <<std::endl;
   std::cout<<"COARSE_THETA_MAX    = " << COARSE_THETA_MAX    <<std::endl;
   std::cout<<"COARSE_THETA_STEP   = " << COARSE_THETA_STEP   <<std::endl;
+
+  (void)argc;
+  SetupForPolyhedron(argv[2]);
 
   assert(!omp_get_nested());
 
@@ -854,22 +896,19 @@ void FuncOptimize(){
   FindBest(orients, wgs84pc, landmass);
 }
 
+
+
 void FuncGetGreatCircle(int argc, char **argv){
+  (void)argc;
   const auto   shape = std::string(argv[2]);
   const double lat   = std::stod  (argv[3]);
   const double lon   = std::stod  (argv[4]);
   const double theta = std::stod  (argv[5]);
 
-  std::function<SolidXY(const Orientation &o)> solidifier;
-  if(shape=="icosahedron")
-    solidifier = OrientationToIcosahedron;
-  else {
-    std::cerr<<"Unknown shape!";
-    return;
-  }
+  SetupForPolyhedron(shape);
 
   Orientation o(Point2D(lon,lat).toRadians(),theta*DEG_TO_RAD);
-  SolidXY sxy = solidifier(o);
+  SolidXY sxy = Solidifier(o);
 
   const auto neighbors = sxy.neighbors(); //Get a list of neighbouring vertices on the polyhedron
 
@@ -909,16 +948,6 @@ void FuncGetMultiOrientStats(std::string filename){
 }
 
 void FuncPolyhedronInfo(){
-  Timer tmr;
-
-  const std::vector< std::pair<std::string,SolidifyingFunc> > sfs = {
-    {"Icosahedron",         OrientationToIcosahedron},
-    {"RegularDodecahedron", OrientationToRegularDodecahedron},
-    {"RegularTetrahedron",  OrientationToRegularTetrahedron},
-    {"RegularOctahedron",   OrientationToRegularOctahedron},
-    {"Cuboctahedron",       OrientationToCuboctahedron},
-  };
-
   const auto quad_select = [](const double y, const double z){
     return y>=0 && z>=0;
   };
@@ -930,7 +959,6 @@ void FuncPolyhedronInfo(){
 
   const auto in_volume = [](
     const std::string note,
-    const SolidifyingFunc &sf,
     const std::function<bool(const double y, const double z)> vol_select
   ){
     const OrientationGenerator og(200,90*DEG_TO_RAD);
@@ -939,7 +967,7 @@ void FuncPolyhedronInfo(){
     int maxcount = std::numeric_limits<int>::lowest();
     //#pragma omp parallel for default(none) shared(sf) schedule(static) reduction(min:mincount) reduction(max:maxcount)
     for(long i=0;i<og.size();i++){
-      SolidXYZ p = sf(Orientation(og(i),0)).toXYZ(1);
+      SolidXYZ p = Solidifier(Orientation(og(i),0)).toXYZ(1);
       int count = 0;
       for(const auto &v: p.v)
         count += vol_select(v.y,v.z);
@@ -949,36 +977,87 @@ void FuncPolyhedronInfo(){
     std::cout<<note<<", min="<<mincount<<", max="<<maxcount<<std::endl;
   };
 
-  for(const auto &x: sfs){
-    in_volume(x.first+" quad", x.second, quad_select);
-    in_volume(x.first+" half", x.second, half_select);
+  for(const auto &pn: polyhedra_names){
+    SetupForPolyhedron(pn);
+    in_volume(pn+" quad", quad_select);
+    in_volume(pn+" half", half_select);
+  }
+
+
+
+
+  const auto landmass = IndexedShapefile(FILE_MERC_LANDMASS,"land_polygons");
+
+  const auto overlap_counter = [&](const std::string note){
+    const OrientationGenerator og(COARSE_SPACING, COARSE_RADIAL_LIMIT);
+
+    const auto test_solid = Solidifier(Orientation(og(0),0));
+
+    std::vector<int> ocount(test_solid.v.size()+1,0);
+
+    ProgressBar pg(og.size());
+
+    //#pragma omp declare reduction (merge : std::vector<int> : std::transform(omp_out.begin(), omp_out.end(), omp_in.begin(), omp_out.begin(), std::plus<double>()));
+    //#pragma omp parallel for default(none) schedule(static) shared(sf,landmass,pg) reduction(merge: ocount)
+    for(unsigned int o=0;o<og.size();o++){
+      const auto pole = og(o);
+      for(double theta=COARSE_THETA_MIN;theta<=COARSE_THETA_MAX;theta+=COARSE_THETA_STEP){
+        const Orientation ori(pole,theta);
+        SolidXY sxy = Solidifier(ori);
+        const auto overlaps     = OrientationOverlaps(sxy, landmass);
+        const int overlap_count = std::accumulate(overlaps.begin(),overlaps.end(),0);
+        ocount.at(overlap_count)++;
+      }
+      ++pg;
+    }
+
+    std::cout<<std::endl;
+    for(unsigned int i=0;i<ocount.size();i++)
+      std::cout<<note<<" "<<i<<" "<<ocount.at(i)<<std::endl;
+    std::cout<<std::endl;
+  };
+
+  OVERLAPS_TO_BEAT = 0;
+
+  for(const auto &pn: polyhedra_names){
+    SetupForPolyhedron(pn);
+    overlap_counter(pn+" overlaps");
   }
 }
 
 
-void FuncHelp(int argc, char **argv){
-  std::cerr<<argv[0]<<" optimize"<<std::endl;
-  std::cerr<<argv[0]<<" get_great_circle <Shape> <Lat Deg> <Lon Deg> <Theta Deg>"<<std::endl;
-  std::cerr<<argv[0]<<" get_many_orient_stats <FILE>"<<std::endl;
-  std::cerr<<argv[0]<<" get_polyhedron_info"<<std::endl;
+
+int FuncHelp(int argc, char **argv){
+  (void)argc;
+  std::cout<<argv[0]<<" optimize <Polyhedron>"<<std::endl;
+  std::cout<<argv[0]<<" get_great_circle <Polyhedron> <Lat Deg> <Lon Deg> <Theta Deg>"<<std::endl;
+  std::cout<<argv[0]<<" get_many_orient_stats <FILE>"<<std::endl;
+  std::cout<<argv[0]<<" get_polyhedron_info"<<std::endl;
+  std::cout<<std::endl;
+
+  std::cout<<"Available polyhedra:"<<std::endl;
+  for(const auto &pn: polyhedra_names)
+    std::cout<<"\t"<<pn<<std::endl;
+
+  return -1;
 }
+
+
 
 #ifdef DOCTEST_CONFIG_DISABLE
 
 int main(int argc, char **argv){
 
   if(argc==1 || argv[1]==std::string("help"))
-    FuncHelp(argc,argv);
+    return FuncHelp(argc,argv);
   else if(argv[1]==std::string("optimize"))
-    FuncOptimize();
+    FuncOptimize(argc,argv);
   else if(argv[1]==std::string("get_great_circle"))
     FuncGetGreatCircle(argc,argv);
-  else if(argv[1]==std::string("get_many_orient_stats"))
-    FuncGetMultiOrientStats(argv[2]);
   else if(argv[1]==std::string("get_polyhedron_info"))
     FuncPolyhedronInfo();
   else 
-    FuncHelp(argc,argv);
+    return FuncHelp(argc,argv);
   
   return 0;
 }
