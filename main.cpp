@@ -844,17 +844,13 @@ TEST_CASE("Generate great cicles between points"){
 }
 
 
-
-#ifdef DOCTEST_CONFIG_DISABLE
-
-int main(){
+void FuncOptimize(){
   std::cout<<"Rearth              = " << Rearth              <<std::endl;
   std::cout<<"COARSE_SPACING      = " << COARSE_SPACING      <<std::endl;
   std::cout<<"COARSE_RADIAL_LIMIT = " << COARSE_RADIAL_LIMIT <<std::endl;
   std::cout<<"COARSE_THETA_MIN    = " << COARSE_THETA_MIN    <<std::endl;
   std::cout<<"COARSE_THETA_MAX    = " << COARSE_THETA_MAX    <<std::endl;
   std::cout<<"COARSE_THETA_STEP   = " << COARSE_THETA_STEP   <<std::endl;
-
 
   assert(!omp_get_nested());
 
@@ -878,7 +874,83 @@ int main(){
   std::cerr<<"Climbing hills..."<<std::endl;
 
   FindBest(orients, wgs84pc, landmass);
+}
 
+void FuncGetGreatCircle(int argc, char **argv){
+  const auto   shape = std::string(argv[2]);
+  const double lat   = std::stod  (argv[3]);
+  const double lon   = std::stod  (argv[4]);
+  const double theta = std::stod  (argv[5]);
+
+  std::function<SolidXY(const Orientation &o)> solidifier;
+  if(shape=="icosahedron")
+    solidifier = OrientationToIcosahedron;
+  else {
+    std::cerr<<"Unknown shape!";
+    return;
+  }
+
+  Orientation o(Point2D(lon,lat).toRadians(),theta*DEG_TO_RAD);
+  SolidXY sxy = solidifier(o);
+
+  const auto neighbors = SolidXY().neighbors(); //Get a list of neighbouring vertices on the polyhedron
+
+  std::cout<<"lat,lon\n";
+  for(unsigned int n=0;n<neighbors.size();n+=2){
+    const auto &a = sxy.v[neighbors[n]];
+    const auto &b = sxy.v[neighbors[n+1]];
+    const GreatCircleGenerator gcg(a,b,100);
+    CHECK(gcg.getSpacing()==100);
+    for(unsigned int i=0;i<gcg.size();i++){
+      auto temp = gcg(i);
+      std::cout<<(temp.y*RAD_TO_DEG)<<","<<(temp.x*RAD_TO_DEG)<<"\n";
+    }
+  }
+}
+
+void FuncGetMultiOrientStats(std::string filename){
+  const auto landmass = IndexedShapefile(FILE_MERC_LANDMASS,"land_polygons");
+
+  PointCloud wgs84pc;
+  wgs84pc = ReadPointCloudFromShapefile(FILE_WGS84_LANDMASS, "land_polygons");
+  wgs84pc.buildIndex();
+
+  std::ifstream fin(filename);
+
+  OSCollection osc;
+  while(fin.good()){
+    double lat_deg,lon_deg,theta_deg;
+    fin>>lat_deg>>lon_deg>>theta_deg;
+    Orientation o(Point2D(lon_deg,lat_deg).toRadians(),theta_deg*DEG_TO_RAD);
+    osc.push_back(OrientationStats(o, wgs84pc, landmass, true));
+  }
+
+  PrintPOI(std::cout, OSCollection(), 0, true);
+  for(unsigned int i=0;i<osc.size();i++)
+    PrintPOI(std::cout, osc, i, false);
+}
+
+void FuncHelp(int argc, char **argv){
+  std::cerr<<argv[0]<<" optimize"<<std::endl;
+  std::cerr<<argv[0]<<" get_great_circle <Shape> <Lat Deg> <Lon Deg> <Theta Deg>"<<std::endl;
+  std::cerr<<argv[0]<<" get_many_orient_stats <FILE>"<<std::endl;
+}
+
+#ifdef DOCTEST_CONFIG_DISABLE
+
+int main(int argc, char **argv){
+
+  if(argc==1 || argv[1]==std::string("help"))
+    FuncHelp(argc,argv);
+  else if(argv[1]==std::string("optimize"))
+    FuncOptimize();
+  else if(argv[1]==std::string("get_great_circle"))
+    FuncGetGreatCircle(argc,argv);
+  else if(argv[1]==std::string("get_many_orient_stats"))
+    FuncGetMultiOrientStats(argv[2]);
+  else 
+    FuncHelp(argc,argv);
+  
   return 0;
 }
 
