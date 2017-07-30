@@ -26,30 +26,35 @@ inline double OrientationIndex::kdtree_distance(const double *p1, const size_t i
   return d0*d0+d1*d1+d2*d2;
 }
 
-OrientationIndex::OrientationIndex(const OCollection &orients){  //Cannot be parallelized, otherwise the order of the points might get mixed up
+OrientationIndex::OrientationIndex(
+  const OCollection &orients,
+  const SolidifyingFunc sf
+){  //Cannot be parallelized, otherwise the order of the points might get mixed up
   for(unsigned int oi=0;oi<orients.size();oi++)
-    addOrientation(oi, orients[oi]);
+    addOrientation(oi, sf(orients[oi]));
 
   index.reset(new my_kd_tree_t(3 /*dim*/, *this, nanoflann::KDTreeSingleIndexAdaptorParams(10 /* max leaf */) ));
   index->buildIndex();
 }
 
-OrientationIndex::OrientationIndex(const OSCollection &orients){  //Cannot be parallelized, otherwise the order of the points might get mixed up
+OrientationIndex::OrientationIndex(
+  const OSCollection &orients,
+  const SolidifyingFunc sf
+){  //Cannot be parallelized, otherwise the order of the points might get mixed up
   for(unsigned int oi=0;oi<orients.size();oi++)
-    addOrientation(oi, orients[oi]);
+    addOrientation(oi, sf(orients[oi]));
 
   index.reset(new my_kd_tree_t(3 /*dim*/, *this, nanoflann::KDTreeSingleIndexAdaptorParams(10 /* max leaf */) ));
   index->buildIndex();
 }
 
-void OrientationIndex::addOrientation(const unsigned int id, const Orientation &o){
-  const SolidXY  p2d = SolidXY(o);
-  const SolidXYZ p3d = p2d.toXYZ(Rearth);
-  for(unsigned int vi=0;vi<p3d.v.size();vi++){
+void OrientationIndex::addOrientation(const unsigned int id, const SolidXY &sxy){
+  const SolidXYZ sxyz = sxy.toXYZ(Rearth);
+  for(unsigned int vi=0;vi<sxyz.v.size();vi++){
     //Choose one quadrant of 3-space. Will have 2-3 members
-    if(vertexInSubdivision(p3d.v[vi])){ 
-      p3ds.push_back(p3d.v[vi]);
-      p2ds.push_back(p2d.v[vi]);
+    if(vertexInSubdivision(sxyz.v[vi])){ 
+      p3ds.push_back(sxyz.v[vi]);
+      p2ds.push_back(sxy.v[vi]);
       pidx.push_back(id);
     }
   }
@@ -149,8 +154,8 @@ std::vector<unsigned int> OrientationIndex::query(const unsigned int qpn, const 
 
 
 
-std::vector<std::pair<unsigned int,double> > OrientationIndex::queryWithDistance(const Orientation &o, const double distance) const {
-  const SolidXYZ sxyz = SolidXY(o).toXYZ(Rearth);
+std::vector<std::pair<unsigned int,double> > OrientationIndex::queryWithDistance(const SolidXY &sxy, const double distance) const {
+  const SolidXYZ sxyz = sxy.toXYZ(Rearth);
   std::vector<Point3D> qps;
   qps.reserve(12);
   for(const auto v: sxyz.v)
@@ -173,8 +178,8 @@ std::vector<std::pair<unsigned int,double> > OrientationIndex::queryWithDistance
   return ret;
 }
 
-std::vector<unsigned int> OrientationIndex::query(const Orientation &o, const double distance) const {
-  const auto ori_dist = queryWithDistance(o, distance);
+std::vector<unsigned int> OrientationIndex::query(const SolidXY &sxy, const double distance) const {
+  const auto ori_dist = queryWithDistance(sxy, distance);
 
   std::vector<unsigned int> closest_n;
   for(const auto &x: ori_dist)
@@ -252,21 +257,21 @@ TEST_CASE("OrientationIndex"){
   orients.emplace_back(Point2D(-93,45).toRadians(), 0);
 
   SUBCASE("No result"){
-    OrientationIndex oidx(orients);
+    OrientationIndex oidx(orients, OrientationToIcosahedron);
     auto result = oidx.query(0,100);
     CHECK(result.size()==0);
   }
 
   SUBCASE("One result"){
     orients.emplace_back(Point2D(-93,45).toRadians(), 72.0*DEG_TO_RAD);
-    OrientationIndex oidx(orients);
+    OrientationIndex oidx(orients, OrientationToIcosahedron);
     auto result = oidx.query(0,100);
     CHECK(result[0]==1);
   }
 
   SUBCASE("Partial overlap with no results"){
     orients.emplace_back(Point2D(-93,45).toRadians(), 36.0*DEG_TO_RAD);
-    OrientationIndex oidx(orients);
+    OrientationIndex oidx(orients, OrientationToIcosahedron);
     auto result = oidx.query(0,100);
     CHECK(result.size()==0);
   }
@@ -278,7 +283,7 @@ TEST_CASE("OrientationIndex"){
     orients.emplace_back(Point2D(-93.2,45.2).toRadians(), 0*DEG_TO_RAD);
     orients.emplace_back(Point2D(-93.0,45.0).toRadians(), 36*DEG_TO_RAD);
     orients.emplace_back(Point2D(23,-23.2).toRadians(), 36*DEG_TO_RAD);
-    OrientationIndex oidx(orients);
+    OrientationIndex oidx(orients, OrientationToIcosahedron);
 
     {
       auto result = oidx.query(0,100);
@@ -286,7 +291,7 @@ TEST_CASE("OrientationIndex"){
       CHECK(result[0]==1);
     }
     {
-      auto result = oidx.query(orients.front(),100);
+      auto result = oidx.query(OrientationToIcosahedron(orients.front()),100);
       CHECK(result.size()==5);
       CHECK(result.at(0)==0);
     }
@@ -307,7 +312,7 @@ TEST_CASE("OrientationsWithStats"){
   ows.emplace_back(Point2D(-93.2,45.2).toRadians(), 0*DEG_TO_RAD);
   ows.emplace_back(Point2D(-93.2,45.2).toRadians(), 36*DEG_TO_RAD);
   ows.emplace_back(Point2D(23,-23.2).toRadians(), 36*DEG_TO_RAD);
-  OrientationIndex oidx(ows);
+  OrientationIndex oidx(ows, OrientationToIcosahedron);
   auto result = oidx.query(0,100);
   CHECK(result.size()==4);
   CHECK(result[0]==1);

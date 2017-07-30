@@ -22,7 +22,7 @@ class OrientationIndex {
   std::vector<Point2D> p2ds;
   std::vector<unsigned int> pidx;
 
-  void addOrientation(const unsigned int id, const Orientation &o);
+  void addOrientation(const unsigned int id, const SolidXY &sxy);
 
   bool vertexInSubdivision(const Point3D &v) const;
 
@@ -32,8 +32,8 @@ class OrientationIndex {
   
   //mutable std::vector<double> distance_distribution;
 
-  OrientationIndex(const OCollection &orients);
-  OrientationIndex(const OSCollection &orients);
+  OrientationIndex(const OCollection &orients, const SolidifyingFunc sf);
+  OrientationIndex(const OSCollection &orients, const SolidifyingFunc sf);
 
   ~OrientationIndex();
   
@@ -60,10 +60,10 @@ class OrientationIndex {
   std::unordered_map<unsigned int,double> distancesToNearbyOrientations(const std::vector<Point3D>::const_iterator qvec_begin, const std::vector<Point3D>::const_iterator qvec_end, const unsigned int ignore_pt, const double distance) const;
 
   std::vector<std::pair<unsigned int,double> > queryWithDistance(const unsigned int qpn, const double distance) const;
-  std::vector<std::pair<unsigned int,double> > queryWithDistance(const Orientation &o, const double distance) const;
+  std::vector<std::pair<unsigned int,double> > queryWithDistance(const SolidXY &sxy, const double distance) const;
 
   std::vector<unsigned int> query(const unsigned int qpn, const double distance) const;
-  std::vector<unsigned int> query(const Orientation &o, const double distance) const;
+  std::vector<unsigned int> query(const SolidXY &sxy, const double distance) const;
 
   //void print() const;
 };

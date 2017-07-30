@@ -4,34 +4,30 @@
 #include "Point.hpp"
 #include "Orientation.hpp"
 #include <cmath>
-#include <array>
 #include <vector>
+#include <functional>
 
-const double IEL = std::atan(0.5); //Icosahedron equatorial latitudes
-const double IES = 36*M_PI/180;    //Icosahedron equatorial spacing
-const double phi = (1+std::sqrt(5))/2;
+class SolidXY;
+
+SolidXY OrientationToIcosahedron(const Orientation &o);
+SolidXY OrientationToRegularDodecahedron(const Orientation &o);
+SolidXY OrientationToRegularTetrahedron(const Orientation &o);
+SolidXY OrientationToRegularOctahedron(const Orientation &o);
+SolidXY OrientationToCuboctahedron(const Orientation &o);
 
 class SolidXYZ;
 class SolidXY{
+ private:
+  friend class SolidXYZ;
+  friend SolidXY OrientationToIcosahedron(const Orientation &o);
+  friend SolidXY OrientationToRegularDodecahedron(const Orientation &o);
+  friend SolidXY OrientationToRegularTetrahedron(const Orientation &o);
+  friend SolidXY OrientationToRegularOctahedron(const Orientation &o);
+  friend SolidXY OrientationToCuboctahedron(const Orientation &o);
+  SolidXY();
  public:
-  static const int verts = 12;
-  std::array<Point2D,verts> v = {{
-    { 0    ,  M_PI/2},
-    { 0    , -M_PI/2},
-    {-5*IES,     IEL},
-    {-4*IES,    -IEL},
-    {-3*IES,     IEL},
-    {-2*IES,    -IEL},
-    {-1*IES,     IEL},
-    { 0*IES,    -IEL},
-    { 1*IES,     IEL},
-    { 2*IES,    -IEL},
-    { 3*IES,     IEL},
-    { 4*IES,    -IEL}
-  }};
+  std::vector<Point2D> v;
 
-  SolidXY() = default;
-  SolidXY(const Orientation &o);
   SolidXY& rotate(const Point2D &p, double rtheta);
   SolidXY& rotate(double rlat, double rlon, double rtheta);
   SolidXY& rotateTheta(const double rtheta);
@@ -52,25 +48,17 @@ class SolidXYZ {
   friend class SolidXY;
 
   //These values are a direct translation of those for SolidXY
-  std::array<Point3D,SolidXY::verts> v = {{
-    {std::nan(""), std::nan(""), std::nan("")},
-    {std::nan(""), std::nan(""), std::nan("")},
-    {std::nan(""), std::nan(""), std::nan("")},
-    {std::nan(""), std::nan(""), std::nan("")},
-    {std::nan(""), std::nan(""), std::nan("")},
-    {std::nan(""), std::nan(""), std::nan("")},
-    {std::nan(""), std::nan(""), std::nan("")},
-    {std::nan(""), std::nan(""), std::nan("")},
-    {std::nan(""), std::nan(""), std::nan("")},
-    {std::nan(""), std::nan(""), std::nan("")},
-    {std::nan(""), std::nan(""), std::nan("")},
-    {std::nan(""), std::nan(""), std::nan("")}
-  }};
+  std::vector<Point3D> v;
 
   SolidXY toLatLon() const;
   SolidXYZ& rotateTo(const Point3D &o);
+  SolidXYZ& rotate(const Rotator &r);
+  SolidXYZ& normalize();
   std::vector<int> neighbors() const;
 };
 
+
+
+typedef std::function<SolidXY(const Orientation &o)> SolidifyingFunc;
 
 #endif

@@ -9,9 +9,7 @@
 const double DEG_TO_RAD = M_PI/180.0;
 const double RAD_TO_DEG = 180.0/M_PI;
 
-SolidXY::SolidXY(const Orientation &o){
-  rotate(o.pole,o.theta);
-}
+const double phi = (1+std::sqrt(5))/2;
 
 
 
@@ -19,15 +17,6 @@ SolidXY& SolidXY::rotate(const Point2D &p, double rtheta){
   rotateTheta(rtheta);
   *this = toXYZ(1).rotateTo(p.toXYZ(1)).toLatLon();
   return *this;
-}
-
-TEST_CASE("rotate"){
-  const auto a = SolidXY();
-  const auto p = SolidXY().rotate(Point2D(0,90).toRadians(),0);
-  for(unsigned int i=0;i<a.v.size();i++){
-    CHECK(a.v[i].x==doctest::Approx(p.v[i].x));
-    CHECK(a.v[i].y==doctest::Approx(p.v[i].y));
-  }
 }
 
 
@@ -52,17 +41,6 @@ SolidXY& SolidXY::rotateTheta(const double rtheta){
   return *this;
 }
 
-TEST_CASE("rotateTheta"){
-  SolidXY s;
-  CHECK(s.v.at(0).x==doctest::Approx(0));
-  CHECK(s.v.at(7).x==doctest::Approx(0));
-  CHECK(s.v.at(11).x==doctest::Approx(4*36*DEG_TO_RAD));
-  s.rotateTheta(72*DEG_TO_RAD);
-  CHECK(s.v.at(0).x==doctest::Approx(0));
-  CHECK(s.v.at(7).x==doctest::Approx(72*DEG_TO_RAD));
-  CHECK(s.v.at(11).x==doctest::Approx(-144*DEG_TO_RAD));
-}
-
 
 
 SolidXY& SolidXY::toMercator(){
@@ -71,29 +49,12 @@ SolidXY& SolidXY::toMercator(){
   return *this;
 }
 
-TEST_CASE("toMercator"){
-  auto ico2d = SolidXY();
-  auto p     = WGS84toEPSG3857(ico2d.v[3]);
-  ico2d.toMercator();
-  CHECK(p.x==ico2d.v[3].x);
-  CHECK(p.y==ico2d.v[3].y);
-}
-
 
 
 SolidXY& SolidXY::toRadians(){
   for(auto &p: v)
     p.toRadians();
   return *this;
-}
-
-TEST_CASE("toRadians"){
-  auto ico2d = SolidXY();
-  auto p     = ico2d.v[3];
-  ico2d.toRadians();
-  p.toRadians();
-  CHECK(p.x==ico2d.v[3].x);
-  CHECK(p.y==ico2d.v[3].y);
 }
 
 
@@ -116,21 +77,6 @@ std::vector<int> SolidXY::neighbors() const {
   return ret;
 }
 
-TEST_CASE("neighbors"){
-  const auto n = SolidXY().neighbors();
-  CHECK(n.size()==2*30); //I should have 30 edges represented by 60 neighbour pairs
-  
-  std::vector< std::vector<int> > ncheck(12);
-  for(unsigned int ni=0;ni<n.size();ni+=2){
-    ncheck.at(n.at(ni)).emplace_back(n.at(ni+1));
-    ncheck.at(n.at(ni+1)).emplace_back(n.at(ni));
-  }
-
-  //Each vertex should have 5 neighbours
-  for(const auto &ni: ncheck)
-    CHECK(ni.size()==5);
-}
-
 
 
 double SolidXY::neighborDistance() const {
@@ -138,48 +84,24 @@ double SolidXY::neighborDistance() const {
   return GeoDistanceHaversine(v[n[0]], v[n[1]]);
 }
 
-TEST_CASE("neighborDistance"){
-  SolidXY icoxy;
-  const auto n     = icoxy.neighbors();
-  const auto ndist = icoxy.neighborDistance();
-  for(unsigned int i=0;i<n.size();i+=2)
-    CHECK(GeoDistanceHaversine(icoxy.v[n.at(i)],icoxy.v[n.at(i+1)])==doctest::Approx(ndist));
-}
-
 
 
 SolidXYZ SolidXY::toXYZ(const double radius) const {
   SolidXYZ temp;
+  temp.v.resize(v.size());
   for(unsigned int i=0;i<v.size();i++)
     temp.v[i] = v[i].toXYZ(radius);
   return temp;
-}
-
-TEST_CASE("toXYZ"){
-  auto a = SolidXY();
-  auto p = SolidXY().toXYZ(1).toLatLon();
-  for(unsigned int i=0;i<a.v.size();i++){
-    CHECK(a.v[i].x==doctest::Approx(p.v[i].x));
-    CHECK(a.v[i].y==doctest::Approx(p.v[i].y));
-  }
 }
 
 
 
 SolidXY SolidXYZ::toLatLon() const {
   SolidXY temp;
+  temp.v.resize(v.size());
   for(unsigned int i=0;i<v.size();i++)
     temp.v[i] = v[i].toLatLon();
   return temp;
-}
-
-TEST_CASE("SolidXYZ::toLatLon"){
-  const auto a = SolidXY();
-  const auto p = SolidXY().toXYZ(1).toLatLon();
-  for(unsigned int i=0;i<a.v.size();i++){
-    CHECK(a.v[i].x==doctest::Approx(p.v[i].x));
-    CHECK(a.v[i].y==doctest::Approx(p.v[i].y));
-  }
 }
 
 
@@ -188,23 +110,21 @@ TEST_CASE("SolidXYZ::toLatLon"){
 SolidXYZ& SolidXYZ::rotateTo(const Point3D &o){
   Rotator r(v[0],o);
 
-  //Rotate each pole
-  for(auto &p: v)
-    p = r(p);
+  rotate(r);
 
   return *this;
 }
 
-TEST_CASE("rotateTo"){
-  SUBCASE("theta rotation"){
-    const auto a = SolidXY();
-    auto r = SolidXY().rotate(90*DEG_TO_RAD,0,45); //Rotate forward
-    r.rotate(90*DEG_TO_RAD,0,-45);                 //Rotate back
-    for(unsigned int i=0;i<a.v.size();i++){
-      CHECK(a.v[i].x==doctest::Approx(r.v[i].x));
-      CHECK(a.v[i].y==doctest::Approx(r.v[i].y));
-    }
+
+
+SolidXYZ& SolidXYZ::normalize() {
+  const double dist_to_origin = std::sqrt(v[0].x*v[0].x + v[0].y*v[0].y + v[0].z*v[0].z);
+  for(auto &p: v){
+    p.x /= dist_to_origin;
+    p.y /= dist_to_origin;
+    p.z /= dist_to_origin;
   }
+  return *this;
 }
 
 
@@ -228,8 +148,343 @@ std::vector<int> SolidXYZ::neighbors() const {
 
 
 
+SolidXYZ& SolidXYZ::rotate(const Rotator &r) {
+  //Rotate each pole
+  for(auto &p: v)
+    p = r(p);
+
+  return *this;
+}
+
+
+
+SolidXY OrientationToIcosahedron(const Orientation &o) {
+  const double IEL = std::atan(0.5); //Icosahedron equatorial latitudes
+  const double IES = 36*DEG_TO_RAD;    //Icosahedron equatorial spacing
+
+  SolidXY sxy;
+  sxy.v = {{
+    { 0    ,  M_PI/2},
+    { 0    , -M_PI/2},
+    {-5*IES,     IEL},
+    {-4*IES,    -IEL},
+    {-3*IES,     IEL},
+    {-2*IES,    -IEL},
+    {-1*IES,     IEL},
+    { 0*IES,    -IEL},
+    { 1*IES,     IEL},
+    { 2*IES,    -IEL},
+    { 3*IES,     IEL},
+    { 4*IES,    -IEL}
+  }};
+
+  sxy.rotate(o.pole,o.theta);
+  return sxy;
+}
+
+
+SolidXY OrientationToRegularDodecahedron(const Orientation &o){
+  static std::vector<Point2D> v;
+  if(v.size()==0){
+    const double phii = 1/phi;
+    SolidXYZ sxyz;
+    sxyz.v = {
+      { 1, 1, 1},
+      { 1, 1,-1},
+      { 1,-1, 1},
+      { 1,-1,-1},
+      {-1, 1, 1},
+      {-1, 1,-1},
+      {-1,-1, 1},
+      {-1,-1,-1},
+      { 0, phi, phii},
+      { 0, phi,-phii},
+      { 0,-phi, phii},
+      { 0,-phi,-phii},
+      { phii,0, phi},
+      { phii,0,-phi},
+      {-phii,0, phi},
+      {-phii,0,-phi},
+      { phi, phii,0},
+      { phi,-phii,0},
+      {-phi, phii,0},
+      {-phi,-phii,0}
+    };
+    sxyz.normalize();
+    Rotator r(sxyz.v[0],Point3D(0,0,1));
+    sxyz.rotate(r);
+    auto sxy = sxyz.toLatLon();
+    v = sxy.v;
+  }
+
+  SolidXY sxy;
+  sxy.v = v;
+  sxy.rotate(o.pole,o.theta);
+
+  return sxy;
+}
+
+SolidXY OrientationToRegularTetrahedron(const Orientation &o){
+  static std::vector<Point2D> v;
+  if(v.size()==0){
+    SolidXYZ sxyz;
+    sxyz.v = {
+      { 1, 0,-1/std::sqrt(2)},
+      {-1, 0,-1/std::sqrt(2)},
+      { 0, 1, 1/std::sqrt(2)},
+      { 0,-1, 1/std::sqrt(2)}
+    };
+    sxyz.normalize();
+    Rotator r(sxyz.v[0],Point3D(0,0,1));
+    sxyz.rotate(r);
+    auto sxy = sxyz.toLatLon();
+    v        = sxy.v;
+  }
+
+  SolidXY sxy;
+  sxy.v = v;
+  sxy.rotate(o.pole,o.theta);
+
+  return sxy;
+}
+
+SolidXY OrientationToRegularOctahedron(const Orientation &o){
+  static std::vector<Point2D> v;
+  if(v.size()==0){
+    SolidXYZ sxyz;
+    sxyz.v = {
+      { 1,0,0},
+      {-1,0,0},
+      {0, 1,0},
+      {0,-1,0},
+      {0,0, 1},
+      {0,0,-1}
+    };
+    sxyz.normalize();
+    Rotator r(sxyz.v[0],Point3D(0,0,1));
+    sxyz.rotate(r);
+    auto sxy = sxyz.toLatLon();
+    v        = sxy.v;
+  }
+
+  SolidXY sxy;
+  sxy.v = v;
+  sxy.rotate(o.pole,o.theta);
+  
+  return sxy;
+}
+
+SolidXY OrientationToCuboctahedron(const Orientation &o){
+  static std::vector<Point2D> v;
+  if(v.size()==0){
+    SolidXYZ sxyz;
+    sxyz.v = {
+      { 1, 1, 0},
+      { 1,-1, 0},
+      {-1, 1, 0},
+      {-1,-1, 0},
+      { 1, 0, 1},
+      { 1, 0,-1},
+      {-1, 0, 1},
+      {-1, 0,-1},
+      { 0, 1, 1},
+      { 0, 1,-1},
+      { 0,-1, 1},
+      { 0,-1,-1}
+    };
+    sxyz.normalize();
+    Rotator r(sxyz.v[0],Point3D(0,0,1));
+    sxyz.rotate(r);
+    auto sxy = sxyz.toLatLon();
+    v        = sxy.v;
+  }
+
+  SolidXY sxy;
+  sxy.v = v;
+  sxy.rotate(o.pole,o.theta);
+  
+  return sxy;
+}
+
+
+
+TEST_CASE("Shape metrics"){
+  Orientation o(Point2D(0,90).toRadians(),0);
+
+  auto icosahedron         = OrientationToIcosahedron(o);
+  auto regulardodecahedron = OrientationToRegularDodecahedron(o);
+  auto regulartetrahedron  = OrientationToRegularTetrahedron(o);
+  auto regularoctahedron   = OrientationToRegularOctahedron(o);
+  auto cuboctahedron       = OrientationToCuboctahedron(o);
+
+  SUBCASE("Number of vertices"){
+    SUBCASE("icosahedron")         {CHECK(icosahedron.v.size()        ==12 );}
+    SUBCASE("regulardodecahedron") {CHECK(regulardodecahedron.v.size()==20 );}
+    SUBCASE("regulartetrahedron")  {CHECK(regulartetrahedron.v.size() == 4 );}
+    SUBCASE("regularoctahedron")   {CHECK(regularoctahedron.v.size()  == 6 );}
+    SUBCASE("cuboctahedron")       {CHECK(cuboctahedron.v.size()      ==12 );}
+  }
+
+  SUBCASE("Equal Distances from Center"){
+    const auto dist = [](const Point3D &p3d){return std::sqrt(p3d.x*p3d.x+p3d.y*p3d.y+p3d.z*p3d.z);};
+    const auto all_dist_equal = [&](const SolidXYZ &sxyz){
+      const auto dist_nominal = dist(sxyz.v[0]);
+      for(const auto &p: sxyz.v)
+        CHECK(dist(p)==doctest::Approx(dist_nominal));
+    };
+    SUBCASE("icosahedron")         {all_dist_equal(icosahedron.toXYZ(1));        }
+    SUBCASE("regulardodecahedron") {all_dist_equal(regulardodecahedron.toXYZ(1));}
+    SUBCASE("regulartetrahedron")  {all_dist_equal(regulartetrahedron.toXYZ(1)); }
+    SUBCASE("regularoctahedron")   {all_dist_equal(regularoctahedron.toXYZ(1));  }
+    SUBCASE("cuboctahedron")       {all_dist_equal(cuboctahedron.toXYZ(1));      }
+  }
+
+  SUBCASE("Point at North Pole"){
+    SUBCASE("icosahedron"){
+      CHECK(icosahedron.v[0].x==doctest::Approx(0));
+      CHECK(icosahedron.v[0].y==doctest::Approx(M_PI/2));
+    }
+    SUBCASE("regulardodecahedron"){
+      CHECK(regulardodecahedron.v[0].x==doctest::Approx(0));
+      CHECK(regulardodecahedron.v[0].y==doctest::Approx(M_PI/2));
+    }
+    SUBCASE("regulartetrahedron"){
+      CHECK(regulartetrahedron.v[0].x==doctest::Approx(0));
+      CHECK(regulartetrahedron.v[0].y==doctest::Approx(M_PI/2));
+    }
+    SUBCASE("regularoctahedron"){
+      CHECK(regularoctahedron.v[0].x==doctest::Approx(0));
+      CHECK(regularoctahedron.v[0].y==doctest::Approx(M_PI/2));
+    }
+    SUBCASE("cuboctahedron"){
+      CHECK(cuboctahedron.v[0].x==doctest::Approx(0));
+      CHECK(cuboctahedron.v[0].y==doctest::Approx(M_PI/2));
+    }
+  }
+
+  SUBCASE("Equidistant"){
+    const auto dist_checker = [](const SolidXY &sxy){
+      const auto neighbors = sxy.neighbors();
+      std::vector<int> ncount(sxy.v.size(),0);
+      for(const auto n: neighbors)
+        ncount[n]++;
+      const int ncount_nominal = ncount[0];
+      for(const auto nc: ncount)
+        CHECK(nc==ncount_nominal);
+    };
+    SUBCASE("icosahedron")         {dist_checker(icosahedron);         }
+    SUBCASE("regulardodecahedron") {dist_checker(regulardodecahedron); }
+    SUBCASE("regulartetrahedron")  {dist_checker(regulartetrahedron);  }
+    SUBCASE("regularoctahedron")   {dist_checker(regularoctahedron);   }
+    SUBCASE("cuboctahedron")       {dist_checker(cuboctahedron);       }
+  }
+}
+
+TEST_CASE("rotate"){
+  const Orientation o(Point2D(0,90).toRadians(),0);
+  const auto a = OrientationToIcosahedron(o);
+  const auto p = OrientationToIcosahedron(o).rotate(Point2D(0,90).toRadians(),0);
+  for(unsigned int i=0;i<a.v.size();i++){
+    CHECK(a.v[i].x==doctest::Approx(p.v[i].x));
+    CHECK(a.v[i].y==doctest::Approx(p.v[i].y));
+  }
+}
+
+
+TEST_CASE("rotateTheta"){
+  const Orientation o(Point2D(0,90).toRadians(),0);
+  SolidXY s = OrientationToIcosahedron(o);
+  CHECK(s.v.at(0).x==doctest::Approx(0));
+  CHECK(s.v.at(7).x==doctest::Approx(0));
+  CHECK(s.v.at(11).x==doctest::Approx(4*36*DEG_TO_RAD));
+  s.rotateTheta(72*DEG_TO_RAD);
+  CHECK(s.v.at(0).x==doctest::Approx(0));
+  CHECK(s.v.at(7).x==doctest::Approx(72*DEG_TO_RAD));
+  CHECK(s.v.at(11).x==doctest::Approx(-144*DEG_TO_RAD));
+}
+
+
+TEST_CASE("toMercator"){
+  const Orientation o(Point2D(0,90).toRadians(),0);
+  SolidXY ico2d = OrientationToIcosahedron(o);
+  auto p     = WGS84toEPSG3857(ico2d.v[3]);
+  ico2d.toMercator();
+  CHECK(p.x==ico2d.v[3].x);
+  CHECK(p.y==ico2d.v[3].y);
+}
+
+TEST_CASE("toRadians"){
+  const Orientation o(Point2D(0,90).toRadians(),0);
+  SolidXY ico2d = OrientationToIcosahedron(o);
+  auto p     = ico2d.v[3];
+  ico2d.toRadians();
+  p.toRadians();
+  CHECK(p.x==ico2d.v[3].x);
+  CHECK(p.y==ico2d.v[3].y);
+}
+
 TEST_CASE("neighbors"){
-  const auto n = SolidXY().toXYZ(1).neighbors();
+  const Orientation o(Point2D(0,90).toRadians(),0);
+  SolidXY ico2d = OrientationToIcosahedron(o);
+  const auto n = ico2d.neighbors();
+  CHECK(n.size()==2*30); //I should have 30 edges represented by 60 neighbour pairs
+  
+  std::vector< std::vector<int> > ncheck(12);
+  for(unsigned int ni=0;ni<n.size();ni+=2){
+    ncheck.at(n.at(ni)).emplace_back(n.at(ni+1));
+    ncheck.at(n.at(ni+1)).emplace_back(n.at(ni));
+  }
+
+  //Each vertex should have 5 neighbours
+  for(const auto &ni: ncheck)
+    CHECK(ni.size()==5);
+}
+
+TEST_CASE("neighborDistance"){ //TODO
+  const Orientation o(Point2D(0,90).toRadians(),0);
+  SolidXY icoxy = OrientationToIcosahedron(o);
+  const auto n     = icoxy.neighbors();
+  const auto ndist = icoxy.neighborDistance();
+  for(unsigned int i=0;i<n.size();i+=2)
+    CHECK(GeoDistanceHaversine(icoxy.v[n.at(i)],icoxy.v[n.at(i+1)])==doctest::Approx(ndist));
+}
+
+TEST_CASE("toXYZ"){
+  const Orientation o(Point2D(0,90).toRadians(),0);
+  SolidXY a = OrientationToIcosahedron(o);
+  SolidXY b = OrientationToIcosahedron(o).toXYZ(1).toLatLon();
+  for(unsigned int i=0;i<a.v.size();i++){
+    CHECK(a.v[i].x==doctest::Approx(b.v[i].x));
+    CHECK(a.v[i].y==doctest::Approx(b.v[i].y));
+  }
+}
+
+TEST_CASE("SolidXYZ::toLatLon"){
+  const Orientation o(Point2D(0,90).toRadians(),0);
+  SolidXY a = OrientationToIcosahedron(o);
+  SolidXY b = OrientationToIcosahedron(o).toXYZ(1).toLatLon();
+  for(unsigned int i=0;i<a.v.size();i++){
+    CHECK(a.v[i].x==doctest::Approx(b.v[i].x));
+    CHECK(a.v[i].y==doctest::Approx(b.v[i].y));
+  }
+}
+
+TEST_CASE("rotateTo"){
+  SUBCASE("theta rotation"){
+    const Orientation o(Point2D(0,90).toRadians(),0);
+    SolidXY a = OrientationToIcosahedron(o);
+    SolidXY r = OrientationToIcosahedron(o).rotate(90*DEG_TO_RAD,0,45*DEG_TO_RAD); //Rotate forward
+    r.rotate(90*DEG_TO_RAD,0,-45*DEG_TO_RAD);                                      //Rotate back
+    for(unsigned int i=0;i<a.v.size();i++){
+      CHECK(a.v[i].x==doctest::Approx(r.v[i].x));
+      CHECK(a.v[i].y==doctest::Approx(r.v[i].y));
+    }
+  }
+}
+
+TEST_CASE("neighbors"){
+  const Orientation o(Point2D(0,90).toRadians(),0);
+  const auto n = OrientationToIcosahedron(o).toXYZ(1).neighbors();
   CHECK(n.size()==2*30); //I should have 30 edges represented by 60 neighbour pairs
   
   std::vector< std::vector<int> > ncheck(12);

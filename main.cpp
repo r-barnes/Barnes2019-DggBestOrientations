@@ -83,6 +83,8 @@ bool OverlapOfInterest(unsigned char overlap_count){
   return overlap_count==0 || overlap_count>=OVERLAPS_TO_BEAT; //TODO
 }
 
+SolidXY Solidifier(const Orientation &o){
+  return OrientationToIcosahedron(o);
 }
 
 
@@ -158,7 +160,7 @@ template<class T>
 norientations_t FindNearbyOrientations(const std::vector<T> &osc, const double distance){
   Timer tmr_bi;
   std::cerr<<"Building kd-tree"<<std::endl;
-  OrientationIndex oidx(osc);
+  OrientationIndex oidx(osc, Solidifier);
   std::cerr<<"Time = "<<tmr_bi.elapsed()<<std::endl;
 
   std::cerr<<"Finding nearby orientations..."<<std::endl;
@@ -282,7 +284,7 @@ OCollection OrientationsFilteredByOverlaps(
     const auto pole = og(o);
     for(double theta=COARSE_THETA_MIN;theta<=COARSE_THETA_MAX;theta+=COARSE_THETA_STEP){
       const Orientation ori(pole,theta);
-      SolidXY sxy(ori);
+      SolidXY sxy = Solidifier(ori);
       const auto overlaps     = OrientationOverlaps(sxy, landmass);
       const int overlap_count = std::accumulate(overlaps.begin(),overlaps.end(),0);
       if(OverlapOfInterest(overlap_count))
@@ -332,7 +334,7 @@ unsigned int OrientationEdgeOverlaps(const SolidXY &sxy, const IndexedShapefile 
 //Generate distance statistic for an orientation
 OrientationWithStats OrientationStats(const Orientation &o, const PointCloud &wgs84pc, const IndexedShapefile &landmass, const bool do_edge){
   OrientationWithStats ows(o);
-  SolidXY sxy(o);
+  SolidXY sxy = Solidifier(o);
 
   ows.overlaps      = OrientationOverlaps(sxy, landmass);
   ows.overlap_count = std::accumulate(ows.overlaps.begin(),ows.overlaps.end(),0);
@@ -541,7 +543,7 @@ std::ofstream& PrintPOICoordinates(std::ofstream& fout, const OSCollection &osc,
   if(header){
     fout<<"Num,Lat,Lon,OnLand\n";
   } else {
-    SolidXY p(osc[pn]);
+    SolidXY p = Solidifier(osc[pn]);
     for(unsigned int i=0;i<p.v.size();i++)
       fout<<pn                    <<","
           <<p.v[i].y*RAD_TO_DEG<<","
@@ -674,7 +676,7 @@ TEST_CASE("Counting orientations [expensive]"){
   Timer tmr;
   #pragma omp parallel for default(none) schedule(static) reduction(min:mincount) reduction(max:maxcount)
   for(long i=0;i<og.size();i++){
-    SolidXYZ p = SolidXY(Orientation(og(i),0)).toXYZ(1);
+    SolidXYZ p = Solidifier(Orientation(og(i),0)).toXYZ(1);
     int count  = 0;
     for(const auto &v: p.v)
       if(v.y>=0 && v.z>=0)
