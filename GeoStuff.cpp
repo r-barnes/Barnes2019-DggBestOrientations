@@ -3,6 +3,7 @@
 #include "doctest.h"
 #include <ogrsf_frmts.h>
 #include <cmath>
+#include <iostream>
 #include <GeographicLib/Geocentric.hpp>
 #include <GeographicLib/Constants.hpp>
 
