@@ -807,32 +807,6 @@ TEST_CASE("Test with data [expensive]"){
   }
 }
 
-TEST_CASE("POIindex: Load and Save"){
-  const auto a = Orientation(Point2D(-93.1,45.1).toRadians(),    1*DEG_TO_RAD);
-  const auto b = Orientation(Point2D(176,-10.1).toRadians(),     7*DEG_TO_RAD);
-  const auto c = Orientation(Point2D(72.4,89.3).toRadians(),    34*DEG_TO_RAD);
-  const auto d = Orientation(Point2D(-103.2,-41.2).toRadians(), 98*DEG_TO_RAD);
-
-  {
-    OCollection oc;
-    oc.push_back(a);
-    oc.push_back(b);
-    oc.push_back(c);
-    oc.push_back(d);
-    SaveToArchive(oc, "test/test_oc_save");
-  }
-
-  {
-    OCollection oc;
-    CHECK(LoadFromArchive(oc,"asdfasfjkwefjewifj")==false);
-    CHECK(LoadFromArchive(oc,"test/test_oc_save")==true);
-    CHECK(oc[0].pole.x==a.pole.x);
-    CHECK(oc[1].pole.x==b.pole.x);
-    CHECK(oc[2].pole.x==c.pole.x);
-    CHECK(oc[3].pole.x==d.pole.x);
-  }
-}
-
 TEST_CASE("POIindex"){
   OCollection oc;
   oc.emplace_back(Point2D(-93,45).toRadians(), 0);
