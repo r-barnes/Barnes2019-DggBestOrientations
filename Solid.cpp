@@ -309,7 +309,7 @@ SolidXY OrientationToCuboctahedron(const Orientation &o){
 
 
 TEST_CASE("Shape metrics"){
-  Orientation o(Point2D(0,90).toRadians(),0);
+  const Orientation o(Point2D(0,90).toRadians(),0);
 
   auto icosahedron         = OrientationToIcosahedron(o);
   auto regulardodecahedron = OrientationToRegularDodecahedron(o);
