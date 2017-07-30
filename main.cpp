@@ -831,22 +831,35 @@ TEST_CASE("POIindex"){
 }
 
 TEST_CASE("Generate great cicles between points"){
-  SolidXY sxy;
-  static const auto neighbors = SolidXY().neighbors();             //Get a list of neighbouring vertices on the polyhedron
-
-  std::ofstream fout("test/test_gc_between_verts");
-  fout<<"lat,lon\n";
-
-  for(unsigned int n=0;n<neighbors.size();n+=2){
-    const auto &a = sxy.v[neighbors[n]];
-    const auto &b = sxy.v[neighbors[n+1]];
-    const GreatCircleGenerator gcg(a,b,100);
-    CHECK(gcg.getSpacing()==100);
-    for(unsigned int i=0;i<gcg.size();i++){
-      auto temp = gcg(i);
-      fout<<(temp.y*RAD_TO_DEG)<<","<<(temp.x*RAD_TO_DEG)<<"\n";
+  const auto gc_generator = [](const std::string filename, const SolidXY &sxy){
+    const auto neighbors = sxy.neighbors();             //Get a list of neighbouring vertices on the polyhedron
+    std::ofstream fout(filename);
+    fout<<"lat,lon\n";
+    for(unsigned int n=0;n<neighbors.size();n+=2){
+      const auto &a = sxy.v[neighbors[n]];
+      const auto &b = sxy.v[neighbors[n+1]];
+      const GreatCircleGenerator gcg(a,b,100);
+      CHECK(gcg.getSpacing()==100);
+      for(unsigned int i=0;i<gcg.size();i++){
+        auto temp = gcg(i);
+        temp.toDegrees();
+        fout<<temp.y<<","<<temp.x<<"\n";
+      }
     }
-  }
+  };
+
+  const Orientation o(Point2D(0,90).toRadians(),0);
+  const auto icosahedron         = OrientationToIcosahedron(o);
+  const auto regulardodecahedron = OrientationToRegularDodecahedron(o);
+  const auto regulartetrahedron  = OrientationToRegularTetrahedron(o);
+  const auto regularoctahedron   = OrientationToRegularOctahedron(o);
+  const auto cuboctahedron       = OrientationToCuboctahedron(o);
+
+  SUBCASE("icosahedron")         { gc_generator(FILE_OUTPUT_PREFIX + "gc_icosahedron.csv",         icosahedron         ); }
+  SUBCASE("regulardodecahedron") { gc_generator(FILE_OUTPUT_PREFIX + "gc_regulardodecahedron.csv", regulardodecahedron ); }
+  SUBCASE("regulartetrahedron")  { gc_generator(FILE_OUTPUT_PREFIX + "gc_regulartetrahedron.csv",  regulartetrahedron  ); }
+  SUBCASE("regularoctahedron")   { gc_generator(FILE_OUTPUT_PREFIX + "gc_regularoctahedron.csv",   regularoctahedron   ); }
+  SUBCASE("cuboctahedron")       { gc_generator(FILE_OUTPUT_PREFIX + "gc_cuboctahedron.csv",       cuboctahedron       ); }
 }
 
 
