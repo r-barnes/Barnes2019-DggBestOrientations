@@ -24,7 +24,8 @@ class SolidXY{
   friend SolidXY OrientationToRegularTetrahedron(const Orientation &o);
   friend SolidXY OrientationToRegularOctahedron(const Orientation &o);
   friend SolidXY OrientationToCuboctahedron(const Orientation &o);
-  SolidXY();
+  SolidXY() = default;
+  
  public:
   std::vector<Point2D> v;
 

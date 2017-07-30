@@ -319,7 +319,7 @@ unsigned int GreatCircleOverlaps(const IndexedShapefile &landmass, const Point2D
 //For all the great circle edges of a polyhedron, determine how many sample
 //points along the circles fall within landmasses.
 unsigned int OrientationEdgeOverlaps(const SolidXY &sxy, const IndexedShapefile &landmass){
-  static const auto   neighbors = SolidXY().neighbors(); //Get a list of neighbouring vertices on the polyhedron
+  static const auto neighbors = sxy.neighbors(); //Get a list of neighbouring vertices on the polyhedron
   unsigned int edge_overlaps = 0;
   for(unsigned int n=0;n<neighbors.size();n+=2){
     const auto &a = sxy.v[neighbors[n]];
@@ -699,7 +699,8 @@ TEST_CASE("Test with data [expensive]"){
   const auto landmass = IndexedShapefile(FILE_MERC_LANDMASS,"land_polygons");
 
   SUBCASE("Check that Fuller orientation has no overlaps"){
-    SolidXY p;
+    const Orientation o(Point2D(0,90).toRadians(),0);
+    SolidXY p = OrientationToIcosahedron(o);
     //Fuller's orientation
     p.v = {{
       {  10.53620,  64.7     },
@@ -898,7 +899,7 @@ void FuncGetGreatCircle(int argc, char **argv){
   Orientation o(Point2D(lon,lat).toRadians(),theta*DEG_TO_RAD);
   SolidXY sxy = solidifier(o);
 
-  const auto neighbors = SolidXY().neighbors(); //Get a list of neighbouring vertices on the polyhedron
+  const auto neighbors = sxy.neighbors(); //Get a list of neighbouring vertices on the polyhedron
 
   std::cout<<"lat,lon\n";
   for(unsigned int n=0;n<neighbors.size();n+=2){
