@@ -14,7 +14,9 @@ inline size_t OrientationIndex::kdtree_get_point_count() const {
 
 
 inline bool OrientationIndex::vertexInSubdivision(const Point3D &v) const {
-  return v.z>=0 && v.y>=0;
+  //return v.z>=0 && v.y>=0;
+  (void)v;
+  return true;
 }
 
 
@@ -157,7 +159,7 @@ std::vector<unsigned int> OrientationIndex::query(const unsigned int qpn, const 
 std::vector<std::pair<unsigned int,double> > OrientationIndex::queryWithDistance(const SolidXY &sxy, const double distance) const {
   const SolidXYZ sxyz = sxy.toXYZ(Rearth);
   std::vector<Point3D> qps;
-  qps.reserve(12);
+  qps.reserve(20);
   for(const auto v: sxyz.v)
     if(vertexInSubdivision(v))
       qps.push_back(v);
@@ -198,7 +200,7 @@ std::unordered_map<unsigned int,double> OrientationIndex::distancesToNearbyOrien
 ) const {
   //For each 3D point of the query POI, find its nearest neighbours in 3-space
   std::vector< std::vector<std::pair<unsigned int, double> > > matches;
-  matches.reserve(4); //Can have 2-3 neighbours
+  matches.reserve(20); //Can have 2-3 neighbours
   //Iterate through all of the points associated with qpn that we have in the
   //index, finding their nearest neighbours
   for(auto qviter = qvec_begin;qviter!=qvec_end;++qviter)
