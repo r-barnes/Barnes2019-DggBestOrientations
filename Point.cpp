@@ -3,6 +3,7 @@
 #include <cassert>
 #include <cstdlib>
 #include "doctest.h"
+#include <vector>
 
 const double DEG_TO_RAD = M_PI/180.0;
 const double RAD_TO_DEG = 180.0/M_PI;
