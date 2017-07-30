@@ -332,7 +332,12 @@ unsigned int OrientationEdgeOverlaps(const SolidXY &sxy, const IndexedShapefile 
 
 
 //Generate distance statistic for an orientation
-OrientationWithStats OrientationStats(const Orientation &o, const PointCloud &wgs84pc, const IndexedShapefile &landmass, const bool do_edge){
+OrientationWithStats OrientationStats(
+  const Orientation      &o,
+  const PointCloud       &wgs84pc,
+  const IndexedShapefile &landmass,
+  const bool do_edge
+){
   OrientationWithStats ows(o);
   SolidXY sxy = Solidifier(o);
 
