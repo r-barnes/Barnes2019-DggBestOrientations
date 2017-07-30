@@ -513,7 +513,7 @@ OrientationWithStats ComplexHillClimb(
 
 
 
-std::ofstream& PrintPOI(std::ofstream& fout, const OSCollection &osc, const int i, bool header){
+std::ostream& PrintPOI(std::ostream& fout, const OSCollection &osc, const int i, bool header){
   if(header){
     fout<<"num"           <<","
         <<"overlaps"      <<","
