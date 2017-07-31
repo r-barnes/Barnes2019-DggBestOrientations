@@ -153,6 +153,17 @@ Point2D EllipsoidCartesiantoWGS84(const Point3D &p){
 
 
 
+Point3D WGS84toSphericalCartesian(const Point2D &p){
+  return p.toXYZ(Rearth);
+}
+
+
+
+Point2D SphericalCartesiantoWGS84(const Point3D &p){
+  return p.toLatLon();
+}
+
+
 Polygons ReadShapefile(std::string filename, std::string layername){
   GDALAllRegister();
   GDALDataset *poDS;
