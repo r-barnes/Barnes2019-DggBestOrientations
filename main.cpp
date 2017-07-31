@@ -19,6 +19,7 @@
 #include <stdexcept>
 #include <algorithm>
 #include <array>
+#include <limits>
 #include <iomanip>
 #include <cassert>
 #include <fstream>
@@ -60,30 +61,95 @@ const double RAD_TO_DEG = 180.0/M_PI;
 const double MAX_COAST_INTERPOINT_DIST = 0.5; //km
 const double EDGE_OVERLAPS_SAMPLE_DIST = 10; //km
 
-const double COARSE_THETA_MIN    = 0;
-
-#ifdef FINE_RESOLUTION //Used for science
-  const double COARSE_SPACING      = 100;  //km - Desired interpoint spacing for finding prospective orienations
-  const double COARSE_THETA_STEP   = 1*DEG_TO_RAD;
-
-#elif COARSE_RESOLUTION //Used for profiling
-  const double COARSE_SPACING      = 200;  //km - Desired interpoint spacing for finding prospective orienations
-  const double COARSE_THETA_STEP   = 1*DEG_TO_RAD;
-
-#else
-  #error Resolution is not defined.
-#endif
+const double COARSE_THETA_MIN  = 0;
 
 typedef std::vector< std::vector<unsigned int> > norientations_t;
 
+const auto dnan = std::numeric_limits<double>::quiet_NaN();
 
-//GLOBALS
-double COARSE_RADIAL_LIMIT = 0;
-double COARSE_THETA_MAX    = 999999;
-int OVERLAPS_TO_BEAT       = 999999; //Number of overlaps beyond (and including) which we are interested
+//GLOBALS: Default values are designed to blow things up
+double COARSE_RADIAL_LIMIT       = dnan;
+double COARSE_THETA_MAX          = dnan;
+int OVERLAPS_TO_BEAT             = 999999; //Number of overlaps beyond (and including) which we are interested
+double FILTER_OUT_ORIENTS_WITHIN = dnan;   //km
+double COARSE_SPACING            = dnan;   //km - Desired interpoint spacing for finding prospective orienations
+double COARSE_THETA_STEP         = dnan;
+int ORIENTATION_VERTICES         = 0;
+
+//Polyhedron and Projection configuration globals
 SolidifyingFunc solidifier_func;
-int ORIENTATION_VERTICES;
-double FILTER_OUT_ORIENTS_WITHIN; //km
+TransLLto3D_t TransLLto3D;
+Trans3DtoLL_t Trans3DtoLL;
+std::string chosen_polyhedron;
+std::string chosen_projection;
+
+void SetupForProjection(const std::string projection){
+  chosen_projection = projection;
+  if(projection=="spherical"){
+    TransLLto3D = WGS84toEllipsoidCartesian;
+    Trans3DtoLL = EllipsoidCartesiantoWGS84;
+  } else if(projection=="ellipsoidal"){
+    TransLLto3D = WGS84toSphericalCartesian;
+    Trans3DtoLL = SphericalCartesiantoWGS84;
+  } else {
+    throw std::runtime_error("Unrecognized projection!");
+  }
+}
+
+
+
+void SetupForPolyhedron(const std::string polyhedron){
+  chosen_polyhedron = polyhedron;
+  if(polyhedron=="regular_icosahedron"){
+    solidifier_func           = OrientationToRegularIcosahedron;
+    OVERLAPS_TO_BEAT          = 8;
+    COARSE_THETA_MAX          = 72*DEG_TO_RAD;
+    COARSE_RADIAL_LIMIT       = 90*DEG_TO_RAD;
+    ORIENTATION_VERTICES      = 12;
+    FILTER_OUT_ORIENTS_WITHIN = 100; //km
+    COARSE_SPACING            = 100; //km
+    COARSE_THETA_STEP         = 1*DEG_TO_RAD;
+  } else if(polyhedron=="regular_dodecahedron"){
+    solidifier_func           = OrientationToRegularDodecahedron;
+    OVERLAPS_TO_BEAT          = 12;
+    COARSE_THETA_MAX          = 120*DEG_TO_RAD;
+    COARSE_RADIAL_LIMIT       = 90*DEG_TO_RAD;
+    ORIENTATION_VERTICES      = 20;
+    FILTER_OUT_ORIENTS_WITHIN = 25;  //km
+    COARSE_SPACING            = 100; //km
+    COARSE_THETA_STEP         = 1*DEG_TO_RAD;
+  } else if(polyhedron=="regular_tetrahedron"){
+    solidifier_func           = OrientationToRegularTetrahedron;
+    OVERLAPS_TO_BEAT          = 4;
+    COARSE_THETA_MAX          = 120*DEG_TO_RAD;
+    COARSE_RADIAL_LIMIT       = 180*DEG_TO_RAD;
+    ORIENTATION_VERTICES      = 4;
+    FILTER_OUT_ORIENTS_WITHIN = 200; //km
+    COARSE_SPACING            = 400; //km
+    COARSE_THETA_STEP         = 4*DEG_TO_RAD;
+  } else if(polyhedron=="regular_octahedron"){
+    solidifier_func           = OrientationToRegularOctahedron;
+    OVERLAPS_TO_BEAT          = 6;
+    COARSE_THETA_MAX          = 90*DEG_TO_RAD;
+    COARSE_RADIAL_LIMIT       = 90*DEG_TO_RAD;
+    ORIENTATION_VERTICES      = 6;
+    FILTER_OUT_ORIENTS_WITHIN = 300; //km
+    COARSE_SPACING            = 100; //km
+    COARSE_THETA_STEP         = 1*DEG_TO_RAD;
+  } else if(polyhedron=="cuboctahedron"){
+    solidifier_func           = OrientationToCuboctahedron;
+    OVERLAPS_TO_BEAT          = 9;
+    COARSE_THETA_MAX          = 180*DEG_TO_RAD;
+    COARSE_RADIAL_LIMIT       = 90*DEG_TO_RAD;
+    ORIENTATION_VERTICES      = 12;
+    FILTER_OUT_ORIENTS_WITHIN = 100; //km
+    COARSE_SPACING            = 200; //km
+    COARSE_THETA_STEP         = 2*DEG_TO_RAD;
+  } else {
+    throw std::runtime_error("Unrecognized polyhedron!");
+  }
+}
+
 
 
 //Orientations with no vertices on land are always of interest, as are overlaps
@@ -95,49 +161,6 @@ bool OverlapOfInterest(unsigned char overlap_count){
 
 SolidXY Solidifier(const Orientation &o){
   return solidifier_func(o);
-}
-
-
-
-void SetupForPolyhedron(const std::string polyhedron){
-  if(polyhedron=="regular_icosahedron"){
-    solidifier_func           = OrientationToRegularIcosahedron;
-    OVERLAPS_TO_BEAT          = 8;
-    COARSE_THETA_MAX          = 72*DEG_TO_RAD;
-    COARSE_RADIAL_LIMIT       = 90*DEG_TO_RAD;
-    ORIENTATION_VERTICES      = 12;
-    FILTER_OUT_ORIENTS_WITHIN = 100; //km
-  } else if(polyhedron=="regular_dodecahedron"){
-    solidifier_func           = OrientationToRegularDodecahedron;
-    OVERLAPS_TO_BEAT          = 12;
-    COARSE_THETA_MAX          = 120*DEG_TO_RAD;
-    COARSE_RADIAL_LIMIT       = 90*DEG_TO_RAD;
-    ORIENTATION_VERTICES      = 20;
-    FILTER_OUT_ORIENTS_WITHIN = 25; //km
-  } else if(polyhedron=="regular_tetrahedron"){
-    solidifier_func           = OrientationToRegularTetrahedron;
-    OVERLAPS_TO_BEAT          = 4;
-    COARSE_THETA_MAX          = 120*DEG_TO_RAD;
-    COARSE_RADIAL_LIMIT       = 180*DEG_TO_RAD;
-    ORIENTATION_VERTICES      = 4;
-    FILTER_OUT_ORIENTS_WITHIN = 300; //km
-  } else if(polyhedron=="regular_octahedron"){
-    solidifier_func           = OrientationToRegularOctahedron;
-    OVERLAPS_TO_BEAT          = 6;
-    COARSE_THETA_MAX          = 90*DEG_TO_RAD;
-    COARSE_RADIAL_LIMIT       = 90*DEG_TO_RAD;
-    ORIENTATION_VERTICES      = 6;
-    FILTER_OUT_ORIENTS_WITHIN = 300; //km
-  } else if(polyhedron=="cuboctahedron"){
-    solidifier_func           = OrientationToCuboctahedron;
-    OVERLAPS_TO_BEAT          = 9;
-    COARSE_THETA_MAX          = 180*DEG_TO_RAD;
-    COARSE_RADIAL_LIMIT       = 90*DEG_TO_RAD;
-    ORIENTATION_VERTICES      = 12;
-    FILTER_OUT_ORIENTS_WITHIN = 100; //km
-  } else {
-    throw std::runtime_error("Unrecognized polyhedron!");
-  }
 }
 
 
@@ -188,9 +211,9 @@ PointCloud ReadPointCloudFromShapefile(std::string filename, std::string layer){
   std::cerr<<"Converting points to WGS84 Cartesian..."<<std::endl;
   std::vector<Point3D> wgs84_xyz;
   #pragma omp declare reduction (merge : std::vector<Point3D> : omp_out.insert(omp_out.end(), omp_in.begin(), omp_in.end()))
-  #pragma omp parallel for default(none) schedule(static) shared(wgs84_ll_flat) reduction(merge:wgs84_xyz)
+  #pragma omp parallel for default(none) schedule(static) shared(TransLLto3D,wgs84_ll_flat) reduction(merge:wgs84_xyz)
   for(unsigned int i=0;i<wgs84_ll_flat.size();i++)
-    wgs84_xyz.push_back(WGS84toEllipsoidCartesian(wgs84_ll_flat[i]));
+    wgs84_xyz.push_back(TransLLto3D(wgs84_ll_flat[i]));
     //wgs84_xyz.push_back(wgs84_ll_flat[i].toXYZ(1));
 
   wgs84_ll_flat.clear();
@@ -332,7 +355,7 @@ OCollection OrientationsFilteredByOverlaps(
   ProgressBar pg(og.size());
   OCollection ret;
   #pragma omp declare reduction (merge : OCollection : omp_out.insert(omp_out.end(), omp_in.begin(), omp_in.end()))
-  #pragma omp parallel for default(none) schedule(static) shared(COARSE_THETA_MAX,landmass,pg) reduction(merge: ret)
+  #pragma omp parallel for default(none) schedule(static) shared(COARSE_THETA_STEP,COARSE_THETA_MAX,landmass,pg) reduction(merge: ret)
   for(unsigned int o=0;o<og.size();o++){
     const auto pole = og(o);
     for(double theta=COARSE_THETA_MIN;theta<=COARSE_THETA_MAX;theta+=COARSE_THETA_STEP){
@@ -398,8 +421,8 @@ OrientationWithStats OrientationStats(
   ows.overlap_count = std::accumulate(ows.overlaps.begin(),ows.overlaps.end(),0);
 
   for(unsigned int i=0;i<sxy.v.size();i++){
-    const auto cp  = wgs84pc.queryPoint(WGS84toEllipsoidCartesian(sxy.v[i])); //Closest point
-    const auto llc = EllipsoidCartesiantoWGS84(cp);
+    const auto cp  = wgs84pc.queryPoint(TransLLto3D(sxy.v[i])); //Closest point
+    const auto llc = Trans3DtoLL(cp);
     auto dist      = GeoDistanceEllipsoid(llc,sxy.v[i]);
     //auto dist    = GeoDistanceFlatEarth(llc,sxy.v[i]);
     if(ows.overlaps.at(i))
@@ -597,7 +620,7 @@ std::ostream& PrintPOI(std::ostream& fout, const OSCollection &osc, const int i,
 
 
 
-std::ofstream& PrintPOICoordinates(std::ofstream& fout, const OSCollection &osc, const int pn, bool header){
+std::ostream& PrintPOICoordinates(std::ostream& fout, const OSCollection &osc, const int pn, bool header){
   if(header){
     fout<<"Num,Lat,Lon,OnLand\n";
   } else {
@@ -618,14 +641,15 @@ void PrintOrientations(
   std::string fileprefix,
   const OSCollection &osc
 ){
+  std::string config_stuff = "-" + chosen_projection + "-" + chosen_polyhedron;
   {
-    std::ofstream fout(FILE_OUTPUT_PREFIX + fileprefix + "-rot.csv");
+    std::ofstream fout(FILE_OUTPUT_PREFIX + fileprefix + config_stuff + "-rot.csv");
     PrintPOI(fout, osc, 0, true);
     for(unsigned int o=0;o<osc.size();o++)
       PrintPOI(fout, osc, o, false);
   }
   {
-    std::ofstream fout(FILE_OUTPUT_PREFIX + fileprefix + "-vert.csv");
+    std::ofstream fout(FILE_OUTPUT_PREFIX + fileprefix + config_stuff +"-vert.csv");
     PrintPOICoordinates(fout, osc, 0, true);
     for(unsigned int o=0;o<osc.size();o++)
       PrintPOICoordinates(fout, osc, o, false);
@@ -808,6 +832,12 @@ TEST_CASE("Test with data [expensive]"){
       CHECK(c.x==doctest::Approx(converted.x));
       CHECK(c.y==doctest::Approx(converted.y));
     }
+
+    for(const auto &c: cities){
+      const auto converted = SphericalCartesiantoWGS84(WGS84toSphericalCartesian(c));
+      CHECK(c.x==doctest::Approx(converted.x));
+      CHECK(c.y==doctest::Approx(converted.y));
+    }
     
 
     //Check that all GC arcs between cities include at least some land
@@ -873,9 +903,11 @@ TEST_CASE("Generate great cicles between points"){
 
 void FuncOptimize(int argc, char **argv){
   (void)argc;
-  SetupForPolyhedron(argv[2]);
+  SetupForProjection(argv[2]);
+  SetupForPolyhedron(argv[3]);
 
-  std::cout<<"Polyhedron                = " << argv[2]                   <<std::endl;
+  std::cout<<"Projection                = " << argv[2]                   <<std::endl;
+  std::cout<<"Polyhedron                = " << argv[3]                   <<std::endl;
   std::cout<<"FILE_WGS84_LANDMASS       = " << FILE_WGS84_LANDMASS       <<std::endl;
   std::cout<<"FILE_OUTPUT_PREFIX        = " << FILE_OUTPUT_PREFIX        <<std::endl;
   std::cout<<"FILE_MERC_LANDMASS        = " << FILE_MERC_LANDMASS        <<std::endl;
@@ -901,6 +933,12 @@ void FuncOptimize(int argc, char **argv){
   orients = FilterOutOrienationsWithNeighbours(orients, FILTER_OUT_ORIENTS_WITHIN);
   std::cout<<"Orientations remaining after filtering those with neighbours = "<<orients.size()<<std::endl;
 
+  if(orients.size()>600){
+    std::cout<<"Number of orientations exceeded 600. Choosing 600 randomly."<<std::endl;
+    std::random_shuffle(orients.begin(),orients.end());
+    orients.resize(600);
+  }
+
   PointCloud wgs84pc;
   wgs84pc = ReadPointCloudFromShapefile(FILE_WGS84_LANDMASS, "land_polygons");
   wgs84pc.buildIndex();
@@ -917,17 +955,36 @@ void FuncOptimize(int argc, char **argv){
 
 
 
-void FuncGetGreatCircle(int argc, char **argv){
+void FuncGetOrientInfo(int argc, char **argv){
   (void)argc;
-  const auto   shape = std::string(argv[2]);
-  const double lat   = std::stod  (argv[3]);
-  const double lon   = std::stod  (argv[4]);
-  const double theta = std::stod  (argv[5]);
+  const std::string proj  = argv[2];
+  const std::string shape = argv[3];
+  const double      lat   = std::stod(argv[4]);
+  const double      lon   = std::stod(argv[5]);
+  const double      theta = std::stod(argv[6]);
 
+  // const auto landmass = IndexedShapefile(FILE_MERC_LANDMASS,"land_polygons");
+  // PointCloud wgs84pc;
+  // wgs84pc = ReadPointCloudFromShapefile(FILE_WGS84_LANDMASS, "land_polygons");
+  // wgs84pc.buildIndex();
+
+  SetupForProjection(proj);
   SetupForPolyhedron(shape);
 
   Orientation o(Point2D(lon,lat).toRadians(),theta*DEG_TO_RAD);
-  SolidXY sxy = Solidifier(o);
+
+  // OrientationWithStats ows = OrientationStats(o, wgs84pc, landmass, true);
+
+  // OSCollection osc;
+  // osc.push_back(ows);
+
+  // PrintPOI(std::cout, osc, 0, true);
+  // PrintPOI(std::cout, osc, 0, false);
+
+  // PrintPOICoordinates(std::cout, osc, 0, true);
+  // PrintPOICoordinates(std::cout, osc, 0, false);
+
+  const SolidXY sxy = Solidifier(o);
 
   const auto neighbors = sxy.neighbors(); //Get a list of neighbouring vertices on the polyhedron
 
@@ -939,7 +996,8 @@ void FuncGetGreatCircle(int argc, char **argv){
     CHECK(gcg.getSpacing()==100);
     for(unsigned int i=0;i<gcg.size();i++){
       auto temp = gcg(i);
-      std::cout<<(temp.y*RAD_TO_DEG)<<","<<(temp.x*RAD_TO_DEG)<<"\n";
+      temp.toDegrees();
+      std::cout<<temp.y<<","<<temp.x<<"\n";
     }
   }
 }
@@ -1028,8 +1086,8 @@ void FuncPolyhedronInfo(){
 
 int FuncHelp(int argc, char **argv){
   (void)argc;
-  std::cout<<argv[0]<<" optimize <Polyhedron>"<<std::endl;
-  std::cout<<argv[0]<<" get_great_circle <Polyhedron> <Lat Deg> <Lon Deg> <Theta Deg>"<<std::endl;
+  std::cout<<argv[0]<<" optimize <Projection> <Polyhedron>"<<std::endl;
+  std::cout<<argv[0]<<" get_orient_info <Projection> <Polyhedron> <Lat Deg> <Lon Deg> <Theta Deg>"<<std::endl;
   std::cout<<argv[0]<<" get_polyhedron_info"<<std::endl;
   std::cout<<std::endl;
 
@@ -1050,8 +1108,8 @@ int main(int argc, char **argv){
     return FuncHelp(argc,argv);
   else if(argv[1]==std::string("optimize"))
     FuncOptimize(argc,argv);
-  else if(argv[1]==std::string("get_great_circle"))
-    FuncGetGreatCircle(argc,argv);
+  else if(argv[1]==std::string("get_orient_info"))
+    FuncGetOrientInfo(argc,argv);
   else if(argv[1]==std::string("get_polyhedron_info"))
     FuncPolyhedronInfo();
   else 
