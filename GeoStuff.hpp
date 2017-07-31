@@ -12,6 +12,7 @@ double GeoDistanceFlatEarth(const Point2D &a, const Point2D &b);
 
 double GeoDistanceHaversine(const Point2D &pa, const Point2D &pb);
 
+double GeoDistanceSphere(const Point2D &a, const Point2D &b);
 double GeoDistanceEllipsoid(const Point2D &a, const Point2D &b);
 
 Point2D WGS84toEPSG3857(const Point2D &p);
@@ -74,5 +75,7 @@ class GreatArcFactory {
 
 typedef std::function<Point3D(const Point2D&)> TransLLto3D_t;
 typedef std::function<Point2D(const Point3D&)> Trans3DtoLL_t;
+
+typedef std::function<double(const Point2D &a, const Point2D &b)> GeoDistance_t;
 
 #endif

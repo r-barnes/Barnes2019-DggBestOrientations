@@ -80,6 +80,7 @@ int ORIENTATION_VERTICES         = 0;
 SolidifyingFunc solidifier_func;
 TransLLto3D_t TransLLto3D;
 Trans3DtoLL_t Trans3DtoLL;
+GeoDistance_t GeoDistance;
 std::string chosen_polyhedron;
 std::string chosen_projection;
 
@@ -87,11 +88,13 @@ std::string chosen_projection;
 void SetupForProjection(const std::string projection){
   chosen_projection = projection;
   if(projection=="spherical"){
-    TransLLto3D = WGS84toEllipsoidCartesian;
-    Trans3DtoLL = EllipsoidCartesiantoWGS84;
-  } else if(projection=="ellipsoidal"){
     TransLLto3D = WGS84toSphericalCartesian;
     Trans3DtoLL = SphericalCartesiantoWGS84;
+    GeoDistance = GeoDistanceSphere;
+  } else if(projection=="ellipsoidal"){
+    TransLLto3D = WGS84toEllipsoidCartesian;
+    Trans3DtoLL = EllipsoidCartesiantoWGS84;
+    GeoDistance = GeoDistanceEllipsoid;
   } else {
     throw std::runtime_error("Unrecognized projection!");
   }
@@ -424,8 +427,7 @@ OrientationWithStats OrientationStats(
   for(unsigned int i=0;i<sxy.v.size();i++){
     const auto cp  = wgs84pc.queryPoint(TransLLto3D(sxy.v[i])); //Closest point
     const auto llc = Trans3DtoLL(cp);
-    auto dist      = GeoDistanceEllipsoid(llc,sxy.v[i]);
-    //auto dist    = GeoDistanceFlatEarth(llc,sxy.v[i]);
+    auto dist      = GeoDistance(llc,sxy.v[i]);
     if(ows.overlaps.at(i))
       dist = -dist;
     ows.mindist = std::min(ows.mindist,dist);

@@ -59,6 +59,24 @@ TEST_CASE("GeoDistanceHaversine"){
 
 
 
+double GeoDistanceSphere(
+  const Point2D &a,
+  const Point2D &b
+){
+  static auto geod = GeographicLib::Geodesic(1000*Rearth, 0);
+
+  const auto gline = geod.InverseLine(
+    a.y*RAD_TO_DEG,
+    a.x*RAD_TO_DEG,
+    b.y*RAD_TO_DEG,
+    b.x*RAD_TO_DEG
+  );
+
+  return gline.Distance()/1000; //km
+}
+
+
+
 double GeoDistanceEllipsoid(
   const Point2D &a,
   const Point2D &b
