@@ -30,10 +30,12 @@ class OrientationIndex {
   const double Rearth = 6371;
   static const unsigned int NO_IGNORE = std::numeric_limits<unsigned int>::max();
   
+  int required_ncount;
+
   //mutable std::vector<double> distance_distribution;
 
-  OrientationIndex(const OCollection &orients, const SolidifyingFunc sf);
-  OrientationIndex(const OSCollection &orients, const SolidifyingFunc sf);
+  OrientationIndex(const OCollection &orients, const SolidifyingFunc sf, const int required_ncount0);
+  OrientationIndex(const OSCollection &orients, const SolidifyingFunc sf, const int required_ncount0);
 
   ~OrientationIndex();
   

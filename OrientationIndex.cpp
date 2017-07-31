@@ -14,7 +14,7 @@ inline size_t OrientationIndex::kdtree_get_point_count() const {
 
 
 inline bool OrientationIndex::vertexInSubdivision(const Point3D &v) const {
-  //return v.z>=0 && v.y>=0;
+  // return v.z>=0 && v.y>=0;
   (void)v;
   return true;
 }
@@ -30,10 +30,13 @@ inline double OrientationIndex::kdtree_distance(const double *p1, const size_t i
 
 OrientationIndex::OrientationIndex(
   const OCollection &orients,
-  const SolidifyingFunc sf
+  const SolidifyingFunc sf, 
+  const int required_ncount0
 ){  //Cannot be parallelized, otherwise the order of the points might get mixed up
   for(unsigned int oi=0;oi<orients.size();oi++)
     addOrientation(oi, sf(orients[oi]));
+
+  required_ncount = required_ncount0;
 
   index.reset(new my_kd_tree_t(3 /*dim*/, *this, nanoflann::KDTreeSingleIndexAdaptorParams(10 /* max leaf */) ));
   index->buildIndex();
@@ -41,10 +44,13 @@ OrientationIndex::OrientationIndex(
 
 OrientationIndex::OrientationIndex(
   const OSCollection &orients,
-  const SolidifyingFunc sf
+  const SolidifyingFunc sf, 
+  const int required_ncount0
 ){  //Cannot be parallelized, otherwise the order of the points might get mixed up
   for(unsigned int oi=0;oi<orients.size();oi++)
     addOrientation(oi, sf(orients[oi]));
+
+  required_ncount = required_ncount0;
 
   index.reset(new my_kd_tree_t(3 /*dim*/, *this, nanoflann::KDTreeSingleIndexAdaptorParams(10 /* max leaf */) ));
   index->buildIndex();
@@ -219,7 +225,7 @@ std::unordered_map<unsigned int,double> OrientationIndex::distancesToNearbyOrien
   //configuration, rather than just one that is nearby. Let us remove those
   //configurations which do not fit this criterion.
   for(auto it = counts.begin(); it!=counts.end(); )
-    if(it->second<2)
+    if(it->second!=required_ncount)
       it = counts.erase(it);
     else
       ++it;

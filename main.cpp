@@ -60,8 +60,6 @@ const double RAD_TO_DEG = 180.0/M_PI;
 const double MAX_COAST_INTERPOINT_DIST = 0.5; //km
 const double EDGE_OVERLAPS_SAMPLE_DIST = 10; //km
 
-const double FILTER_COARSE_ORIENTATIONS_WITHIN = 100; //km
-
 const double COARSE_THETA_MIN    = 0;
 
 #ifdef FINE_RESOLUTION //Used for science
@@ -84,6 +82,8 @@ double COARSE_RADIAL_LIMIT = 0;
 double COARSE_THETA_MAX    = 999999;
 int OVERLAPS_TO_BEAT       = 999999; //Number of overlaps beyond (and including) which we are interested
 SolidifyingFunc solidifier_func;
+int ORIENTATION_VERTICES;
+double FILTER_OUT_ORIENTS_WITHIN; //km
 
 
 //Orientations with no vertices on land are always of interest, as are overlaps
@@ -101,30 +101,40 @@ SolidXY Solidifier(const Orientation &o){
 
 void SetupForPolyhedron(const std::string polyhedron){
   if(polyhedron=="regular_icosahedron"){
-    solidifier_func     = OrientationToRegularIcosahedron;
-    OVERLAPS_TO_BEAT    = 8;
-    COARSE_THETA_MAX    = 72*DEG_TO_RAD;
-    COARSE_RADIAL_LIMIT = 90*DEG_TO_RAD;
+    solidifier_func           = OrientationToRegularIcosahedron;
+    OVERLAPS_TO_BEAT          = 8;
+    COARSE_THETA_MAX          = 72*DEG_TO_RAD;
+    COARSE_RADIAL_LIMIT       = 90*DEG_TO_RAD;
+    ORIENTATION_VERTICES      = 12;
+    FILTER_OUT_ORIENTS_WITHIN = 100; //km
   } else if(polyhedron=="regular_dodecahedron"){
-    solidifier_func     = OrientationToRegularDodecahedron;
-    OVERLAPS_TO_BEAT    = 12;
-    COARSE_THETA_MAX    = 120*DEG_TO_RAD;
-    COARSE_RADIAL_LIMIT = 90*DEG_TO_RAD;
+    solidifier_func           = OrientationToRegularDodecahedron;
+    OVERLAPS_TO_BEAT          = 12;
+    COARSE_THETA_MAX          = 120*DEG_TO_RAD;
+    COARSE_RADIAL_LIMIT       = 90*DEG_TO_RAD;
+    ORIENTATION_VERTICES      = 20;
+    FILTER_OUT_ORIENTS_WITHIN = 25; //km
   } else if(polyhedron=="regular_tetrahedron"){
-    solidifier_func     = OrientationToRegularTetrahedron;
-    OVERLAPS_TO_BEAT    = 4;
-    COARSE_THETA_MAX    = 120*DEG_TO_RAD;
-    COARSE_RADIAL_LIMIT = 180*DEG_TO_RAD;
+    solidifier_func           = OrientationToRegularTetrahedron;
+    OVERLAPS_TO_BEAT          = 4;
+    COARSE_THETA_MAX          = 120*DEG_TO_RAD;
+    COARSE_RADIAL_LIMIT       = 180*DEG_TO_RAD;
+    ORIENTATION_VERTICES      = 4;
+    FILTER_OUT_ORIENTS_WITHIN = 300; //km
   } else if(polyhedron=="regular_octahedron"){
-    solidifier_func     = OrientationToRegularOctahedron;
-    OVERLAPS_TO_BEAT    = 6;
-    COARSE_THETA_MAX    = 90*DEG_TO_RAD;
-    COARSE_RADIAL_LIMIT = 90*DEG_TO_RAD;
+    solidifier_func           = OrientationToRegularOctahedron;
+    OVERLAPS_TO_BEAT          = 6;
+    COARSE_THETA_MAX          = 90*DEG_TO_RAD;
+    COARSE_RADIAL_LIMIT       = 90*DEG_TO_RAD;
+    ORIENTATION_VERTICES      = 6;
+    FILTER_OUT_ORIENTS_WITHIN = 300; //km
   } else if(polyhedron=="cuboctahedron"){
-    solidifier_func     = OrientationToCuboctahedron;
-    OVERLAPS_TO_BEAT    = 9;
-    COARSE_THETA_MAX    = 180*DEG_TO_RAD;
-    COARSE_RADIAL_LIMIT = 90*DEG_TO_RAD;
+    solidifier_func           = OrientationToCuboctahedron;
+    OVERLAPS_TO_BEAT          = 9;
+    COARSE_THETA_MAX          = 180*DEG_TO_RAD;
+    COARSE_RADIAL_LIMIT       = 90*DEG_TO_RAD;
+    ORIENTATION_VERTICES      = 12;
+    FILTER_OUT_ORIENTS_WITHIN = 100; //km
   } else {
     throw std::runtime_error("Unrecognized polyhedron!");
   }
@@ -203,7 +213,7 @@ template<class T>
 norientations_t FindNearbyOrientations(const std::vector<T> &osc, const double distance){
   Timer tmr_bi;
   std::cerr<<"Building kd-tree"<<std::endl;
-  OrientationIndex oidx(osc, Solidifier);
+  OrientationIndex oidx(osc, Solidifier, ORIENTATION_VERTICES);
   std::cerr<<"Time = "<<tmr_bi.elapsed()<<std::endl;
 
   std::cerr<<"Finding nearby orientations..."<<std::endl;
@@ -862,15 +872,23 @@ TEST_CASE("Generate great cicles between points"){
 
 
 void FuncOptimize(int argc, char **argv){
-  std::cout<<"Rearth              = " << Rearth              <<std::endl;
-  std::cout<<"COARSE_SPACING      = " << COARSE_SPACING      <<std::endl;
-  std::cout<<"COARSE_RADIAL_LIMIT = " << COARSE_RADIAL_LIMIT <<std::endl;
-  std::cout<<"COARSE_THETA_MIN    = " << COARSE_THETA_MIN    <<std::endl;
-  std::cout<<"COARSE_THETA_MAX    = " << COARSE_THETA_MAX    <<std::endl;
-  std::cout<<"COARSE_THETA_STEP   = " << COARSE_THETA_STEP   <<std::endl;
-
   (void)argc;
   SetupForPolyhedron(argv[2]);
+
+  std::cout<<"Polyhedron                = " << argv[2]                   <<std::endl;
+  std::cout<<"FILE_WGS84_LANDMASS       = " << FILE_WGS84_LANDMASS       <<std::endl;
+  std::cout<<"FILE_OUTPUT_PREFIX        = " << FILE_OUTPUT_PREFIX        <<std::endl;
+  std::cout<<"FILE_MERC_LANDMASS        = " << FILE_MERC_LANDMASS        <<std::endl;
+  std::cout<<"MUTATION_WIDTH            = " << MUTATION_WIDTH            <<std::endl;
+  std::cout<<"Rearth                    = " << Rearth                    <<std::endl;
+  std::cout<<"COARSE_SPACING            = " << COARSE_SPACING            <<std::endl;
+  std::cout<<"COARSE_RADIAL_LIMIT       = " << COARSE_RADIAL_LIMIT       <<std::endl;
+  std::cout<<"COARSE_THETA_MIN          = " << COARSE_THETA_MIN          <<std::endl;
+  std::cout<<"COARSE_THETA_MAX          = " << COARSE_THETA_MAX          <<std::endl;
+  std::cout<<"COARSE_THETA_STEP         = " << COARSE_THETA_STEP         <<std::endl;
+  std::cout<<"OVERLAPS_TO_BEAT          = " << OVERLAPS_TO_BEAT          <<std::endl;
+  std::cout<<"ORIENTATION_VERTICES      = " << ORIENTATION_VERTICES      <<std::endl;
+  std::cout<<"FILTER_OUT_ORIENTS_WITHIN = " << FILTER_OUT_ORIENTS_WITHIN <<std::endl;
 
   assert(!omp_get_nested());
 
@@ -879,7 +897,8 @@ void FuncOptimize(int argc, char **argv){
   OCollection orients;
   orients = OrientationsFilteredByOverlaps(landmass);
   std::cout<<"Orientations generated with overlaps of interest = "<<orients.size()<<std::endl;
-  orients = FilterOutOrienationsWithNeighbours(orients, FILTER_COARSE_ORIENTATIONS_WITHIN);
+  orients = FilterOutOrienationsWithNeighbours(orients, FILTER_OUT_ORIENTS_WITHIN/2);
+  orients = FilterOutOrienationsWithNeighbours(orients, FILTER_OUT_ORIENTS_WITHIN);
   std::cout<<"Orientations remaining after filtering those with neighbours = "<<orients.size()<<std::endl;
 
   PointCloud wgs84pc;
