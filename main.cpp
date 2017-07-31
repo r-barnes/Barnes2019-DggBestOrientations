@@ -83,6 +83,7 @@ Trans3DtoLL_t Trans3DtoLL;
 std::string chosen_polyhedron;
 std::string chosen_projection;
 
+
 void SetupForProjection(const std::string projection){
   chosen_projection = projection;
   if(projection=="spherical"){
@@ -177,9 +178,9 @@ PointCloud ReadPointCloudFromShapefile(std::string filename, std::string layer){
     std::vector<Point2D> ret;
     const auto quickdist = GeoDistanceFlatEarth(a,b);
     if(quickdist>MAX_COAST_INTERPOINT_DIST){
-      const GreatCircleGenerator gcg(a,b,MAX_COAST_INTERPOINT_DIST);
-      for(unsigned int i=0;i<gcg.size();i++)
-        ret.push_back(gcg(i));
+      const auto gcg = GreatArcFactory::make(chosen_projection,a,b,MAX_COAST_INTERPOINT_DIST);
+      for(unsigned int i=0;i<gcg->size();i++)
+        ret.push_back((*gcg)(i));
     }
     ret.push_back(b);
     return ret;
@@ -381,11 +382,11 @@ OCollection OrientationsFilteredByOverlaps(
 //circle. Then count how many of these sample points fall within landmasses.
 //Maximum value returned is `num_pts+1`
 unsigned int GreatCircleOverlaps(const IndexedShapefile &landmass, const Point2D &a, const Point2D &b, const double spacing){
-  GreatCircleGenerator gcg(a,b,spacing);
+  const auto gcg = GreatArcFactory::make(chosen_projection,a,b,spacing);
 
   unsigned int edge_overlaps = 0;
-  for(unsigned int i=0;i<=gcg.size();i++)
-    edge_overlaps += PointInLandmass(gcg(i),landmass);
+  for(unsigned int i=0;i<=gcg->size();i++)
+    edge_overlaps += PointInLandmass((*gcg)(i),landmass);
 
   return edge_overlaps;
 }
@@ -880,10 +881,10 @@ TEST_CASE("Generate great cicles between points"){
     for(unsigned int n=0;n<neighbors.size();n+=2){
       const auto &a = sxy.v[neighbors[n]];
       const auto &b = sxy.v[neighbors[n+1]];
-      const GreatCircleGenerator gcg(a,b,100);
-      CHECK(gcg.getSpacing()==100);
-      for(unsigned int i=0;i<gcg.size();i++){
-        auto temp = gcg(i);
+      const auto gcg = GreatArcFactory::make(chosen_projection,a,b,100);
+      CHECK(gcg->getSpacing()==100);
+      for(unsigned int i=0;i<gcg->size();i++){
+        auto temp = (*gcg)(i);
         temp.toDegrees();
         fout<<temp.y<<","<<temp.x<<"\n";
       }
@@ -992,10 +993,10 @@ void FuncGetOrientInfo(int argc, char **argv){
   for(unsigned int n=0;n<neighbors.size();n+=2){
     const auto &a = sxy.v[neighbors[n]];
     const auto &b = sxy.v[neighbors[n+1]];
-    const GreatCircleGenerator gcg(a,b,100);
-    CHECK(gcg.getSpacing()==100);
-    for(unsigned int i=0;i<gcg.size();i++){
-      auto temp = gcg(i);
+    const auto gcg = GreatArcFactory::make(chosen_projection,a,b,100);
+    CHECK(gcg->getSpacing()==100);
+    for(unsigned int i=0;i<gcg->size();i++){
+      auto temp = (*gcg)(i);
       temp.toDegrees();
       std::cout<<temp.y<<","<<temp.x<<"\n";
     }

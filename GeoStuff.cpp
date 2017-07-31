@@ -222,13 +222,15 @@ TEST_CASE("Shapefile open failure"){
 
 
 
-GeographicLib::Geodesic GreatCircleGenerator::geod = GeographicLib::Geodesic(GeographicLib::Constants::WGS84_a(), GeographicLib::Constants::WGS84_f());
-
 GreatCircleGenerator::GreatCircleGenerator(
+  double geod_radius,
+  double geod_flattening,
   const Point2D &a,
   const Point2D &b,
   const double spacing0
 ){
+  geod = GeographicLib::Geodesic(geod_radius, geod_flattening);
+
   gline = geod.InverseLine(
     a.y*RAD_TO_DEG,
     a.x*RAD_TO_DEG,
@@ -256,4 +258,26 @@ unsigned int GreatCircleGenerator::size() const {
 
 double GreatCircleGenerator::getSpacing() const {
   return spacing;
+}
+
+
+EllipsoidalGreatCircleGenerator::EllipsoidalGreatCircleGenerator(const Point2D &a, const Point2D &b, const double spacing0) :
+  GreatCircleGenerator(GeographicLib::Constants::WGS84_a(), GeographicLib::Constants::WGS84_f(), a, b, spacing0) {}
+
+SphericalGreatCircleGenerator::SphericalGreatCircleGenerator(const Point2D &a, const Point2D &b, const double spacing0) :
+  GreatCircleGenerator(1000*Rearth, 0, a, b, spacing0) {}
+
+
+
+std::unique_ptr<GreatCircleGenerator> GreatArcFactory::make(
+  const std::string &description,
+  const Point2D &a,
+  const Point2D &b,
+  const double spacing0
+){
+  if(description == "spherical")
+    return std::make_unique<SphericalGreatCircleGenerator>(a,b,spacing0);
+  else if(description == "ellipsoidal")
+    return std::make_unique<EllipsoidalGreatCircleGenerator>(a,b,spacing0);
+  return NULL;
 }

@@ -6,6 +6,7 @@
 #include <GeographicLib/Geodesic.hpp>
 #include <GeographicLib/GeodesicLine.hpp>
 #include <functional>
+#include <memory>
 
 double GeoDistanceFlatEarth(const Point2D &a, const Point2D &b);
 
@@ -28,20 +29,48 @@ double EuclideanDistance(const Point3D &a, const Point3D &b);
 
 Polygons ReadShapefile(std::string filename, std::string layername);
 
+
+
 class GreatCircleGenerator {
- public:
-  static GeographicLib::Geodesic geod;
  private:
+  GeographicLib::Geodesic geod = GeographicLib::Geodesic(10,0);
   GeographicLib::GeodesicLine gline;
   double spacing;
   double da;
   unsigned int num_pts;
  public:
-  GreatCircleGenerator(const Point2D &a, const Point2D &b, const double spacing0);
+  GreatCircleGenerator(
+    double geod_radius,
+    double geod_flattening,
+    const Point2D &a,
+    const Point2D &b,
+    const double spacing0
+  );
   Point2D operator()(int i) const;
   unsigned int size() const;
   double getSpacing() const;
 };
+
+class EllipsoidalGreatCircleGenerator : public GreatCircleGenerator {
+ public:
+  EllipsoidalGreatCircleGenerator(const Point2D &a, const Point2D &b, const double spacing0);
+};
+
+class SphericalGreatCircleGenerator : public GreatCircleGenerator {
+ public:
+  SphericalGreatCircleGenerator(const Point2D &a, const Point2D &b, const double spacing0);
+};
+
+class GreatArcFactory {
+ public:
+  static std::unique_ptr<GreatCircleGenerator> make(
+    const std::string &description,
+    const Point2D &a,
+    const Point2D &b,
+    const double spacing0
+  );
+};
+
 
 typedef std::function<Point3D(const Point2D&)> TransLLto3D_t;
 typedef std::function<Point2D(const Point3D&)> Trans3DtoLL_t;
