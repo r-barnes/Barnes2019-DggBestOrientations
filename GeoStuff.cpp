@@ -8,6 +8,7 @@
 #include <GeographicLib/Constants.hpp>
 
 const double RAD_TO_DEG = 180.0/M_PI;
+const double Rearth = 6371; //km
 
 // """
 // Calculate the Great Circle distance on Earth between two latitude-longitude
@@ -23,7 +24,6 @@ double GeoDistanceFlatEarth(
   const Point2D &b
 ){
   //Flat Earth Approx
-  const double Rearth = 6371; //km
   const double dlat = b.y-a.y;
   const double dlon = b.x-a.x;
   const double mlat = (b.y+a.y)/2;
@@ -43,7 +43,6 @@ double GeoDistanceHaversine(
   const Point2D &pa,
   const Point2D &pb
 ){
-  const double Rearth = 6371; //km
   const double dlon   = pb.x-pa.x;
   const double dlat   = pb.y-pa.y;
   const double a      = std::pow(std::sin(dlat/2),2) + std::cos(pa.y) * std::cos(pb.y) * std::pow(std::sin(dlon/2),2);
