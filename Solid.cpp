@@ -410,6 +410,48 @@ TEST_CASE("Shape metrics"){
     SUBCASE("regularoctahedron")   {dist_checker(regularoctahedron);   }
     SUBCASE("cuboctahedron")       {dist_checker(cuboctahedron);       }
   }
+
+  SUBCASE("Edge counts"){
+    const auto count_edges = [](const SolidXY &sxy){
+      return sxy.toXYZ(1).neighbors().size()/2; //Two neighbours equals one edge
+    };
+
+    SUBCASE("icosahedron")         {CHECK(count_edges(icosahedron)         == 30 );}
+    SUBCASE("regulardodecahedron") {CHECK(count_edges(regulardodecahedron) == 30 );}
+    SUBCASE("regulartetrahedron")  {CHECK(count_edges(regulartetrahedron)  ==  6 );}
+    SUBCASE("regularoctahedron")   {CHECK(count_edges(regularoctahedron)   == 12 );}
+    SUBCASE("cuboctahedron")       {CHECK(count_edges(cuboctahedron)       == 24 );}
+  }
+
+  SUBCASE("Neighbour counts and distances"){
+    const auto ncounter = [](const SolidXY &sxy){
+      const auto n = sxy.toXYZ(1).neighbors();
+
+      const auto ndist = sxy.neighborDistance();
+
+      std::vector< std::vector<int> > ncheck(sxy.v.size());
+      for(unsigned int ni=0;ni<n.size();ni+=2){
+        ncheck.at(n.at(ni)).emplace_back(n.at(ni+1));
+        ncheck.at(n.at(ni+1)).emplace_back(n.at(ni));
+        CHECK(GeoDistanceHaversine(sxy.v.at(n.at(ni)),sxy.v.at(n.at(ni+1)))==doctest::Approx(ndist));
+      }
+
+      //Choose one vertex randomly. All should match it.
+      const auto n_to_match = ncheck.front().size();
+
+      //Each vertex should have 5 neighbours
+      for(const auto &ni: ncheck)
+        CHECK(ni.size()==n_to_match);
+
+      return n_to_match;
+    };
+
+    SUBCASE("icosahedron")         {CHECK(ncounter(icosahedron)         == 5 );}
+    SUBCASE("regulardodecahedron") {CHECK(ncounter(regulardodecahedron) == 3 );}
+    SUBCASE("regulartetrahedron")  {CHECK(ncounter(regulartetrahedron)  == 3 );}
+    SUBCASE("regularoctahedron")   {CHECK(ncounter(regularoctahedron)   == 4 );}
+    SUBCASE("cuboctahedron")       {CHECK(ncounter(cuboctahedron)       == 4 );}
+  }
 }
 
 TEST_CASE("rotate"){
@@ -455,32 +497,6 @@ TEST_CASE("toRadians"){
   CHECK(p.y==ico2d.v[3].y);
 }
 
-TEST_CASE("neighbors"){
-  const Orientation o(Point2D(0,90).toRadians(),0);
-  SolidXY ico2d = OrientationToRegularIcosahedron(o);
-  const auto n = ico2d.neighbors();
-  CHECK(n.size()==2*30); //I should have 30 edges represented by 60 neighbour pairs
-  
-  std::vector< std::vector<int> > ncheck(12);
-  for(unsigned int ni=0;ni<n.size();ni+=2){
-    ncheck.at(n.at(ni)).emplace_back(n.at(ni+1));
-    ncheck.at(n.at(ni+1)).emplace_back(n.at(ni));
-  }
-
-  //Each vertex should have 5 neighbours
-  for(const auto &ni: ncheck)
-    CHECK(ni.size()==5);
-}
-
-TEST_CASE("neighborDistance"){ //TODO
-  const Orientation o(Point2D(0,90).toRadians(),0);
-  SolidXY icoxy = OrientationToRegularIcosahedron(o);
-  const auto n     = icoxy.neighbors();
-  const auto ndist = icoxy.neighborDistance();
-  for(unsigned int i=0;i<n.size();i+=2)
-    CHECK(GeoDistanceHaversine(icoxy.v[n.at(i)],icoxy.v[n.at(i+1)])==doctest::Approx(ndist));
-}
-
 TEST_CASE("toXYZ"){
   const Orientation o(Point2D(0,90).toRadians(),0);
   SolidXY a = OrientationToRegularIcosahedron(o);
@@ -512,20 +528,4 @@ TEST_CASE("rotateTo"){
       CHECK(a.v[i].y==doctest::Approx(r.v[i].y));
     }
   }
-}
-
-TEST_CASE("neighbors"){
-  const Orientation o(Point2D(0,90).toRadians(),0);
-  const auto n = OrientationToRegularIcosahedron(o).toXYZ(1).neighbors();
-  CHECK(n.size()==2*30); //I should have 30 edges represented by 60 neighbour pairs
-  
-  std::vector< std::vector<int> > ncheck(12);
-  for(unsigned int ni=0;ni<n.size();ni+=2){
-    ncheck.at(n.at(ni)).emplace_back(n.at(ni+1));
-    ncheck.at(n.at(ni+1)).emplace_back(n.at(ni));
-  }
-
-  //Each vertex should have 5 neighbours
-  for(const auto &ni: ncheck)
-    CHECK(ni.size()==5);
 }
