@@ -51,7 +51,8 @@ const std::vector<std::string> polyhedra_names = {{
   "regular_dodecahedron",
   "regular_tetrahedron",
   "regular_octahedron",
-  "cuboctahedron"
+  "cuboctahedron",
+  "point"
 }};
 
 const double Rearth = 6371; //km
@@ -149,6 +150,15 @@ void SetupForPolyhedron(const std::string polyhedron){
     FILTER_OUT_ORIENTS_WITHIN = 100; //km
     COARSE_SPACING            = 200; //km
     COARSE_THETA_STEP         = 2*DEG_TO_RAD;
+  } else if(polyhedron=="point"){
+    solidifier_func           = OrientationToPoint;
+    OVERLAPS_TO_BEAT          = 1;
+    COARSE_THETA_MAX          = 360*DEG_TO_RAD;
+    COARSE_RADIAL_LIMIT       = 180*DEG_TO_RAD;
+    ORIENTATION_VERTICES      = 1;
+    FILTER_OUT_ORIENTS_WITHIN = 100; //km
+    COARSE_SPACING            = 300; //km
+    COARSE_THETA_STEP         = 3*DEG_TO_RAD;
   } else {
     throw std::runtime_error("Unrecognized polyhedron!");
   }
@@ -401,6 +411,10 @@ unsigned int GreatCircleOverlaps(const IndexedShapefile &landmass, const Point2D
 unsigned int OrientationEdgeOverlaps(const SolidXY &sxy, const IndexedShapefile &landmass){
   static const auto neighbors = sxy.neighbors(); //Get a list of neighbouring vertices on the polyhedron
   unsigned int edge_overlaps = 0;
+
+  if(neighbors.size()==0)
+    return 0;
+
   for(unsigned int n=0;n<neighbors.size();n+=2){
     const auto &a = sxy.v[neighbors[n]];
     const auto &b = sxy.v[neighbors[n+1]];
@@ -698,36 +712,37 @@ void FindBest(
   std::cerr<<"Find best..."<<std::endl;
 
   {
-    FindBestHelper("out_min_mindist", orients, wgs84pc, landmass, false,
-      [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.mindist<b.mindist; }
-    );
-    FindBestHelper("out_max_mindist", orients, wgs84pc, landmass, false,
-      [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.mindist>b.mindist; }
-    );
-    
+    if(chosen_polyhedron=="point"){
+      FindBestHelper("out_min_mindist", orients, wgs84pc, landmass, false,
+        [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.mindist<b.mindist; }
+      );
+      FindBestHelper("out_max_mindist", orients, wgs84pc, landmass, false,
+        [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.mindist>b.mindist; }
+      );
+      
 
-    FindBestHelper("out_min_maxdist", orients, wgs84pc, landmass, false,
-      [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.maxdist<b.maxdist; }
-    );
-    FindBestHelper("out_max_maxdist", orients, wgs84pc, landmass, false,
-      [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.maxdist>b.maxdist; }
-    );
+      FindBestHelper("out_min_maxdist", orients, wgs84pc, landmass, false,
+        [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.maxdist<b.maxdist; }
+      );
+      FindBestHelper("out_max_maxdist", orients, wgs84pc, landmass, false,
+        [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.maxdist>b.maxdist; }
+      );
+    } else {
+      FindBestHelper("out_min_avgdist", orients, wgs84pc, landmass, false,
+        [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.avgdist<b.avgdist; }
+      );
+      FindBestHelper("out_max_avgdist", orients, wgs84pc, landmass, false,
+        [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.avgdist>b.avgdist; }
+      );
+      
 
-    
-    FindBestHelper("out_min_avgdist", orients, wgs84pc, landmass, false,
-      [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.avgdist<b.avgdist; }
-    );
-    FindBestHelper("out_max_avgdist", orients, wgs84pc, landmass, false,
-      [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.avgdist>b.avgdist; }
-    );
-    
-
-    FindBestHelper("out_min_edge_overlaps", orients, wgs84pc, landmass, true,
-      [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.edge_overlaps<b.edge_overlaps; }
-    );
-    FindBestHelper("out_max_edge_overlaps", orients, wgs84pc, landmass, true,
-      [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.edge_overlaps>b.edge_overlaps; }
-    );
+      FindBestHelper("out_min_edge_overlaps", orients, wgs84pc, landmass, true,
+        [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.edge_overlaps<b.edge_overlaps; }
+      );
+      FindBestHelper("out_max_edge_overlaps", orients, wgs84pc, landmass, true,
+        [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.edge_overlaps>b.edge_overlaps; }
+      );
+    }
   }
   
   std::cerr<<"Found best in = "<<tmr.elapsed()<<std::endl;
@@ -881,6 +896,10 @@ TEST_CASE("Generate great cicles between points"){
     const auto neighbors = sxy.neighbors();             //Get a list of neighbouring vertices on the polyhedron
     std::ofstream fout(filename);
     fout<<"lat,lon\n";
+    
+    if(neighbors.size()==0)
+      return;
+
     for(unsigned int n=0;n<neighbors.size();n+=2){
       const auto &a = sxy.v[neighbors[n]];
       const auto &b = sxy.v[neighbors[n+1]];
@@ -993,6 +1012,10 @@ void FuncGetOrientInfo(int argc, char **argv){
   const auto neighbors = sxy.neighbors(); //Get a list of neighbouring vertices on the polyhedron
 
   std::cout<<"lat,lon\n";
+  
+  if(neighbors.size()==0)
+    return;
+
   for(unsigned int n=0;n<neighbors.size();n+=2){
     const auto &a = sxy.v[neighbors[n]];
     const auto &b = sxy.v[neighbors[n+1]];

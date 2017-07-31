@@ -335,6 +335,12 @@ SolidXY OrientationFullerIcosahedron(){
   return sxy;
 }
 
+SolidXY OrientationToPoint(const Orientation &o){
+  SolidXY sxy;
+  sxy.v = {{o.pole}};
+  return sxy;
+}
+
 
 
 
@@ -348,6 +354,7 @@ TEST_CASE("Shape metrics"){
   auto regulartetrahedron  = OrientationToRegularTetrahedron(o);
   auto regularoctahedron   = OrientationToRegularOctahedron(o);
   auto cuboctahedron       = OrientationToCuboctahedron(o);
+  auto point               = OrientationToPoint(o);
 
   SUBCASE("Number of vertices"){
     SUBCASE("icosahedron")         {CHECK(icosahedron.v.size()        ==12 );}
@@ -355,7 +362,8 @@ TEST_CASE("Shape metrics"){
     SUBCASE("regulartetrahedron")  {CHECK(regulartetrahedron.v.size() == 4 );}
     SUBCASE("regularoctahedron")   {CHECK(regularoctahedron.v.size()  == 6 );}
     SUBCASE("cuboctahedron")       {CHECK(cuboctahedron.v.size()      ==12 );}
-  }
+    SUBCASE("point")               {CHECK(point.v.size()              == 1 );}
+  } 
 
   SUBCASE("Equal Distances from Center"){
     const auto dist = [](const Point3D &p3d){return std::sqrt(p3d.x*p3d.x+p3d.y*p3d.y+p3d.z*p3d.z);};
@@ -369,6 +377,7 @@ TEST_CASE("Shape metrics"){
     SUBCASE("regulartetrahedron")  {all_dist_equal(regulartetrahedron.toXYZ(1)); }
     SUBCASE("regularoctahedron")   {all_dist_equal(regularoctahedron.toXYZ(1));  }
     SUBCASE("cuboctahedron")       {all_dist_equal(cuboctahedron.toXYZ(1));      }
+    SUBCASE("point")               {all_dist_equal(point.toXYZ(1));              }
   }
 
   SUBCASE("Point at North Pole"){
@@ -392,6 +401,10 @@ TEST_CASE("Shape metrics"){
       CHECK(cuboctahedron.v[0].x==doctest::Approx(0));
       CHECK(cuboctahedron.v[0].y==doctest::Approx(M_PI/2));
     }
+    SUBCASE("point"){
+      CHECK(point.v[0].x==doctest::Approx(0));
+      CHECK(point.v[0].y==doctest::Approx(M_PI/2));
+    }
   }
 
   SUBCASE("Equidistant"){
@@ -409,6 +422,7 @@ TEST_CASE("Shape metrics"){
     SUBCASE("regulartetrahedron")  {dist_checker(regulartetrahedron);  }
     SUBCASE("regularoctahedron")   {dist_checker(regularoctahedron);   }
     SUBCASE("cuboctahedron")       {dist_checker(cuboctahedron);       }
+    SUBCASE("point")               {dist_checker(point);               }
   }
 
   SUBCASE("Edge counts"){
@@ -421,6 +435,7 @@ TEST_CASE("Shape metrics"){
     SUBCASE("regulartetrahedron")  {CHECK(count_edges(regulartetrahedron)  ==  6 );}
     SUBCASE("regularoctahedron")   {CHECK(count_edges(regularoctahedron)   == 12 );}
     SUBCASE("cuboctahedron")       {CHECK(count_edges(cuboctahedron)       == 24 );}
+    SUBCASE("point")               {CHECK(count_edges(point)               ==  0 );}
   }
 
   SUBCASE("Neighbour counts and distances"){
