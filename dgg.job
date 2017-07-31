@@ -4,7 +4,7 @@
 #SBATCH --partition=compute
 #SBATCH --nodes=1
 #SBATCH --export=ALL  
-#SBATCH -t 05:00:00
+#SBATCH -t 30:00:00
 
 cd /home/rbarnes1/dgg_best_poles2
 
@@ -12,4 +12,17 @@ export LD_LIBRARY_PATH=$HOME/os/anaconda3/lib:$HOME/os/lib:$LD_LIBRARY_PATH
 
 ulimit -c unlimited
 
-./dgfinder.exe
+./dgfinder.exe optimize spherical   regular_icosahedron
+./dgfinder.exe optimize ellipsoidal regular_icosahedron
+
+./dgfinder.exe optimize spherical   regular_dodecahedron
+./dgfinder.exe optimize ellipsoidal regular_dodecahedron
+
+./dgfinder.exe optimize spherical   cuboctahedron
+./dgfinder.exe optimize ellipsoidal cuboctahedron
+
+./dgfinder.exe optimize spherical   regular_octahedron
+./dgfinder.exe optimize ellipsoidal regular_octahedron
+
+./dgfinder.exe optimize spherical   regular_tetrahedron
+./dgfinder.exe optimize ellipsoidal regular_tetrahedron
