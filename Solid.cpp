@@ -67,7 +67,7 @@ std::vector<int> SolidXY::neighbors() const {
   for(unsigned int i=1;i<v.size();i++)
     dist = std::min(dist,GeoDistanceHaversine(v[0],v[i]));
   //Increase by 5% to account for floating point errors
-  dist *= 1.05;
+  dist *= 1.3;
   for(unsigned int i=0;  i<v.size();i++)
   for(unsigned int j=i+1;j<v.size();j++)
     if(GeoDistanceHaversine(v[i],v[j])<dist){ //SolidXY is about as close as any close pole
