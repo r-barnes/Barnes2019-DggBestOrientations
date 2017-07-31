@@ -265,21 +265,21 @@ TEST_CASE("OrientationIndex"){
   orients.emplace_back(Point2D(-93,45).toRadians(), 0);
 
   SUBCASE("No result"){
-    OrientationIndex oidx(orients, OrientationToRegularIcosahedron);
+    OrientationIndex oidx(orients, OrientationToRegularIcosahedron, 12);
     auto result = oidx.query(0,100);
     CHECK(result.size()==0);
   }
 
   SUBCASE("One result"){
     orients.emplace_back(Point2D(-93,45).toRadians(), 72.0*DEG_TO_RAD);
-    OrientationIndex oidx(orients, OrientationToRegularIcosahedron);
+    OrientationIndex oidx(orients, OrientationToRegularIcosahedron, 12);
     auto result = oidx.query(0,100);
     CHECK(result[0]==1);
   }
 
   SUBCASE("Partial overlap with no results"){
     orients.emplace_back(Point2D(-93,45).toRadians(), 36.0*DEG_TO_RAD);
-    OrientationIndex oidx(orients, OrientationToRegularIcosahedron);
+    OrientationIndex oidx(orients, OrientationToRegularIcosahedron, 12);
     auto result = oidx.query(0,100);
     CHECK(result.size()==0);
   }
@@ -291,7 +291,7 @@ TEST_CASE("OrientationIndex"){
     orients.emplace_back(Point2D(-93.2,45.2).toRadians(), 0*DEG_TO_RAD);
     orients.emplace_back(Point2D(-93.0,45.0).toRadians(), 36*DEG_TO_RAD);
     orients.emplace_back(Point2D(23,-23.2).toRadians(), 36*DEG_TO_RAD);
-    OrientationIndex oidx(orients, OrientationToRegularIcosahedron);
+    OrientationIndex oidx(orients, OrientationToRegularIcosahedron, 12);
 
     {
       auto result = oidx.query(0,100);
@@ -320,7 +320,7 @@ TEST_CASE("OrientationsWithStats"){
   ows.emplace_back(Point2D(-93.2,45.2).toRadians(), 0*DEG_TO_RAD);
   ows.emplace_back(Point2D(-93.2,45.2).toRadians(), 36*DEG_TO_RAD);
   ows.emplace_back(Point2D(23,-23.2).toRadians(), 36*DEG_TO_RAD);
-  OrientationIndex oidx(ows, OrientationToRegularIcosahedron);
+  OrientationIndex oidx(ows, OrientationToRegularIcosahedron, 12);
   auto result = oidx.query(0,100);
   CHECK(result.size()==4);
   CHECK(result[0]==1);
