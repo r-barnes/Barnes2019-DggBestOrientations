@@ -585,8 +585,9 @@ OrientationWithStats ComplexHillClimb(
   bool do_edge,
   std::function<bool(const OrientationWithStats&, const OrientationWithStats&)> dom_checker
 ){
-  auto best = HillClimb(orient,wgs84pc,landmass,do_edge,dom_checker,1000,20,0.1*DEG_TO_RAD);
+  auto best = HillClimb(orient,wgs84pc,landmass,do_edge,dom_checker,1000,20,0.3*DEG_TO_RAD);
   best      = HillClimb(best,wgs84pc,landmass,do_edge,dom_checker,48,100,0.1*DEG_TO_RAD);
+  best      = HillClimb(best,wgs84pc,landmass,do_edge,dom_checker,48,100,0.05*DEG_TO_RAD);
   return best;
 }
 
