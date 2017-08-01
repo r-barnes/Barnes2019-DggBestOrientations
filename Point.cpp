@@ -165,7 +165,9 @@ TEST_CASE("Point2D: Conversion to Degrees"){
 
 Point2D& Point2D::rotateTheta(const double rtheta) {
   x += M_PI+rtheta;                                  //Move [0,360] and add theta
-  x  = std::fmod(2*M_PI+std::fmod(x,2*M_PI),2*M_PI); //Map back to [0,360]
+  x = std::fmod(x,2*M_PI);                           //Map back to [0,360]
+  if(x<0)
+    x += 2*M_PI;
   x -= M_PI;                                         //Move back to [-180,180] system
   return *this;
 }
