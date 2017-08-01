@@ -41,6 +41,7 @@ class PointCloud {
   void buildIndex();
   void addPoint(const Point3D &xyz);
   const Point3D& queryPoint(const Point3D &xyz) const;
+  std::vector<std::pair<unsigned int, double> > queryByDistance(const Point3D &qp, const double distance) const;
 };
 
 #endif

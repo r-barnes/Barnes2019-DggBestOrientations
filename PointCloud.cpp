@@ -68,6 +68,22 @@ const Point3D& PointCloud::queryPoint(const Point3D &xyz) const {
   return pts.at(ret_index);
 }
 
+std::vector<std::pair<unsigned int, double> > PointCloud::queryByDistance(const Point3D &qp, const double distance) const {
+  double query_pt[3] = {qp.x,qp.y,qp.z};
+
+  std::vector< std::pair<size_t, double> > temp;
+  nanoflann::SearchParams params;
+
+  index->radiusSearch(query_pt, distance*distance, temp, params);
+  std::sort(temp.begin(),temp.end(),[&](const std::pair<size_t, double> &a, const std::pair<size_t, double> &b){return a.second<b.second;});
+
+  std::vector<std::pair<unsigned int, double> > matches;
+  for(auto &t: temp)
+    matches.emplace_back(t.first, t.second);
+
+  return matches;
+}
+
 
 
 TEST_CASE("PointCloud"){
