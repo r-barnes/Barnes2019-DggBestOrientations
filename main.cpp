@@ -471,11 +471,12 @@ class HillClimber {
       x = rangemax-std::abs(x-rangemax);
     return x;    
   }
-  double wrapLong(double x, const double rangemin, const double rangemax) const {
-    if(x<rangemin)
-      x = rangemax + (x-rangemin);
-    else if(x>rangemax)
-      x = rangemin + (x-rangemax);
+  double wrapLong(double x) const {
+    x += M_PI;               //Move [0,360]
+    x = std::fmod(x,2*M_PI); //Map back to [0,360]
+    if(x<0)
+      x += 2*M_PI;
+    x -= M_PI;               //Move back to [-180,180] system
     return x;
   }
   std::uniform_int_distribution<> coord_dist;
@@ -494,7 +495,7 @@ class HillClimber {
     switch(nextcoord){
       case 0:
         mutated.pole.x += getMutation();
-        mutated.pole.x = wrapLong(mutated.pole.x,-M_PI,M_PI);
+        mutated.pole.x = wrapLong(mutated.pole.x);
         break;
       case 1:
         mutated.pole.y += getMutation();
@@ -502,7 +503,7 @@ class HillClimber {
         break;
       case 2:
         mutated.theta += getMutation();
-        mutated.theta = wrapLong(mutated.theta,-M_PI,M_PI);
+        mutated.theta = wrapLong(mutated.theta);
         break;
       default:
         throw std::runtime_error("Unrecognized coordinate to mutate!");
