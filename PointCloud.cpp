@@ -84,6 +84,25 @@ std::vector<std::pair<unsigned int, double> > PointCloud::queryByDistance(const 
   return matches;
 }
 
+std::vector< std::pair<int,double> >  PointCloud::kNN(const Point3D &qp, const int num_results) const {
+  double query_pt[3] = {qp.x,qp.y,qp.z};
+  size_t ret_index[num_results];
+  double out_dist_sqr[num_results];
+  nanoflann::KNNResultSet<double> resultSet(num_results);
+  resultSet.init(ret_index, out_dist_sqr);
+  index->findNeighbors(resultSet, &query_pt[0], nanoflann::SearchParams(10));
+
+  std::vector< std::pair<int,double> > ret;
+
+  for(int i=0;i<num_results;i++)
+    ret.emplace_back(ret_index[i],out_dist_sqr[i]);
+
+  std::sort(ret.begin(),ret.end(),[&](const std::pair<int, double> &a, const std::pair<int, double> &b){return a.second<b.second;});
+
+  return ret;
+}
+
+
 
 
 TEST_CASE("PointCloud"){
