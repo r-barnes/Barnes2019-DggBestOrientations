@@ -23,6 +23,7 @@
 #include <cassert>
 #include <fstream>
 #include <functional>
+#include <iomanip>
 #include "doctest.h"
 #include <omp.h>
 
@@ -437,6 +438,34 @@ TEST_CASE("Test with data [expensive]"){
   }
 }
 
+void PrintPoints(
+  const int          poi_num,
+  const std::string  sense,
+  const PointCloud  &wgs84pc,
+  PointWithStats     pt,
+  std::ofstream     &fout,
+  std::ofstream     &fout_circ
+){
+  const auto circ_pts = wgs84pc.kNN(TransLLto3D(pt.second), 3);
+
+  for(unsigned int i=0;i<circ_pts.size();i++){
+    auto cp = Trans3DtoLL(wgs84pc.pts.at(circ_pts.at(i).first));
+    cp.toDegrees();
+    fout_circ<<poi_num<<","
+             <<i      <<","
+             <<std::fixed<<std::setprecision(10)<<cp.x<<","
+             <<std::fixed<<std::setprecision(10)<<cp.y<<","
+             <<std::fixed<<std::setprecision(10)<<std::sqrt(circ_pts.at(i).second)<<"\n";
+  }
+
+  pt.second.toDegrees();
+  fout<<poi_num<<","
+      <<sense  <<","
+      <<std::fixed<<std::setprecision(10)<<pt.second.x<<","
+      <<std::fixed<<std::setprecision(10)<<pt.second.y<<","
+      <<std::fixed<<std::setprecision(10)<<pt.first<<"\n";  
+}
+
 
 
 #ifdef DOCTEST_CONFIG_DISABLE
@@ -459,32 +488,33 @@ int main(int argc, char **argv){
   const auto dom_max = [](const PointWithStats &a, const PointWithStats &b){ return a.first>b.first; };
 
   //Generate evenly-spaced points covering the whole globe
-  OrientationGenerator og(300,180*DEG_TO_RAD);
+  OrientationGenerator og(2000,180*DEG_TO_RAD); //TODO: 300
 
-  std::ofstream fout(FILE_OUTPUT_PREFIX + "poi.csv");
 
   std::vector<PointWithStats> min_pts;
   std::vector<PointWithStats> max_pts;
 
   ProgressBar pg(og.size());
-  fout<<"Type,PoleX,PoleY,Distance\n";
   for(int i=0;i<og.size();i++){
     auto pt = og(i);
     min_pts.push_back(ComplexHillClimb(pt, wgs84pc, landmass, dom_min));
     max_pts.push_back(ComplexHillClimb(pt, wgs84pc, landmass, dom_max));
+    ++pg;
   }
 
   min_pts = FilterPoints(min_pts, dom_min);
-  max_pts = FilterPoints(max_pts, dom_min);
+  max_pts = FilterPoints(max_pts, dom_max);
 
-  for(auto p: min_pts){
-    p.second.toDegrees();
-    fout<<"min,"<<p.second.x<<","<<p.second.y<<","<<p.first<<"\n";
-  }
-  for(auto p: max_pts){
-    p.second.toDegrees();
-    fout<<"max,"<<p.second.x<<","<<p.second.y<<","<<p.first<<"\n";
-  }
+  unsigned int poi_num = 0;
+
+  std::ofstream fout(FILE_OUTPUT_PREFIX + "poi.csv");
+  std::ofstream fout_circ(FILE_OUTPUT_PREFIX + "poi-circ.csv");
+  fout<<"poi_num,Type,PoleX,PoleY,Distance\n";
+  fout_circ<<"poi_num,pt_num,X,Y,distance\n";
+  for(auto p: min_pts)
+    PrintPoints(poi_num++, "min", wgs84pc, p, fout, fout_circ);
+  for(auto p: max_pts)
+    PrintPoints(poi_num++, "max", wgs84pc, p, fout, fout_circ);
 
   return 0;
 }
