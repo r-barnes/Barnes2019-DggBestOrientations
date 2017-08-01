@@ -771,6 +771,8 @@ TEST_CASE("Check orientation of generated points"){
 TEST_CASE("Test with data [expensive]"){
   const auto landmass = IndexedShapefile(FILE_MERC_LANDMASS,"land_polygons");
 
+  SetupForProjection("ellipsoidal");
+
   SUBCASE("Check that Fuller orientation has no overlaps"){
     SolidXY p = OrientationFullerIcosahedron();
 
@@ -844,7 +846,7 @@ TEST_CASE("Test with data [expensive]"){
 
     for(unsigned int i=0;i<cities.size();i++)
     for(unsigned int j=0;j<cities.size();j++)
-      CHECK(std::abs(GeoDistanceEllipsoid(cities[i],cities[j])-GeoDistanceHaversine(cities[i],cities[j]))<=37);
+      CHECK(std::abs(GeoDistanceEllipsoid(cities.at(i),cities.at(j))-GeoDistanceHaversine(cities.at(i),cities.at(j)))<=37);
 
     for(const auto &c: cities){
       const auto converted = EllipsoidCartesiantoWGS84(WGS84toEllipsoidCartesian(c));
@@ -864,7 +866,7 @@ TEST_CASE("Test with data [expensive]"){
     for(unsigned int j=0;j<cities.size();j++){
       if(i==j)
         continue;
-      CHECK(GreatCircleOverlaps(landmass,cities[i],cities[j],100)>0);
+      CHECK(GreatCircleOverlaps(landmass,cities.at(i),cities.at(j),100)>0);
     }
 
     //Route from Minneapolis to Denver should be entirely on land
@@ -1012,7 +1014,7 @@ void FuncGetOrientInfo(int argc, char **argv){
   const auto neighbors = sxy.neighbors(); //Get a list of neighbouring vertices on the polyhedron
 
   std::cout<<"lat,lon\n";
-  
+
   if(neighbors.size()==0)
     return;
 
