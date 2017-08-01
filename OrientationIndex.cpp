@@ -274,7 +274,7 @@ TEST_CASE("OrientationIndex"){
     orients.emplace_back(Point2D(-93,45).toRadians(), 72.0*DEG_TO_RAD);
     OrientationIndex oidx(orients, OrientationToRegularIcosahedron, 12);
     auto result = oidx.query(0,100);
-    CHECK(result[0]==1);
+    CHECK(result.at(0)==1);
   }
 
   SUBCASE("Partial overlap with no results"){
@@ -296,7 +296,7 @@ TEST_CASE("OrientationIndex"){
     {
       auto result = oidx.query(0,100);
       CHECK(result.size()==4);
-      CHECK(result[0]==1);
+      CHECK(result.at(0)==1);
     }
     {
       auto result = oidx.query(OrientationToRegularIcosahedron(orients.front()),100);
@@ -323,5 +323,5 @@ TEST_CASE("OrientationsWithStats"){
   OrientationIndex oidx(ows, OrientationToRegularIcosahedron, 12);
   auto result = oidx.query(0,100);
   CHECK(result.size()==4);
-  CHECK(result[0]==1);
+  CHECK(result.at(0)==1);
 }
