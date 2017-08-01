@@ -64,7 +64,7 @@ class SphericalGreatCircleGenerator : public GreatCircleGenerator {
 
 class GreatArcFactory {
  public:
-  static std::unique_ptr<GreatCircleGenerator> make(
+  static std::shared_ptr<GreatCircleGenerator> make(
     const std::string &description,
     const Point2D &a,
     const Point2D &b,

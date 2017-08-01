@@ -287,15 +287,17 @@ SphericalGreatCircleGenerator::SphericalGreatCircleGenerator(const Point2D &a, c
 
 
 
-std::unique_ptr<GreatCircleGenerator> GreatArcFactory::make(
+std::shared_ptr<GreatCircleGenerator> GreatArcFactory::make(
   const std::string &description,
   const Point2D &a,
   const Point2D &b,
   const double spacing0
 ){
   if(description == "spherical")
-    return std::make_unique<SphericalGreatCircleGenerator>(a,b,spacing0);
+    return std::make_shared<SphericalGreatCircleGenerator>(a,b,spacing0);
   else if(description == "ellipsoidal")
-    return std::make_unique<EllipsoidalGreatCircleGenerator>(a,b,spacing0);
+    return std::make_shared<EllipsoidalGreatCircleGenerator>(a,b,spacing0);
+  else
+    throw std::runtime_error("Unrecognised projection!");
   return NULL;
 }
