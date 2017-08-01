@@ -330,8 +330,6 @@ std::vector<PointWithStats> FilterPoints(
     for(const auto &n: neighbors){
       if(dom_checker(pts.at(i),pts.at(n.first)))
         dominated.at(n.first) = true;
-      else
-        dominated.at(i) = true;
     }
   }
 
