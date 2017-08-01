@@ -879,6 +879,9 @@ TEST_CASE("Test with data [expensive]"){
 }
 
 TEST_CASE("POIindex"){
+  SetupForPolyhedron("regular_icosahedron");
+  SetupForProjection("ellipsoidal");
+
   OCollection oc;
   oc.emplace_back(Point2D(-93,45).toRadians(), 0);
   oc.emplace_back(Point2D(-93.1,45.1).toRadians(), 0*DEG_TO_RAD);
@@ -894,6 +897,9 @@ TEST_CASE("POIindex"){
 }
 
 TEST_CASE("Generate great cicles between points"){
+  SetupForPolyhedron("regular_icosahedron");
+  SetupForProjection("ellipsoidal");
+
   const auto gc_generator = [](const std::string filename, const SolidXY &sxy){
     const auto neighbors = sxy.neighbors();             //Get a list of neighbouring vertices on the polyhedron
     std::ofstream fout(filename);
