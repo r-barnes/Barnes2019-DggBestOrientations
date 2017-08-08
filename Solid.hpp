@@ -7,6 +7,16 @@
 #include <vector>
 #include <functional>
 
+enum class ShapeIDs {
+  FullerIcosahedron,
+  RegularIcosahedron,
+  RegularDodecahedron,
+  RegularTetrahedron,
+  RegularOctahedron,
+  Cuboctahedron,
+  Point
+};
+
 class SolidXY;
 
 SolidXY OrientationFullerIcosahedron();
@@ -33,6 +43,8 @@ class SolidXY{
  public:
   std::vector<Point2D> v;
 
+  ShapeIDs shapeid;
+
   SolidXY& rotate(const Point2D &p, double rtheta);
   SolidXY& rotate(double rlat, double rlon, double rtheta);
   SolidXY& rotateTheta(const double rtheta);
@@ -51,6 +63,8 @@ class SolidXYZ {
  public:
   SolidXYZ() = default; //TODO: Make private?
   friend class SolidXY;
+
+  ShapeIDs shapeid;
 
   //These values are a direct translation of those for SolidXY
   std::vector<Point3D> v;

@@ -90,6 +90,7 @@ SolidXYZ SolidXY::toXYZ(const double radius) const {
   temp.v.resize(v.size());
   for(unsigned int i=0;i<v.size();i++)
     temp.v[i] = v[i].toXYZ(radius);
+  temp.shapeid = shapeid;
   return temp;
 }
 
@@ -100,6 +101,7 @@ SolidXY SolidXYZ::toLatLon() const {
   temp.v.resize(v.size());
   for(unsigned int i=0;i<v.size();i++)
     temp.v[i] = v[i].toLatLon();
+  temp.shapeid = shapeid;
   return temp;
 }
 
@@ -209,6 +211,7 @@ SolidXY OrientationToRegularIcosahedron(const Orientation &o) {
 
   SolidXY sxy;
   sxy.v = v;
+  sxy.shapeid = ShapeIDs::RegularIcosahedron;
   sxy.rotate(o.pole,o.theta);
 
   return sxy;
@@ -252,6 +255,7 @@ SolidXY OrientationToRegularDodecahedron(const Orientation &o){
 
   SolidXY sxy;
   sxy.v = v;
+  sxy.shapeid = ShapeIDs::RegularDodecahedron;
   sxy.rotate(o.pole,o.theta);
 
   return sxy;
@@ -277,6 +281,7 @@ SolidXY OrientationToRegularTetrahedron(const Orientation &o){
 
   SolidXY sxy;
   sxy.v = v;
+  sxy.shapeid = ShapeIDs::RegularTetrahedron;
   sxy.rotate(o.pole,o.theta);
 
   return sxy;
@@ -304,6 +309,7 @@ SolidXY OrientationToRegularOctahedron(const Orientation &o){
 
   SolidXY sxy;
   sxy.v = v;
+  sxy.shapeid = ShapeIDs::RegularOctahedron;
   sxy.rotate(o.pole,o.theta);
   
   return sxy;
@@ -337,6 +343,7 @@ SolidXY OrientationToCuboctahedron(const Orientation &o){
 
   SolidXY sxy;
   sxy.v = v;
+  sxy.shapeid = ShapeIDs::Cuboctahedron;
   sxy.rotate(o.pole,o.theta);
   
   return sxy;
@@ -361,6 +368,7 @@ SolidXY OrientationFullerIcosahedron(){
     }};
     SolidXY sxy;
     sxy.v = v;
+    sxy.shapeid = ShapeIDs::FullerIcosahedron;
     sxy.toRadians();
     v = sxy.v;
   }
@@ -374,6 +382,7 @@ SolidXY OrientationFullerIcosahedron(){
 SolidXY OrientationToPoint(const Orientation &o){
   SolidXY sxy;
   sxy.v = {{o.pole}};
+  sxy.shapeid = ShapeIDs::Point;
   return sxy;
 }
 
