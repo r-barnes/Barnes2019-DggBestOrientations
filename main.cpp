@@ -436,8 +436,8 @@ unsigned int OrientationEdgeOverlaps(const SolidXY &sxy, const IndexedShapefile 
     return 0;
 
   for(unsigned int n=0;n<neighbors.size();n+=2){
-    const auto &a = sxy.v[neighbors[n]];
-    const auto &b = sxy.v[neighbors[n+1]];
+    const auto &a = sxy.v.at(neighbors.at(n));
+    const auto &b = sxy.v.at(neighbors.at(n+1));
     edge_overlaps += GreatCircleOverlaps(landmass, a, b, EDGE_OVERLAPS_SAMPLE_DIST);
   }
   return edge_overlaps;
