@@ -30,47 +30,69 @@ double EuclideanDistance(const Point3D &a, const Point3D &b);
 
 Polygons ReadShapefile(std::string filename, std::string layername);
 
-
-
 class GreatCircleGenerator {
- private:
-  GeographicLib::Geodesic geod = GeographicLib::Geodesic(10,0);
-  GeographicLib::GeodesicLine gline;
+ protected:
   double spacing;
   double da;
   unsigned int num_pts;
  public:
-  GreatCircleGenerator(
+  virtual Point2D operator()(const int i) const = 0;
+  unsigned int size() const;
+  double getSpacing() const;
+};
+
+class GeographicLibGreatCircleGenerator : public GreatCircleGenerator  {
+ private:
+  GeographicLib::Geodesic geod = GeographicLib::Geodesic(10,0);
+  GeographicLib::GeodesicLine gline;
+ public:
+  GeographicLibGreatCircleGenerator(
     double geod_radius,
     double geod_flattening,
     const Point2D &a,
     const Point2D &b,
     const double spacing0
   );
-  Point2D operator()(int i) const;
-  unsigned int size() const;
-  double getSpacing() const;
+  Point2D operator()(const int i) const override;
 };
 
-class EllipsoidalGreatCircleGenerator : public GreatCircleGenerator {
+class EllipsoidalGreatCircleGenerator : public GeographicLibGreatCircleGenerator {
  public:
   EllipsoidalGreatCircleGenerator(const Point2D &a, const Point2D &b, const double spacing0);
 };
 
-class SphericalGreatCircleGenerator : public GreatCircleGenerator {
+class SphericalGreatCircleGenerator : public GeographicLibGreatCircleGenerator {
  public:
   SphericalGreatCircleGenerator(const Point2D &a, const Point2D &b, const double spacing0);
+};
+
+class SimpleSphericalGreatCircleGenerator : public GreatCircleGenerator {
+ private:
+  Point3D svec; //Starting vector
+  Point3D bvec; //Bearing vector
+ public:
+  SimpleSphericalGreatCircleGenerator(const Point2D &a, const Point2D &b, const double spacing0);
+  Point2D operator()(int i) const override;
+};
+
+
+
+enum class GreatCircleGeneratorType {
+ SPHERICAL,
+ ELLIPSOIDAL,
+ SIMPLE_SPHERICAL
 };
 
 class GreatArcFactory {
  public:
   static std::shared_ptr<GreatCircleGenerator> make(
-    const std::string &description,
+    const GreatCircleGeneratorType gcgt,
     const Point2D &a,
     const Point2D &b,
     const double spacing0
   );
 };
+
 
 
 typedef std::function<Point3D(const Point2D&)> TransLLto3D_t;

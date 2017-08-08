@@ -4,6 +4,7 @@
 #include <ogrsf_frmts.h>
 #include <cmath>
 #include <iostream>
+#include <cassert>
 #include <GeographicLib/Geocentric.hpp>
 #include <GeographicLib/Constants.hpp>
 
@@ -240,7 +241,17 @@ TEST_CASE("Shapefile open failure"){
 
 
 
-GreatCircleGenerator::GreatCircleGenerator(
+unsigned int GreatCircleGenerator::size() const {
+  return num_pts;
+}
+
+double GreatCircleGenerator::getSpacing() const {
+  return spacing;
+}
+
+
+
+GeographicLibGreatCircleGenerator::GeographicLibGreatCircleGenerator(
   double geod_radius,
   double geod_flattening,
   const Point2D &a,
@@ -259,44 +270,82 @@ GreatCircleGenerator::GreatCircleGenerator(
   spacing = spacing0;
 
   const auto dist = gline.Distance()/1000; //km
+  assert(!std::isnan(dist));
   num_pts         = (int)std::ceil(dist/spacing);
   da              = gline.Arc()/num_pts;
 }
 
-Point2D GreatCircleGenerator::operator()(int i) const {
+Point2D GeographicLibGreatCircleGenerator::operator()(const int i) const {
   Point2D temp;
   gline.ArcPosition(i * da, temp.y, temp.x);
   temp.toRadians();
   return temp;
 }
   
-unsigned int GreatCircleGenerator::size() const {
-  return num_pts;
-}
-
-double GreatCircleGenerator::getSpacing() const {
-  return spacing;
-}
 
 
 EllipsoidalGreatCircleGenerator::EllipsoidalGreatCircleGenerator(const Point2D &a, const Point2D &b, const double spacing0) :
-  GreatCircleGenerator(GeographicLib::Constants::WGS84_a(), GeographicLib::Constants::WGS84_f(), a, b, spacing0) {}
+  GeographicLibGreatCircleGenerator(GeographicLib::Constants::WGS84_a(), GeographicLib::Constants::WGS84_f(), a, b, spacing0) {}
 
 SphericalGreatCircleGenerator::SphericalGreatCircleGenerator(const Point2D &a, const Point2D &b, const double spacing0) :
-  GreatCircleGenerator(1000*Rearth, 0, a, b, spacing0) {}
+  GeographicLibGreatCircleGenerator(1000*Rearth, 0, a, b, spacing0) {}
 
 
 
-std::shared_ptr<GreatCircleGenerator> GreatArcFactory::make(
-  const std::string &description,
+SimpleSphericalGreatCircleGenerator::SimpleSphericalGreatCircleGenerator(
   const Point2D &a,
   const Point2D &b,
   const double spacing0
 ){
-  if(description == "spherical")
+  spacing = spacing0;
+
+  svec = a.toXYZ(1);
+  const Point3D n2 = b.toXYZ(1);
+
+  const auto dist  = GeoDistanceHaversine(a,b);
+  num_pts          = std::floor(dist/spacing0)+1;
+
+  const double sd  = svec.cross(n2).mag();
+  const double cd  = svec.dot(n2);
+  const double ang = std::atan2(sd,cd);
+  da               = ang/num_pts;
+
+  bvec = svec.cross(n2).unitify().cross(svec);
+
+  CHECK(svec.mag2()!=doctest::Approx(0));
+  CHECK(bvec.mag2()!=doctest::Approx(0));
+};
+
+Point2D SimpleSphericalGreatCircleGenerator::operator()(const int i) const {
+  const double sd = std::sin(i*da);
+  const double cd = std::cos(i*da);
+
+  Point3D temp;
+  temp.x = cd*svec.x + sd*bvec.x;
+  temp.y = cd*svec.y + sd*bvec.y;
+  temp.z = cd*svec.z + sd*bvec.z;
+
+  CHECK(temp.mag2()!=doctest::Approx(0));
+
+  temp.unitify();
+
+  return temp.toLatLon();
+}
+
+
+
+std::shared_ptr<GreatCircleGenerator> GreatArcFactory::make(
+  const GreatCircleGeneratorType gcgt,
+  const Point2D &a,
+  const Point2D &b,
+  const double spacing0
+){
+  if(gcgt == GreatCircleGeneratorType::SPHERICAL)
     return std::make_shared<SphericalGreatCircleGenerator>(a,b,spacing0);
-  else if(description == "ellipsoidal")
+  else if(gcgt == GreatCircleGeneratorType::ELLIPSOIDAL)
     return std::make_shared<EllipsoidalGreatCircleGenerator>(a,b,spacing0);
+  else if(gcgt == GreatCircleGeneratorType::SIMPLE_SPHERICAL)
+    return std::make_shared<SimpleSphericalGreatCircleGenerator>(a,b,spacing0);
   else
     throw std::runtime_error("Unrecognised projection!");
   return NULL;
