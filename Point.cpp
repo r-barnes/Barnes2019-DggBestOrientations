@@ -331,7 +331,35 @@ double Point3D::dot(const Point3D &b) const {
   return x*b.x+y*b.y+z*b.z;
 }
 
-TEST_CASE("Point3D::dot"){
+Point3D Point3D::cross(const Point3D &b) const {
+  Point3D temp;
+  temp.x = -y*b.z + z*b.y;
+  temp.y =  x*b.z - z*b.x;
+  temp.z = -x*b.y + y*b.x;
+  return temp;
+}
+
+Point3D& Point3D::unitify() {
+  const double len = mag();
+  if(len==0)
+    return *this;
+  x /= len;
+  y /= len;
+  z /= len;
+  return *this;
+}
+
+double Point3D::mag2() const {
+  return x*x+y*y+z*z;
+}
+
+double Point3D::mag() const {
+  return std::sqrt(x*x+y*y+z*z);
+}
+
+
+
+TEST_CASE("3D Math"){
   CHECK(Point3D(1,0,0).dot(Point3D(0,1,0))==0);
   CHECK(Point3D(1,0,0).dot(Point3D(1,0,0))==1);
 }

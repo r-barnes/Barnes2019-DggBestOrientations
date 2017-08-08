@@ -21,7 +21,11 @@ class Point3D {
   Point3D() = default;
   Point3D(double x0, double y0, double z0);
   Point2D toLatLon() const;
-  double dot(const Point3D &b) const;
+  double dot(const Point3D &b) const;    //This-vector DOT b-vector
+  Point3D cross(const Point3D &b) const; //This-vector CROSS b-vector
+  Point3D& unitify();                    //Convert to a unit vector
+  double mag() const;                    //Magnitude
+  double mag2() const;                   //Magnitude squared (avoids square root operation)
 };
 
 class Rotator {
