@@ -423,7 +423,13 @@ unsigned int GreatCircleOverlaps(const IndexedShapefile &landmass, const Point2D
 //For all the great circle edges of a polyhedron, determine how many sample
 //points along the circles fall within landmasses.
 unsigned int OrientationEdgeOverlaps(const SolidXY &sxy, const IndexedShapefile &landmass){
-  static const auto neighbors = sxy.neighbors(); //Get a list of neighbouring vertices on the polyhedron
+  static auto neighbors = sxy.neighbors(); //Get a list of neighbouring vertices on the polyhedron
+  static ShapeIDs shapeid = sxy.shapeid;
+  if(shapeid!=sxy.shapeid){ //Need to rebuild neighbors!
+    shapeid   = sxy.shapeid;
+    neighbors = sxy.neighbors();
+  }
+
   unsigned int edge_overlaps = 0;
 
   if(neighbors.size()==0)
