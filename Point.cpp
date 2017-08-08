@@ -4,68 +4,52 @@
 #include <cstdlib>
 #include "doctest.h"
 #include <vector>
+#include <stdexcept>
 
 const double DEG_TO_RAD = M_PI/180.0;
 const double RAD_TO_DEG = 180.0/M_PI;
 
 Rotator::Rotator(const Point3D &oldv, const Point3D &newv){
   //Ensure that incoming vectors are normalized
-  CHECK(oldv.x*oldv.x+oldv.y*oldv.y+oldv.z*oldv.z==doctest::Approx(1));
-  CHECK(newv.x*newv.x+newv.y*newv.y+newv.z*newv.z==doctest::Approx(1));
+  CHECK(oldv.mag2()==doctest::Approx(1));
+  CHECK(newv.mag2()==doctest::Approx(1));
 
-  //Icosahedron's North pole
-  const double a1 = oldv.x;
-  const double a2 = oldv.y;
-  const double a3 = oldv.z;
+  Point3D r = oldv.cross(newv);
 
-  //Vector defining the new pole
-  const double b1 = newv.x;
-  const double b2 = newv.y;
-  const double b3 = newv.z;
+  mr = r.mag();
 
-  //B x A: This vector is perpendicular to both the North pole and the new pole
-  double r1 = -a2*b3 + a3*b2;
-  double r2 =  a1*b3 - a3*b1;
-  double r3 = -a1*b2 + a2*b1;
-  mr        = std::sqrt(r1*r1+r2*r2+r3*r3); //mr used in operator()
-
-  //If the vector cannot be normalized it means the North Pole was coincident
-  //with the new pole
   if(mr==0)
     return;
 
-  //Normalize the vector
-  r1 /= mr;
-  r2 /= mr;
-  r3 /= mr;
+  r.unitify();
 
   //Ensure that things were actually normalized
-  CHECK(r1*r1+r2*r2+r3*r3==doctest::Approx(1));
+  CHECK(r.mag2()==doctest::Approx(1));
 
-  const double c = a1*b1 + a2*b2 + a3*b3;  //cos theta = B dot A
-  const double s = std::sqrt(1-c*c);            //= sin theta
+  const double c = oldv.dot(newv);   //cos theta = B dot A
+  const double s = std::sqrt(1-c*c); //= sin theta
   const double t = 1-c;
 
   CHECK(s*s+c*c==doctest::Approx(1));
 
   //Rotation Matrix from
   //Glassner, A.S. (Ed.), 1993. Graphics Gems I, 1st ed. p. 466
-  R_a = c + r1*r1*t;
-  R_b = r1*r2*t + r3*s;
-  R_c = r1*r3*t - r2*s;
-  R_d = r1*r2*t - r3*s;
-  R_e = c + r2*r2*t;
-  R_f = r1*s + r2*r3*t;
-  R_g = r1*r3*t + r2*s;
-  R_h = -r1*s + r2*r3*t;
-  R_i = c + r3*r3*t;
+  R_a = c + r.x*r.x*t;
+  R_b = r.x*r.y*t + r.z*s;
+  R_c = r.x*r.z*t - r.y*s;
+  R_d = r.x*r.y*t - r.z*s;
+  R_e = c + r.y*r.y*t;
+  R_f = r.x*s + r.y*r.z*t;
+  R_g = r.x*r.z*t + r.y*s;
+  R_h = -r.x*s + r.y*r.z*t;
+  R_i = c + r.z*r.z*t;
 }
 
 Point3D Rotator::operator()(const Point3D &p) const {
   if(mr==0)
     return p;
 
-  CHECK(std::sqrt(p.x*p.x+p.y*p.y+p.z*p.z)==doctest::Approx(1));
+  CHECK(p.mag2()==doctest::Approx(1));
 
   Point3D ret(
     R_a*p.x+R_b*p.y+R_c*p.z,
@@ -73,7 +57,7 @@ Point3D Rotator::operator()(const Point3D &p) const {
     R_g*p.x+R_h*p.y+R_i*p.z
   );
 
-  CHECK(std::sqrt(ret.x*ret.x+ret.y*ret.y+ret.z*ret.z)==doctest::Approx(1));
+  CHECK(ret.mag2()==doctest::Approx(1));
 
   return ret;
 }
@@ -87,7 +71,7 @@ TEST_CASE("rotate"){
 
     //Ensure everything is normalized before we continue
     for(const auto &p: pts)
-      CHECK(std::sqrt(p.x*p.x+p.y*p.y+p.z*p.z)==doctest::Approx(1));
+      CHECK(p.mag2()==doctest::Approx(1));
 
     std::vector<double> angles;
     for(unsigned int i=0;i<pts.size();i++)
@@ -204,7 +188,7 @@ Point3D Point2D::toXYZ(const double radius) const {
     radius * std::cos(ys)
   );
 
-  assert(ret.x*ret.x+ret.y*ret.y+ret.z*ret.z);
+  assert(ret.mag2());
 
   return ret;
 }
@@ -234,9 +218,10 @@ Point3D::Point3D(double x0, double y0, double z0) {
 }
 
 Point2D Point3D::toLatLon() const {
-  const double radius = std::sqrt(x*x + y*y + z*z);
+  const double radius = mag();
   
-  assert(std::abs(radius-1)<1e-6 || std::abs(radius-6371)<1e-6);
+  if(!(std::abs(radius-1)<1e-6 || std::abs(radius-6371)<1e-6))
+    throw std::runtime_error("Radius invalid = " + std::to_string(radius));
 
   double x2 = std::atan2(y,x);
   double y2 = std::acos(z/radius);
