@@ -46,6 +46,12 @@
   #error "ENV_XSEDE or ENV_LAPTOP must be defined!"
 #endif
 
+const std::vector<GreatCircleGeneratorType> great_circle_generator_types = {{
+  GreatCircleGeneratorType::SPHERICAL,
+  GreatCircleGeneratorType::ELLIPSOIDAL,
+  GreatCircleGeneratorType::SIMPLE_SPHERICAL
+}};
+
 const std::vector<std::string> polyhedra_names = {{
   "regular_icosahedron",
   "regular_dodecahedron",
@@ -84,18 +90,26 @@ Trans3DtoLL_t Trans3DtoLL;
 GeoDistance_t GeoDistance;
 std::string chosen_polyhedron;
 std::string chosen_projection;
+GreatCircleGeneratorType great_circle_generator;
 
 
 void SetupForProjection(const std::string projection){
   chosen_projection = projection;
   if(projection=="spherical"){
-    TransLLto3D = WGS84toSphericalCartesian;
-    Trans3DtoLL = SphericalCartesiantoWGS84;
-    GeoDistance = GeoDistanceSphere;
+    TransLLto3D            = WGS84toSphericalCartesian;
+    Trans3DtoLL            = SphericalCartesiantoWGS84;
+    GeoDistance            = GeoDistanceSphere;
+    great_circle_generator = GreatCircleGeneratorType::SIMPLE_SPHERICAL;
   } else if(projection=="ellipsoidal"){
-    TransLLto3D = WGS84toEllipsoidCartesian;
-    Trans3DtoLL = EllipsoidCartesiantoWGS84;
-    GeoDistance = GeoDistanceEllipsoid;
+    TransLLto3D            = WGS84toEllipsoidCartesian;
+    Trans3DtoLL            = EllipsoidCartesiantoWGS84;
+    GeoDistance            = GeoDistanceEllipsoid;
+    great_circle_generator = GreatCircleGeneratorType::SIMPLE_SPHERICAL;
+  } else if(projection=="haversine"){
+    TransLLto3D            = WGS84toSphericalCartesian;
+    Trans3DtoLL            = SphericalCartesiantoWGS84;
+    GeoDistance            = GeoDistanceHaversine;
+    great_circle_generator = GreatCircleGeneratorType::SIMPLE_SPHERICAL;
   } else {
     throw std::runtime_error("Unrecognized projection!");
   }
@@ -191,7 +205,7 @@ PointCloud ReadPointCloudFromShapefile(std::string filename, std::string layer){
     std::vector<Point2D> ret;
     const auto quickdist = GeoDistanceFlatEarth(a,b);
     if(quickdist>MAX_COAST_INTERPOINT_DIST){
-      const auto gcg = GreatArcFactory::make(chosen_projection,a,b,MAX_COAST_INTERPOINT_DIST);
+      const auto gcg = GreatArcFactory::make(great_circle_generator,a,b,MAX_COAST_INTERPOINT_DIST);
       for(unsigned int i=0;i<gcg->size();i++)
         ret.push_back((*gcg)(i));
     }
@@ -395,7 +409,7 @@ OCollection OrientationsFilteredByOverlaps(
 //circle. Then count how many of these sample points fall within landmasses.
 //Maximum value returned is `num_pts+1`
 unsigned int GreatCircleOverlaps(const IndexedShapefile &landmass, const Point2D &a, const Point2D &b, const double spacing){
-  const auto gcg = GreatArcFactory::make(chosen_projection,a,b,spacing);
+  const auto gcg = GreatArcFactory::make(great_circle_generator,a,b,spacing);
 
   unsigned int edge_overlaps = 0;
   for(unsigned int i=0;i<=gcg->size();i++)
@@ -772,6 +786,22 @@ TEST_CASE("Check orientation of generated points"){
 TEST_CASE("Test with data [expensive]"){
   const auto landmass = IndexedShapefile(FILE_MERC_LANDMASS,"land_polygons");
 
+  SUBCASE("OrientationEdgeOverlaps timing"){
+    std::cout<<"OrientationEdgeOverlaps timings:"<<std::endl;
+    for(const auto &gcgt: great_circle_generator_types){
+      Timer tmr;
+      for(const auto &pn: polyhedra_names){
+        SetupForPolyhedron(pn);
+        for(unsigned int i=0;i<15;i++){
+          Orientation o(Point2D(-93,45).toRadians(), 0);
+          SolidXY sxy = Solidifier(o);
+          OrientationEdgeOverlaps(sxy, landmass);
+        }
+      }
+      std::cout<<"Generator id="<<((int)gcgt)<<", time="<<tmr.elapsed()<<std::endl;
+    }
+  }
+
   SetupForProjection("ellipsoidal");
 
   SUBCASE("Check that Fuller orientation has no overlaps"){
@@ -897,11 +927,11 @@ TEST_CASE("POIindex"){
   CHECK(oneighbors[7].size()==0);
 }
 
-TEST_CASE("Generate great cicles between points"){
-  SetupForPolyhedron("regular_icosahedron");
+TEST_CASE("[GreatCircle] Generate great cicles between points"){
   SetupForProjection("ellipsoidal");
 
-  const auto gc_generator = [](const std::string filename, const SolidXY &sxy){
+  const auto gc_generator = [](const std::string filename, const SolidXY &sxy, const GreatCircleGeneratorType gcgt){
+    Timer tmr;
     const auto neighbors = sxy.neighbors();             //Get a list of neighbouring vertices on the polyhedron
     std::ofstream fout(filename);
     fout<<"lat,lon\n";
@@ -912,7 +942,7 @@ TEST_CASE("Generate great cicles between points"){
     for(unsigned int n=0;n<neighbors.size();n+=2){
       const auto &a = sxy.v[neighbors[n]];
       const auto &b = sxy.v[neighbors[n+1]];
-      const auto gcg = GreatArcFactory::make(chosen_projection,a,b,100);
+      const auto gcg = GreatArcFactory::make(gcgt,a,b,100);
       CHECK(gcg->getSpacing()==100);
       for(unsigned int i=0;i<gcg->size();i++){
         auto temp = (*gcg)(i);
@@ -920,18 +950,19 @@ TEST_CASE("Generate great cicles between points"){
         fout<<temp.y<<","<<temp.x<<"\n";
       }
     }
+
+    std::cout<<filename<<" gcgen time = "<<tmr.elapsed()<<std::endl;
   };
 
   const Orientation o(Point2D(0,90).toRadians(),0);
 
+  for(const auto &gcgt: great_circle_generator_types)
   for(const auto &pn: polyhedra_names){
     SetupForPolyhedron(pn);
     const auto sxy = Solidifier(o);
-    gc_generator(FILE_OUTPUT_PREFIX + "gc_" + pn + ".csv", sxy);
+    gc_generator(FILE_OUTPUT_PREFIX + "gc_" + pn + "_" + std::to_string((int)gcgt) +".csv", sxy, gcgt);
   }
 }
-
-
 
 void FuncOptimize(int argc, char **argv){
   (void)argc;
@@ -1028,7 +1059,7 @@ void FuncGetOrientInfo(int argc, char **argv){
   for(unsigned int n=0;n<neighbors.size();n+=2){
     const auto &a = sxy.v[neighbors[n]];
     const auto &b = sxy.v[neighbors[n+1]];
-    const auto gcg = GreatArcFactory::make(chosen_projection,a,b,100);
+    const auto gcg = GreatArcFactory::make(great_circle_generator,a,b,100);
     CHECK(gcg->getSpacing()==100);
     for(unsigned int i=0;i<gcg->size();i++){
       auto temp = (*gcg)(i);
