@@ -19,10 +19,15 @@ EXEC = dgfinder.exe
 SOURCES = $(subst test.cpp,,$(wildcard *.cpp))
 #SOURCES = $(wildcard *.cpp)
 OBJECTS = $(SOURCES:.cpp=.o)
+DGOBJECTS = $(subst pole_of_inaccessibility.o,,$(OBJECTS))
+POIOBJECTS = $(subst main.o,,$(OBJECTS))
  
 # Main target
-$(EXEC): $(OBJECTS)
-	$(CC) $(FLAGS) $(OBJECTS) -o $(EXEC) $(GDAL_LIBS)
+$(EXEC): $(DGOBJECTS) main.o
+	$(CC) $(FLAGS) $(DGOBJECTS) -o $(EXEC) $(GDAL_LIBS)
+ 
+poi: $(POIOBJECTS) pole_of_inaccessibility.o
+	$(CC) $(FLAGS) $(POIOBJECTS) -o poi.exe $(GDAL_LIBS)
  
 # To obtain object files
 %.o: %.cpp
