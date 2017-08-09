@@ -1,0 +1,17 @@
+#!/bin/bash
+#SBATCH -N 1
+#SBATCH -C haswell
+#SBATCH -p regular
+#SBATCH -J dgg
+#SBATCH --mail-user=rbarnes@umn.edu
+#SBATCH --mail-type=ALL
+#SBATCH -t 05:00:00
+
+#run the application:
+#srun -n 1 -c 64 --cpu_bind=cores dgg
+
+cd /global/homes/r/rbarnes/dgg_best_poles2
+
+ulimit -c unlimited
+
+LD_LIBRARY_PATH="$HOME/anaconda3/envs/py2/lib:$HOME/os/lib" ./dgfinder.exe

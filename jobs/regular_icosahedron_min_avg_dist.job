@@ -1,0 +1,15 @@
+#!/bin/bash  
+#SBATCH --job-name="dgg-min_avg_dist"
+#SBATCH --output="dgg-min_avg_dist.%j.%N.out"  
+#SBATCH --partition=compute
+#SBATCH --nodes=1
+#SBATCH --export=ALL
+#SBATCH -t 00:20:00
+
+cd /home/rbarnes1/dgg_best_poles2
+
+export LD_LIBRARY_PATH=$HOME/os/anaconda3/lib:$HOME/os/lib:$LD_LIBRARY_PATH
+
+ulimit -c unlimited
+
+./dgfinder.exe optimize ellipsoidal regular_icosahedron min_avg_dist

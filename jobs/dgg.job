@@ -12,20 +12,12 @@ export LD_LIBRARY_PATH=$HOME/os/anaconda3/lib:$HOME/os/lib:$LD_LIBRARY_PATH
 
 ulimit -c unlimited
 
-./dgfinder.exe optimize spherical   point
-./dgfinder.exe optimize ellipsoidal point
-
-./dgfinder.exe optimize spherical   regular_icosahedron
 ./dgfinder.exe optimize ellipsoidal regular_icosahedron
 
-./dgfinder.exe optimize spherical   regular_dodecahedron
 ./dgfinder.exe optimize ellipsoidal regular_dodecahedron
 
-./dgfinder.exe optimize spherical   cuboctahedron
 ./dgfinder.exe optimize ellipsoidal cuboctahedron
 
-./dgfinder.exe optimize spherical   regular_octahedron
 ./dgfinder.exe optimize ellipsoidal regular_octahedron
 
-./dgfinder.exe optimize spherical   regular_tetrahedron
 ./dgfinder.exe optimize ellipsoidal regular_tetrahedron
