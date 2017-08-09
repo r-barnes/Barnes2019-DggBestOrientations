@@ -49,10 +49,13 @@ const double RAD_TO_DEG = 180.0/M_PI;
 const double MAX_COAST_INTERPOINT_DIST = 0.5; //km
 
 //Polyhedron and Projection configuration globals
+SolidifyingFunc solidifier_func;
 TransLLto3D_t TransLLto3D;
 Trans3DtoLL_t Trans3DtoLL;
 GeoDistance_t GeoDistance;
+std::string chosen_polyhedron;
 std::string chosen_projection;
+GreatCircleGeneratorType great_circle_generator;
 
 typedef std::pair<double, Point2D> PointWithStats;
 
@@ -60,13 +63,20 @@ typedef std::pair<double, Point2D> PointWithStats;
 void SetupForProjection(const std::string projection){
   chosen_projection = projection;
   if(projection=="spherical"){
-    TransLLto3D = WGS84toSphericalCartesian;
-    Trans3DtoLL = SphericalCartesiantoWGS84;
-    GeoDistance = GeoDistanceSphere;
+    TransLLto3D            = WGS84toSphericalCartesian;
+    Trans3DtoLL            = SphericalCartesiantoWGS84;
+    GeoDistance            = GeoDistanceSphere;
+    great_circle_generator = GreatCircleGeneratorType::SIMPLE_SPHERICAL;
   } else if(projection=="ellipsoidal"){
-    TransLLto3D = WGS84toEllipsoidCartesian;
-    Trans3DtoLL = EllipsoidCartesiantoWGS84;
-    GeoDistance = GeoDistanceEllipsoid;
+    TransLLto3D            = WGS84toEllipsoidCartesian;
+    Trans3DtoLL            = EllipsoidCartesiantoWGS84;
+    GeoDistance            = GeoDistanceEllipsoid;
+    great_circle_generator = GreatCircleGeneratorType::SIMPLE_SPHERICAL;
+  } else if(projection=="haversine"){
+    TransLLto3D            = WGS84toSphericalCartesian;
+    Trans3DtoLL            = SphericalCartesiantoWGS84;
+    GeoDistance            = GeoDistanceHaversine;
+    great_circle_generator = GreatCircleGeneratorType::SIMPLE_SPHERICAL;
   } else {
     throw std::runtime_error("Unrecognized projection!");
   }
@@ -86,7 +96,7 @@ PointCloud ReadPointCloudFromShapefile(std::string filename, std::string layer){
     std::vector<Point2D> ret;
     const auto quickdist = GeoDistanceFlatEarth(a,b);
     if(quickdist>MAX_COAST_INTERPOINT_DIST){
-      const auto gcg = GreatArcFactory::make(chosen_projection,a,b,MAX_COAST_INTERPOINT_DIST);
+      const auto gcg = GreatArcFactory::make(great_circle_generator,a,b,MAX_COAST_INTERPOINT_DIST);
       for(unsigned int i=0;i<gcg->size();i++)
         ret.push_back((*gcg)(i));
     }
