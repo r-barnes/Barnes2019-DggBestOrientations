@@ -279,10 +279,9 @@ PointWithStats ComplexHillClimb(
   const Point2D &pt,
   const PointCloud &wgs84pc
 ){
-  auto best = HillClimb(pt,wgs84pc,4*50,20,0.3*DEG_TO_RAD);
-  //best      = HillClimb(best.second,wgs84pc,4*50,50,0.1*DEG_TO_RAD);
-  //best      = HillClimb(best.second,wgs84pc,24*50,100,0.05*DEG_TO_RAD);
-  //best      = HillClimb(best.second,wgs84pc,24*50,100,0.01*DEG_TO_RAD);
+  auto best = HillClimb(pt,         wgs84pc,4*50,20,0.3*DEG_TO_RAD);
+  best      = HillClimb(best.second,wgs84pc,4*50,50,0.1*DEG_TO_RAD);
+  best      = HillClimb(best.second,wgs84pc,24*50,100,0.05*DEG_TO_RAD);
   return best;
 }
 
@@ -433,7 +432,7 @@ int main(int argc, char **argv){
   wgs84pc.buildIndex();
 
   //Generate evenly-spaced points covering the whole globe
-  OrientationGenerator og(2000,180*DEG_TO_RAD); //TODO: 300
+  OrientationGenerator og(2*1337,180*DEG_TO_RAD); //TODO: 300
 
   std::vector<PointWithStats> extrema;
 
