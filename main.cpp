@@ -725,6 +725,7 @@ OSCollection FindBestHelper(
 
 
 void FindBest(
+  const std::string       find_what,
   const OCollection      &orients,
   const PointCloud       &wgs84pc,
   const IndexedShapefile &landmass
@@ -732,39 +733,38 @@ void FindBest(
   Timer tmr;
   std::cerr<<"Find best..."<<std::endl;
 
-  {
-    if(chosen_polyhedron=="point"){
-      FindBestHelper("out_min_mindist", orients, wgs84pc, landmass, false,
-        [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.mindist<b.mindist; }
-      );
-      FindBestHelper("out_max_mindist", orients, wgs84pc, landmass, false,
-        [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.mindist>b.mindist; }
-      );
-      
+  std::function<bool(const OrientationWithStats&, const OrientationWithStats&)> dom_checker;
+  bool do_edges;
 
-      FindBestHelper("out_min_maxdist", orients, wgs84pc, landmass, false,
-        [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.maxdist<b.maxdist; }
-      );
-      FindBestHelper("out_max_maxdist", orients, wgs84pc, landmass, false,
-        [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.maxdist>b.maxdist; }
-      );
-    } else {
-      FindBestHelper("out_min_avgdist", orients, wgs84pc, landmass, false,
-        [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.avgdist<b.avgdist; }
-      );
-      FindBestHelper("out_max_avgdist", orients, wgs84pc, landmass, false,
-        [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.avgdist>b.avgdist; }
-      );
-      
-
-      FindBestHelper("out_min_edge_overlaps", orients, wgs84pc, landmass, true,
-        [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.edge_overlaps<b.edge_overlaps; }
-      );
-      FindBestHelper("out_max_edge_overlaps", orients, wgs84pc, landmass, true,
-        [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.edge_overlaps>b.edge_overlaps; }
-      );
-    }
+  if(find_what=="min_min_dist"){
+    dom_checker = [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.mindist<b.mindist; };
+    do_edges    = false;
+  } else if(find_what=="max_min_dist"){
+    dom_checker = [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.mindist>b.mindist; };
+    do_edges    = false;
+  } else if(find_what=="min_max_dist"){
+    dom_checker = [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.maxdist<b.maxdist; };
+    do_edges    = false;
+  } else if(find_what=="max_max_dist"){
+    dom_checker = [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.maxdist>b.maxdist; };
+    do_edges    = false;
+  } else if(find_what=="min_avg_dist"){
+    dom_checker = [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.avgdist<b.avgdist; };
+    do_edges    = false;
+  } else if(find_what=="max_avg_dist"){
+    dom_checker = [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.avgdist>b.avgdist; };
+    do_edges    = false;
+  } else if(find_what=="min_edge"){
+    dom_checker = [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.edge_overlaps<b.edge_overlaps; };
+    do_edges    = true;
+  } else if(find_what=="max_edge"){
+    dom_checker = [](const OrientationWithStats &a, const OrientationWithStats &b){ return a.edge_overlaps>b.edge_overlaps; };
+    do_edges    = true;
+  } else {
+    throw std::runtime_error("Unrecognized optimization goal!");
   }
+
+  FindBestHelper("out_" + find_what, orients, wgs84pc, landmass, do_edges, dom_checker);
   
   std::cerr<<"Found best in = "<<tmr.elapsed()<<std::endl;
 }
@@ -974,6 +974,7 @@ void FuncOptimize(int argc, char **argv){
   (void)argc;
   SetupForProjection(argv[2]);
   SetupForPolyhedron(argv[3]);
+  const std::string find_what = argv[4];
 
   std::cout<<"Projection                = " << argv[2]                   <<std::endl;
   std::cout<<"Polyhedron                = " << argv[3]                   <<std::endl;
@@ -990,6 +991,7 @@ void FuncOptimize(int argc, char **argv){
   std::cout<<"OVERLAPS_TO_BEAT          = " << OVERLAPS_TO_BEAT          <<std::endl;
   std::cout<<"ORIENTATION_VERTICES      = " << ORIENTATION_VERTICES      <<std::endl;
   std::cout<<"FILTER_OUT_ORIENTS_WITHIN = " << FILTER_OUT_ORIENTS_WITHIN <<std::endl;
+  std::cout<<"find_what                 = " << find_what                 <<std::endl;
 
   assert(!omp_get_nested());
 
@@ -1019,7 +1021,7 @@ void FuncOptimize(int argc, char **argv){
 
   std::cerr<<"Climbing hills..."<<std::endl;
 
-  FindBest(orients, wgs84pc, landmass);
+  FindBest(find_what, orients, wgs84pc, landmass);
 }
 
 
@@ -1159,7 +1161,8 @@ void FuncPolyhedronInfo(){
 
 int FuncHelp(int argc, char **argv){
   (void)argc;
-  std::cout<<argv[0]<<" optimize <Projection> <Polyhedron>"<<std::endl;
+  std::cout<<argv[0]<<" optimize <Projection> <Polyhedron> <<min/max>_<min/max/avg>_dist>"<<std::endl;
+  std::cout<<argv[0]<<" optimize <Projection> <Polyhedron> <<min/max>_edge>"<<std::endl;
   std::cout<<argv[0]<<" get_orient_info <Projection> <Polyhedron> <Lat Deg> <Lon Deg> <Theta Deg>"<<std::endl;
   std::cout<<argv[0]<<" get_polyhedron_info"<<std::endl;
   std::cout<<std::endl;
