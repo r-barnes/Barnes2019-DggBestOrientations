@@ -995,6 +995,14 @@ void FuncOptimize(int argc, char **argv){
 
   assert(!omp_get_nested());
 
+  //Since Solidifer has a static, multiple threads interacting with it at once
+  //might (I think) cause a segfault. The solution? Ensure a single thread gets
+  //to it first.
+  {
+    SolidXY sxy_first = Solidifier(Orientation(Point2D(0,90).toRadians(),0));
+    (void)sxy_first; //Hide warning about unused variable
+  }
+
   const auto landmass = IndexedShapefile(FILE_MERC_LANDMASS,"land_polygons");
 
   OCollection orients;
