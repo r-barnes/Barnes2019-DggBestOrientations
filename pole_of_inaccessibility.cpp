@@ -47,7 +47,6 @@ const double Rearth = 6371; //km
 const double DEG_TO_RAD = M_PI/180.0;
 const double RAD_TO_DEG = 180.0/M_PI;
 const double MAX_COAST_INTERPOINT_DIST = 0.5; //km
-const double EDGE_OVERLAPS_SAMPLE_DIST = 10; //km
 
 //Polyhedron and Projection configuration globals
 TransLLto3D_t TransLLto3D;
