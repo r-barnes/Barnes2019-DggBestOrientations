@@ -12,4 +12,4 @@ export LD_LIBRARY_PATH=$HOME/os/anaconda3/lib:$HOME/os/lib:$LD_LIBRARY_PATH
 
 ulimit -c unlimited
 
-./poi.exe optimize ellipsoidal regular_icosahedron
+./poi.exe ellipsoidal
