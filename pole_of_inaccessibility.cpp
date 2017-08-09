@@ -22,7 +22,6 @@
 #include <iomanip>
 #include <cassert>
 #include <fstream>
-#include <functional>
 #include <iomanip>
 #include "doctest.h"
 #include <omp.h>
@@ -141,32 +140,10 @@ PointCloud ReadPointCloudFromShapefile(std::string filename, std::string layer){
 
 
 
-//Returns true if the point falls within a landmass
-bool PointInLandmass(const Point2D &ll, const IndexedShapefile &landmass){
-  if(ll.y>83.7*DEG_TO_RAD) //The island "83-42" as at 83.7N so anything north of this is on water
-    return false;
-  if(ll.y<-80*DEG_TO_RAD)  //The southmost extent of water is ~79.5S, so anything south of this is on land
-    return true;
-  auto xy = WGS84toEPSG3857(ll);
-  const auto pid = landmass.sp.queryPoint(xy);
-  if(pid==-1)
-    return false;
-  if(landmass.isRect(pid)) //R-tree rectangle is coincident with the bounding box of a rectangular polygon, so no contains point check is necessary
-    return true;
-  if(landmass.polys.at(pid).containsPoint(xy))
-    return true;
-  return false;
-}
-
-
-
-double DistanceToCoast(const Point2D &pt, const PointCloud &wgs84pc, const IndexedShapefile &landmass){
+double DistanceToCoast(const Point2D &pt, const PointCloud &wgs84pc){
   const auto cp  = wgs84pc.queryPoint(TransLLto3D(pt)); //Closest point
   const auto llc = Trans3DtoLL(cp);
-  auto dist = GeoDistance(llc,pt);
-  if(PointInLandmass(pt,landmass))
-    dist = -dist;
-  return dist;
+  return GeoDistance(llc,pt);
 }
 
 
@@ -228,17 +205,13 @@ class HillClimber {
     best       = start;
     fail_max   = fail_max0;
   }
-  void climb(
-    const PointCloud       &wgs84pc,
-    const IndexedShapefile &landmass,
-    const std::function<bool(const PointWithStats&, const PointWithStats&)> dom_checker
-  ){
-    best.first = DistanceToCoast(best.second,wgs84pc,landmass);
+  void climb(const PointCloud &wgs84pc){
+    best.first = DistanceToCoast(best.second,wgs84pc);
     while(fail_count<fail_max){
       steps++;
       const Point2D cand_coord = mutateBest();
-      const auto    cand       = std::make_pair(DistanceToCoast(cand_coord,wgs84pc,landmass), cand_coord);
-      if(!dom_checker(cand,best)){
+      const auto    cand       = std::make_pair(DistanceToCoast(cand_coord,wgs84pc), cand_coord);
+      if(cand.first<best.first){
         fail_count++;
         continue;
       }
@@ -255,13 +228,10 @@ class HillClimber {
 
 
 
-PointWithStats GetBestPoint(
-  const std::vector<PointWithStats> &pts,
-  const std::function<bool(const PointWithStats&, const PointWithStats&)> dom_checker
-){
+PointWithStats GetBestPoint(const std::vector<PointWithStats> &pts){
   PointWithStats best = pts.front();
   for(auto &x: pts)
-    if(dom_checker(x,best))
+    if(x.first>best.first)
       best = x;
   return best;
 }
@@ -273,50 +243,43 @@ PointWithStats GetBestPoint(
 PointWithStats HillClimb(
   const Point2D          &pt,
   const PointCloud       &wgs84pc,
-  const IndexedShapefile &landmass,
-  const std::function<bool(const PointWithStats&, const PointWithStats&)> dom_checker,
   const int    attempts,
   const int    fail_max,
   const double mutation_std
 ){
-  PointWithStats pws = std::make_pair(DistanceToCoast(pt,wgs84pc,landmass),pt);
+  PointWithStats pws = std::make_pair(DistanceToCoast(pt,wgs84pc),pt);
   std::vector<PointWithStats> bestv(omp_get_max_threads(), pws);
 
   HillClimber hc(pt,fail_max,mutation_std);
 
   //Start a large number of hill-climbing walks from the origin
-  #pragma omp parallel for default(none) schedule(static) firstprivate(hc) shared(bestv,landmass,wgs84pc)
+  #pragma omp parallel for default(none) schedule(static) firstprivate(hc) shared(bestv,wgs84pc)
   for(int i=0;i<attempts;i++){
     hc.reset();
-    hc.climb(wgs84pc, landmass, dom_checker);
-    if(dom_checker(hc.best,bestv.at(omp_get_thread_num())))
+    hc.climb(wgs84pc);
+    if(hc.best.first>bestv.at(omp_get_thread_num()).first)
       bestv.at(omp_get_thread_num()) = hc.best;
   }
 
-  return GetBestPoint(bestv, dom_checker);
+  return GetBestPoint(bestv);
 }
 
 
 
 PointWithStats ComplexHillClimb(
   const Point2D &pt,
-  const PointCloud &wgs84pc,
-  const IndexedShapefile &landmass,
-  const std::function<bool(const PointWithStats&, const PointWithStats&)> dom_checker
+  const PointCloud &wgs84pc
 ){
-  auto best = HillClimb(pt,wgs84pc,landmass,dom_checker,24*100,20,0.3*DEG_TO_RAD);
-  best      = HillClimb(best.second,wgs84pc,landmass,dom_checker,24*50,100,0.1*DEG_TO_RAD);
-  best      = HillClimb(best.second,wgs84pc,landmass,dom_checker,24*50,100,0.05*DEG_TO_RAD);
-  best      = HillClimb(best.second,wgs84pc,landmass,dom_checker,24*50,100,0.01*DEG_TO_RAD);
+  auto best = HillClimb(pt,wgs84pc,4*50,20,0.3*DEG_TO_RAD);
+  //best      = HillClimb(best.second,wgs84pc,4*50,50,0.1*DEG_TO_RAD);
+  //best      = HillClimb(best.second,wgs84pc,24*50,100,0.05*DEG_TO_RAD);
+  //best      = HillClimb(best.second,wgs84pc,24*50,100,0.01*DEG_TO_RAD);
   return best;
 }
 
 
 
-std::vector<PointWithStats> FilterPoints(
-  const std::vector<PointWithStats> &pts,
-  const std::function<bool(const PointWithStats&, const PointWithStats&)> dom_checker
-){
+std::vector<PointWithStats> FilterPoints(const std::vector<PointWithStats> &pts){
   //Build a point cloud
   PointCloud ptcloud;
   for(const auto &p: pts)
@@ -328,7 +291,7 @@ std::vector<PointWithStats> FilterPoints(
   for(unsigned int i=0;i<pts.size();i++){
     const auto neighbors = ptcloud.queryByDistance(TransLLto3D(pts[i].second),5);
     for(const auto &n: neighbors){
-      if(dom_checker(pts.at(i),pts.at(n.first)))
+      if(pts.at(i).first>pts.at(n.first).first)
         dominated.at(n.first) = true;
     }
   }
@@ -343,21 +306,7 @@ std::vector<PointWithStats> FilterPoints(
 
 
 TEST_CASE("Test with data [expensive]"){
-  const auto landmass = IndexedShapefile(FILE_MERC_LANDMASS,"land_polygons");
-
   SetupForProjection("ellipsoidal");
-
-  SUBCASE("Check that Fuller orientation has no overlaps"){
-    SolidXY p = OrientationFullerIcosahedron();
-
-    int ocount = 0;
-    for(const auto &v: p.v)
-      if(PointInLandmass(v,landmass))
-        ocount++;
-
-    std::cerr<<"Fuller count: "<<ocount<<std::endl;
-    assert(ocount==0);
-  }
 
   SUBCASE("PointInLandmass"){
     std::vector<Point2D> cities;
@@ -414,10 +363,6 @@ TEST_CASE("Test with data [expensive]"){
     for(auto &x: cities)
       x.toRadians();
 
-    //Check that all cities are on land
-    for(const auto &x: cities)
-      CHECK(PointInLandmass(x, landmass)==true);
-
     for(unsigned int i=0;i<cities.size();i++)
     for(unsigned int j=0;j<cities.size();j++)
       CHECK(std::abs(GeoDistanceEllipsoid(cities.at(i),cities.at(j))-GeoDistanceSphere(cities.at(i),cities.at(j)))<=37);
@@ -438,7 +383,6 @@ TEST_CASE("Test with data [expensive]"){
 
 void PrintPoints(
   const int          poi_num,
-  const std::string  sense,
   const PointCloud  &wgs84pc,
   PointWithStats     pt,
   std::ofstream     &fout,
@@ -458,7 +402,6 @@ void PrintPoints(
 
   pt.second.toDegrees();
   fout<<poi_num<<","
-      <<sense  <<","
       <<std::fixed<<std::setprecision(10)<<pt.second.x<<","
       <<std::fixed<<std::setprecision(10)<<pt.second.y<<","
       <<std::fixed<<std::setprecision(10)<<pt.first<<"\n";  
@@ -476,43 +419,29 @@ int main(int argc, char **argv){
 
   SetupForProjection(argv[1]);
 
-  const auto landmass = IndexedShapefile(FILE_MERC_LANDMASS,"land_polygons");
-
   PointCloud wgs84pc;
   wgs84pc = ReadPointCloudFromShapefile(FILE_WGS84_LANDMASS, "land_polygons");
   wgs84pc.buildIndex();
 
-  const auto dom_min = [](const PointWithStats &a, const PointWithStats &b){ return a.first<b.first; };
-  const auto dom_max = [](const PointWithStats &a, const PointWithStats &b){ return a.first>b.first; };
-
   //Generate evenly-spaced points covering the whole globe
   OrientationGenerator og(2000,180*DEG_TO_RAD); //TODO: 300
 
-
-  std::vector<PointWithStats> min_pts;
-  std::vector<PointWithStats> max_pts;
+  std::vector<PointWithStats> extrema;
 
   ProgressBar pg(og.size());
   for(int i=0;i<og.size();i++){
-    auto pt = og(i);
-    min_pts.push_back(ComplexHillClimb(pt, wgs84pc, landmass, dom_min));
-    max_pts.push_back(ComplexHillClimb(pt, wgs84pc, landmass, dom_max));
+    extrema.push_back(ComplexHillClimb(og(i), wgs84pc));
     ++pg;
   }
 
-  min_pts = FilterPoints(min_pts, dom_min);
-  max_pts = FilterPoints(max_pts, dom_max);
-
-  unsigned int poi_num = 0;
+  extrema = FilterPoints(extrema);
 
   std::ofstream fout(FILE_OUTPUT_PREFIX + "poi.csv");
   std::ofstream fout_circ(FILE_OUTPUT_PREFIX + "poi-circ.csv");
-  fout<<"poi_num,Type,PoleX,PoleY,Distance\n";
+  fout<<"poi_num,PoleX,PoleY,Distance\n";
   fout_circ<<"poi_num,pt_num,X,Y,distance\n";
-  for(auto p: min_pts)
-    PrintPoints(poi_num++, "min", wgs84pc, p, fout, fout_circ);
-  for(auto p: max_pts)
-    PrintPoints(poi_num++, "max", wgs84pc, p, fout, fout_circ);
+  for(unsigned int i=0;i<extrema.size();i++)
+    PrintPoints(i, wgs84pc, extrema.at(i), fout, fout_circ);
 
   return 0;
 }
