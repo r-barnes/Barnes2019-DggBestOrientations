@@ -1187,6 +1187,10 @@ int FuncHelp(int argc, char **argv){
 #ifdef DOCTEST_CONFIG_DISABLE
 
 int main(int argc, char **argv){
+  std::cout<<"Command: ";
+  for(int i=0;i<argc;i++)
+    std::cout<<argv[i]<<" ";
+  std::cout<<std::endl;
 
   if(argc==1 || argv[1]==std::string("help"))
     return FuncHelp(argc,argv);
