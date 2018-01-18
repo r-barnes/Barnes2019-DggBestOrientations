@@ -27,20 +27,21 @@
 #include <omp.h>
 
 #ifdef ENV_XSEDE
-  const std::string FILE_WGS84_LANDMASS = "/home/rbarnes1/scratch/dgg_best/land-polygons-complete-4326/land_polygons.shp";
-  const std::string FILE_OUTPUT_PREFIX  = "/home/rbarnes1/scratch/dgg_best/";
-  const std::string FILE_MERC_LANDMASS  = "/home/rbarnes1/scratch/dgg_best/land-polygons-split-3857/land_polygons.shp";
+  const std::string DATA_DIR           = "/home/rbarnes1/scratch/dgg_best/";
+  const std::string FILE_OUTPUT_PREFIX = "/home/rbarnes1/scratch/dgg_best/";
 #elif ENV_CORI
-  const std::string FILE_WGS84_LANDMASS = "/global/homes/r/rbarnes/dgg_best/land-polygons-complete-4326/land_polygons.shp";
+  const std::string DATA_DIR            = "/global/homes/r/rbarnes/dgg_best/";
   const std::string FILE_OUTPUT_PREFIX  = "/global/homes/r/rbarnes/dgg_best/";
-  const std::string FILE_MERC_LANDMASS  = "/global/homes/r/rbarnes/dgg_best/land-polygons-split-3857/land_polygons.shp";
 #elif ENV_LAPTOP
-  const std::string FILE_WGS84_LANDMASS = "data/land-polygons-complete-4326/land_polygons.shp";
+  const std::string DATA_DIR            = "data/";
   const std::string FILE_OUTPUT_PREFIX  = "/z/";
-  const std::string FILE_MERC_LANDMASS  = "data/land-polygons-split-3857/land_polygons.shp";
 #else
   #error "ENV_XSEDE or ENV_LAPTOP must be defined!"
 #endif
+
+std::string FILE_WGS84_LANDMASS;
+std::string FILE_WGS84_LANDMASS_LAYER;
+std::string chosen_coastname;
 
 const double Rearth = 6371; //km
 
@@ -59,6 +60,18 @@ GreatCircleGeneratorType great_circle_generator;
 
 typedef std::pair<double, Point2D> PointWithStats;
 
+void SetupForCoastline(const std::string coastname){
+  chosen_coastname = coastname;
+  if(coastname == "osm"){
+    FILE_WGS84_LANDMASS       = DATA_DIR + "land-polygons-complete-4326/land_polygons.shp";
+    FILE_WGS84_LANDMASS_LAYER = "land_polygons";
+  } else if(coastname=="gshhg"){
+    FILE_WGS84_LANDMASS       = DATA_DIR + "GSHHS_shp/f/GSHHS_f_L1.shp";
+    FILE_WGS84_LANDMASS_LAYER = "GSHHS_f_L1";
+  } else {
+    throw std::runtime_error("Unrecognized coastline name!");
+  }
+}
 
 void SetupForProjection(const std::string projection){
   chosen_projection = projection;
@@ -420,15 +433,17 @@ void PrintPoints(
 #ifdef DOCTEST_CONFIG_DISABLE
 
 int main(int argc, char **argv){
-  if(argc!=2){
-    std::cerr<<argv[0]<<" <Projection>"<<std::endl;
+  if(argc!=3){
+    std::cerr<<argv[0]<<" <Coastline> <Projection>"<<std::endl;
     return -1;
   }
 
-  SetupForProjection(argv[1]);
+  SetupForCoastline(argv[1]);
+  SetupForProjection(argv[2]);
+
 
   PointCloud wgs84pc;
-  wgs84pc = ReadPointCloudFromShapefile(FILE_WGS84_LANDMASS, "land_polygons");
+  wgs84pc = ReadPointCloudFromShapefile(FILE_WGS84_LANDMASS, FILE_WGS84_LANDMASS_LAYER);
   wgs84pc.buildIndex();
 
   //Generate evenly-spaced points covering the whole globe
