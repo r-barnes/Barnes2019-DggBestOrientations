@@ -2,8 +2,8 @@
 import itertools
 
 job="""#!/bin/bash  
-#SBATCH --job-name="dgg-{findwhat}"
-#SBATCH --output="dgg-{findwhat}.%j.%N.out"  
+#SBATCH --job-name="dgg-{shape}-{findwhat}"
+#SBATCH --output="dgg-{shape}-{findwhat}.%j.%N.out"  
 #SBATCH --partition=compute
 #SBATCH --nodes=1
 #SBATCH --export=ALL
