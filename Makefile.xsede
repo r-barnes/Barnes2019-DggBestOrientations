@@ -5,13 +5,13 @@ CC_FLAGS = -w
 #Libraries
 CXXFLAGS=--std=c++14 -g -ffast-math -march=native -mtune=native -fopenmp 
 DEFINES=-DENV_XSEDE -DFINE_RESOLUTION
-INCLUDES=-I/home/rbarnes1/os/include -I/home/rbarnes1/os/anaconda3/include -I/opt/boost/intel/mvapich2_ib/include/
-LIBS=-L/home/rbarnes1/os/anaconda3/lib -lgdal -lgeos_c -lxerces-c -lpthread -lnetcdf -lhdf5 -lmfhdf -ldf -lgeotiff -ltiff -lz -lpthread -lm -lrt -ldl -lcurl -lkea -lhdf5 -lhdf5_hl -lhdf5_cpp -ljpeg -lgeos -lproj -llzma -lssl -lcrypto -lGeographic
-WARNINGS=-Wall -Wextra -Wfloat-equal -Wundef -Wcast-align -Wwrite-strings -Wlogical-op -Wredundant-decls -Wshadow -Woverloaded-virtual
+INCLUDES=-I/home/rbarnes1/os/include -I/opt/gdal/include -I/opt/boost/intel/mvapich2_ib/include
+#LIBS=-L/home/rbarnes1/os/anaconda3/lib -lgdal -lgeos_c -lxerces-c -lpthread -lnetcdf -lhdf5 -lmfhdf -ldf -lgeotiff -ltiff -lz -lpthread -lm -lrt -ldl -lcurl -lkea -lhdf5 -lhdf5_hl -lhdf5_cpp -ljpeg -lgeos -lproj -llzma -lssl -lcrypto -lGeographic
+LIBS=/usr/lib64/libsqlite3.so -L/opt/gdal/lib -lgdal -L/home/rbarnes1/os/lib -lGeographic 
+WARNINGS=-Wall -Wextra -Wfloat-equal -Wundef -Wcast-align -Wwrite-strings -Wlogical-op -Wredundant-decls -Wshadow -Woverloaded-virtual -Wl,--verbose
 TESTING=--coverage -O3
 NOTESTING=-O3 -DDOCTEST_CONFIG_DISABLE
-#FLAGS=$(GDAL_CFLAGS) $(ARCH_FLAGS) $(CXXFLAGS) 
-FLAGS=$(CXXFLAGS) $(NOTESTING) $(DEFINES) $(INCLUDES) $(LIBS) $(WARNINGS)
+FLAGS=$(CXXFLAGS) $(NOTESTING) $(DEFINES) $(INCLUDES) $(WARNINGS)
 
 # File names
 EXEC = dgfinder.exe
@@ -24,14 +24,14 @@ POIOBJECTS = $(subst main.o,,$(OBJECTS))
  
 # Main target
 $(EXEC): $(DGOBJECTS) main.o
-	$(CC) $(FLAGS) $(DGOBJECTS) -o $(EXEC) $(GDAL_LIBS)
+	$(CC) $(FLAGS) $(DGOBJECTS) -o $(EXEC) $(LIBS)
  
 poi: $(POIOBJECTS) pole_of_inaccessibility.o
-	$(CC) $(FLAGS) $(POIOBJECTS) -o poi.exe $(GDAL_LIBS)
+	$(CC) $(FLAGS) $(POIOBJECTS) -o poi.exe $(LIBS)
  
 # To obtain object files
 %.o: %.cpp
-	$(CC) -c $(FLAGS) $< -o $@ 
+	$(CC) -c $(FLAGS) $< -o $@ $(LIBS)
  
 # To remove generated files
 clean:
