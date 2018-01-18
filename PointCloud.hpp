@@ -42,6 +42,7 @@ class PointCloud {
   void addPoint(const Point3D &xyz);
   const Point3D& queryPoint(const Point3D &xyz) const;
   std::vector<std::pair<unsigned int, double> > queryByDistance(const Point3D &qp, const double distance) const;
+  std::vector<std::pair<unsigned int, double> > queryByAnnulus (const Point3D &qp, const double inner_distance, const double outer_distance) const;
   std::vector< std::pair<int,double> > kNN(const Point3D &qp, const int num_results) const;
 };
 

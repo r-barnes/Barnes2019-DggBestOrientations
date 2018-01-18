@@ -84,6 +84,31 @@ std::vector<std::pair<unsigned int, double> > PointCloud::queryByDistance(const 
   return matches;
 }
 
+std::vector<std::pair<unsigned int, double> > PointCloud::queryByAnnulus(const Point3D &qp, const double inner_distance, const double outer_distance) const {
+  auto outer = queryByDistance(qp,outer_distance); //Points in outer and inner circles
+  auto inner = queryByDistance(qp,inner_distance); //Points in inner circle
+
+  assert(inner_distance<outer_distance);
+
+  //Points are returned in sorted order, so we can find the outermost point of
+  //the inner ring
+  const auto outermost_of_inner = inner.back().first;
+
+  //Now, find the corresponding point in the outer dataset
+  auto iouter = outer.begin();
+  for(;iouter!=outer.end();iouter++){
+    if(iouter->first==outermost_of_inner)
+      break;
+  }
+
+  //Increment one more, now the iterator points at the beginning of the annulus
+  iouter++;
+
+  outer.erase(outer.begin(),iouter);
+
+  return outer;
+}
+
 std::vector< std::pair<int,double> >  PointCloud::kNN(const Point3D &qp, const int num_results) const {
   double query_pt[3] = {qp.x,qp.y,qp.z};
   size_t ret_index[num_results];
