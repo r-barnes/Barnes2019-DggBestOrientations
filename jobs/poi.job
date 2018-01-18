@@ -4,12 +4,17 @@
 #SBATCH --partition=compute
 #SBATCH --nodes=1
 #SBATCH --export=ALL  
-#SBATCH -t 30:00:00
+#SBATCH -t 05:00:00
 
 cd /home/rbarnes1/dgg_best_poles2
 
-export LD_LIBRARY_PATH=$HOME/os/anaconda3/lib:$HOME/os/lib:$LD_LIBRARY_PATH
+CONDA=$HOME/anaconda3/pkgs
+
+export LD_LIBRARY_PATH=$HOME/os/lib:/opt/gdal/lib:/opt/geos/lib:$CONDA/xerces-c-3.1.4-0/lib:$CONDA/hdf4-4.2.12-1/lib:$CONDA/geotiff-1.4.1-0/lib:$CONDA/libtiff-4.0.6-3/lib:$LD_LIBRARY_PATH
 
 ulimit -c unlimited
 
-./poi.exe ellipsoidal
+./poi.exe osm ellipsoidal
+./poi.exe gshhg ellipsoidal
+./poi.exe osm spherical
+./poi.exe gshhg spherical
