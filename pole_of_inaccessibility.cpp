@@ -10,7 +10,6 @@
 #include "Point.hpp"
 #include "Orientation.hpp"
 #include "Timer.hpp"
-#include "IndexedShapefile.hpp"
 #include "OrientationIndex.hpp"
 #include "Progress.hpp"
 #include "random.hpp"
@@ -22,6 +21,7 @@
 #include <iomanip>
 #include <cassert>
 #include <fstream>
+#include <sstream>
 #include <iomanip>
 #include "doctest.h"
 #include <omp.h>
@@ -58,7 +58,18 @@ std::string chosen_polyhedron;
 std::string chosen_projection;
 GreatCircleGeneratorType great_circle_generator;
 
-typedef std::pair<double, Point2D> PointWithStats;
+class PointWithStats {
+ public:
+  double      dist;
+  Point2D     pt;
+  std::string label;
+  PointWithStats() = default;
+  PointWithStats(double dist0, const Point2D &pt0, const std::string &label0){
+    dist  = dist0;
+    pt    = pt0;
+    label = label0;
+  }
+};
 
 void SetupForCoastline(const std::string coastname){
   chosen_coastname = coastname;
@@ -95,6 +106,55 @@ void SetupForProjection(const std::string projection){
   }
 }
 
+
+
+//Kind of an ugly function that sorts pts in a clockwise ordering based on a
+//given center point
+// void ClockwiseSorter(std::vector< std::pair<unsigned int, double> > &pts, const Point3D &center_xyz, const PointCloud &wgsp4c){
+//   typedef std::pair< Point3D, std::pair<unsigned int, double> > p3did;
+
+//   //Construct rotation matrix
+//   const Rotator rotator(center_xyz, Point3D(0,0,1));
+
+//   //Rotate all points so that they project nicely into the xy-plane
+//   std::vector<p3did> pts3d;
+//   for(const auto &pidx: pts)
+//     pts3d.emplace_back(rotator(wgsp4c.pts.at(pidx.first)), pidx);
+
+//   std::sort(pts3d.begin(), pts3d.end(), [&](const p3did &ai, const p3did &bi){
+//     const auto &a = ai.first;
+//     const auto &b = bi.first;
+
+//     //Quick quadrant-based method
+//     if (a.x - center_xyz.x >= 0 && b.x - center_xyz.x < 0)
+//       return true;
+
+//     if (a.x - center_xyz.x < 0 && b.x - center_xyz.x >= 0)
+//       return false;
+
+//     if (a.x - center_xyz.x == 0 && b.x - center_xyz.x == 0) {
+//       if (a.y - center_xyz.y >= 0 || b.y - center_xyz.y >= 0)
+//         return a.y > b.y;
+//       return b.y > a.y;
+//     }
+
+//     //More expensive cross-product method
+//     // compute the cross product of vectors (center_xyz -> a) x (center_xyz -> b)
+//     int det = (a.x - center_xyz.x) * (b.y - center_xyz.y) - (b.x - center_xyz.x) * (a.y - center_xyz.y);
+//     if (det < 0)
+//       return true;
+//     if (det > 0)
+//       return false;
+
+//     // points a and b are on the same line from the center_xyz
+//     // check which point is closer to the center_xyz
+//     return ai.second.second > bi.second.second;
+//   });
+
+//   pts.clear();
+//   for(const auto &p: pts3d)
+//     pts.push_back(p.second);
+// }
 
 
 PointCloud ReadPointCloudFromShapefile(std::string filename, std::string layer){
@@ -203,7 +263,7 @@ class HillClimber {
     return mut_dist(rand_engine());
   }
   Point2D mutateBest(){
-    Point2D mutated = best.second;
+    Point2D mutated = best.pt;
     int nextcoord = getNextCoord();
     switch(nextcoord){
       case 0:
@@ -223,17 +283,17 @@ class HillClimber {
   HillClimber(Point2D start0, int fail_max0, double mutation_std){
     coord_dist = std::uniform_int_distribution<>(0,coords-1);
     mut_dist   = std::normal_distribution<>(0,mutation_std);
-    start      = std::make_pair(0,start0);
+    start      = PointWithStats(0,start0,"");
     best       = start;
     fail_max   = fail_max0;
   }
   void climb(const PointCloud &wgs84pc){
-    best.first = DistanceToCoast(best.second,wgs84pc);
+    best.dist = DistanceToCoast(best.pt,wgs84pc);
     while(fail_count<fail_max){
       steps++;
       const Point2D cand_coord = mutateBest();
-      const auto    cand       = std::make_pair(DistanceToCoast(cand_coord,wgs84pc), cand_coord);
-      if(cand.first<best.first){
+      const auto    cand       = PointWithStats(DistanceToCoast(cand_coord,wgs84pc), cand_coord, "");
+      if(cand.dist<best.dist){
         fail_count++;
         continue;
       }
@@ -253,7 +313,7 @@ class HillClimber {
 PointWithStats GetBestPoint(const std::vector<PointWithStats> &pts){
   PointWithStats best = pts.front();
   for(auto &x: pts)
-    if(x.first>best.first)
+    if(x.dist>best.dist)
       best = x;
   return best;
 }
@@ -269,7 +329,7 @@ PointWithStats HillClimb(
   const int    fail_max,
   const double mutation_std
 ){
-  PointWithStats pws = std::make_pair(DistanceToCoast(pt,wgs84pc),pt);
+  PointWithStats pws = PointWithStats(DistanceToCoast(pt,wgs84pc),pt,"");
   std::vector<PointWithStats> bestv(omp_get_max_threads(), pws);
 
   HillClimber hc(pt,fail_max,mutation_std);
@@ -279,7 +339,7 @@ PointWithStats HillClimb(
   for(int i=0;i<attempts;i++){
     hc.reset();
     hc.climb(wgs84pc);
-    if(hc.best.first>bestv.at(omp_get_thread_num()).first)
+    if(hc.best.dist>bestv.at(omp_get_thread_num()).dist)
       bestv.at(omp_get_thread_num()) = hc.best;
   }
 
@@ -293,8 +353,8 @@ PointWithStats ComplexHillClimb(
   const PointCloud &wgs84pc
 ){
   auto best = HillClimb(pt,         wgs84pc,4*50,20,0.3*DEG_TO_RAD);
-  best      = HillClimb(best.second,wgs84pc,4*50,50,0.1*DEG_TO_RAD);
-  best      = HillClimb(best.second,wgs84pc,24*50,100,0.05*DEG_TO_RAD);
+  best      = HillClimb(best.pt,wgs84pc,4*50,50,0.1*DEG_TO_RAD);
+  best      = HillClimb(best.pt,wgs84pc,24*50,100,0.05*DEG_TO_RAD);
   return best;
 }
 
@@ -304,7 +364,7 @@ std::vector<PointWithStats> FilterPoints(const std::vector<PointWithStats> &pts)
   //Build a point cloud
   PointCloud ptcloud;
   for(const auto &p: pts)
-    ptcloud.addPoint(TransLLto3D(p.second));
+    ptcloud.addPoint(TransLLto3D(p.pt));
   ptcloud.buildIndex();
 
   std::vector<bool> dominated(pts.size(),false);
@@ -403,29 +463,65 @@ TEST_CASE("Test with data [expensive]"){
 }
 
 void PrintPoints(
-  const int          poi_num,
+  const unsigned int poi_num,
   const PointCloud  &wgs84pc,
   PointWithStats     pt,
   std::ofstream     &fout,
   std::ofstream     &fout_circ
 ){
-  const auto circ_pts = wgs84pc.kNN(TransLLto3D(pt.second), 3);
+  const auto pt3d = TransLLto3D(pt.pt);
 
-  for(unsigned int i=0;i<circ_pts.size();i++){
-    auto cp = Trans3DtoLL(wgs84pc.pts.at(circ_pts.at(i).first));
+  //Get the three nearest points. These define the circle of inaccessibility.
+  //Points are returned sorted by distance
+  const auto circ_pts = wgs84pc.kNN(pt3d, 3);
+
+  //Get the farthest of the three (should be within epsilon of the nearest)
+  const auto dist_to_farthest = std::sqrt(circ_pts.at(2).second);
+
+  //auto annulus = wgs84pc.queryByAnnulus(pt3d, dist_to_farthest, dist_to_farthest+1);
+  auto annulus = wgs84pc.queryByDistance(pt3d, dist_to_farthest+30);
+
+  // ClockwiseSorter(annulus, pt3d, wgs84pc);
+
+  if(annulus.size()<3){
+    std::cerr<<"Warning: Point "<<pt.pt.x<<" "<<pt.pt.y<<" had no annulus. Skipping."<<std::endl;
+    return;
+  }
+
+  // std::ostringstream geom;
+  // geom << "POLYGON((";
+
+  for(unsigned int i=0;i<annulus.size();i++){
+    auto cp = Trans3DtoLL(wgs84pc.pts.at(annulus.at(i).first));
     cp.toDegrees();
     fout_circ<<poi_num<<","
              <<i      <<","
+             <<chosen_coastname<<","
+             <<chosen_projection<<","
              <<std::fixed<<std::setprecision(10)<<cp.x<<","
              <<std::fixed<<std::setprecision(10)<<cp.y<<","
-             <<std::fixed<<std::setprecision(10)<<std::sqrt(circ_pts.at(i).second)<<"\n";
+             <<std::fixed<<std::setprecision(10)<<GeoDistance(pt.pt,cp)<<","
+             <<"\n";
+    // geom<<std::fixed<<std::setprecision(10)<<cp.x<<" ";
+    // geom<<std::fixed<<std::setprecision(10)<<cp.y<<",";
   }
+  // {
+  //   const auto frontpt = Trans3DtoLL(wgs84pc.pts.at(annulus.at(0).first));
+  //   geom<<frontpt.x<<" "<<frontpt.y;
+  // } 
+  // geom<<"))";
 
-  pt.second.toDegrees();
+  pt.pt.toDegrees();
   fout<<poi_num<<","
-      <<std::fixed<<std::setprecision(10)<<pt.second.x<<","
-      <<std::fixed<<std::setprecision(10)<<pt.second.y<<","
-      <<std::fixed<<std::setprecision(10)<<pt.first<<"\n";  
+      <<chosen_coastname<<","
+      <<chosen_projection<<","
+      <<std::fixed<<std::setprecision(10)<<pt.pt.x<<","
+      <<std::fixed<<std::setprecision(10)<<pt.pt.y<<","
+      <<std::fixed<<std::setprecision(10)<<pt.dist<<","  
+      <<pt.label<<","
+      //<<"\""<<geom.str()<<"\""
+      <<"\"\""
+      <<"\n";
 }
 
 
@@ -441,13 +537,62 @@ int main(int argc, char **argv){
   SetupForCoastline(argv[1]);
   SetupForProjection(argv[2]);
 
+  std::string outname = "poi-"+std::string(argv[1])+"-"+std::string(argv[2]);
+
+  unsigned int pole_num = 0;
+
+  //http://apl.maps.arcgis.com/apps/MapJournal/index.html?appid=ce19bec7a3c541d0b95c449df9bb8eb5 (Dr Witold Frączek and Mr Lenny Kneller)
+  //Gareth  and Robert Headland and Ted Scambos and Terry Haran
+  //Garcia-Castellanos and Lombardo (2007)
+  std::vector< PointWithStats > previous_poles = {
+    {99999, {54.966,-82.1},        "prev,\"Wikipedia Antarctica - Soviet Station coordinates\""},
+    //{99999, {-82.97,54.97},        "prev,\"Castellanos Antartica - Soviet Station coordinates\""},
+    {99999, {26.17,5.65},          "prev,\"Castellanos Africa\""},
+    {99999, {-101.97,43.46},       "prev,\"Castellanos North America\""},
+    {99999, {-56.85,-14.05},       "prev,\"Castellanos South America\""},
+    {99999, {132.27,-23.17},       "prev,\"Castellanos Australia\""},
+    {99999, {82.19,44.29},         "prev,\"Castellanos EPIA1\""},
+    {99999, {88.14,45.28},         "prev,\"Castellanos EPIA2\""},
+    {99999, {86.67,46.28},         "prev,\"Castellanos Former EPIA (found with undocumented calculation)\""},
+    {99999, {-1.56,52.65},         "prev,\"Castellanos Great Britain\""},
+    {99999, {-41.0,76.50},         "prev,\"Castellanos Greenland\""},
+    {99999, {-4.51,39.99},         "prev,\"Castellanos Iberian Peninsula\""},
+    {99999, {46.67,-18.33},        "prev,\"Castellanos Madagascar\""},
+    {99999, {-123.45,-48.89},      "prev,\"Castellanos Pacific/Oceanic (Point Nemo)\""},
+    {99999, {54.9681,-83.6978},    "prev,\"Frączek Antarctica\""},
+    {99999, {88.24835,45.34058},   "prev,\"Frączek Eurasia\""},
+    {99999, {-102.01128,43.37508}, "prev,\"Frączek North America\""},
+    {99999, {-56.99196,-14.38964}, "prev,\"Frączek South America\""},
+    {99999, {26.15324,5.64142},    "prev,\"Frączek Africa\""},
+    {99999, {132.2763,-23.1734},   "prev,\"Frączek Australia\""},
+    {99999, {-167.4357,83.1527},   "prev,\"Frączek Arctic Pole\""},
+    {99999, {-160,83.83333},       "prev,\"Rees Stefansson 1921\""},
+    {99999, {-175,77.75},          "prev,\"Rees Wilkins 1928a\""},
+    {99999, {157,88},              "prev,\"Rees Ice Pole (Ellsworth 1938:217)\""},
+    {99999, {-174.85, 84.05},      "prev,\"Rees Generally accepted value\""},
+    {99999, {-176.149, 85.802},    "prev,\"Rees New calculated API\""},
+    {99999, {-176.145, 85.780},    "prev,\"Rees Scambos and Haran 2005\""},
+  };
 
   PointCloud wgs84pc;
   wgs84pc = ReadPointCloudFromShapefile(FILE_WGS84_LANDMASS, FILE_WGS84_LANDMASS_LAYER);
   wgs84pc.buildIndex();
 
+  for(auto &pp: previous_poles){
+    pp.pt.toRadians();
+    pp.dist = DistanceToCoast(pp.pt, wgs84pc);
+  }
+
+  std::ofstream fout(FILE_OUTPUT_PREFIX + outname + ".csv");
+  std::ofstream fout_circ(FILE_OUTPUT_PREFIX + outname + "-circ.csv");
+  fout<<"poi_num,data,proj,PoleX,PoleY,Distance,Type,Label,geom\n";
+  fout_circ<<"poi_num,data,proj,pt_num,X,Y,distance\n";
+
+  for(unsigned int i=0;i<previous_poles.size();i++)
+    PrintPoints(pole_num++, wgs84pc, previous_poles.at(i), fout, fout_circ);
+
   //Generate evenly-spaced points covering the whole globe
-  OrientationGenerator og(2*1337,180*DEG_TO_RAD); //TODO: 300
+  OrientationGenerator og(300,180*DEG_TO_RAD); //TODO: 300
 
   std::vector<PointWithStats> extrema;
 
@@ -459,12 +604,26 @@ int main(int argc, char **argv){
 
   extrema = FilterPoints(extrema);
 
-  std::ofstream fout(FILE_OUTPUT_PREFIX + "poi.csv");
-  std::ofstream fout_circ(FILE_OUTPUT_PREFIX + "poi-circ.csv");
-  fout<<"poi_num,PoleX,PoleY,Distance\n";
-  fout_circ<<"poi_num,pt_num,X,Y,distance\n";
-  for(unsigned int i=0;i<extrema.size();i++)
-    PrintPoints(i, wgs84pc, extrema.at(i), fout, fout_circ);
+  for(unsigned int i=0;i<extrema.size();i++){
+    extrema.at(i).label = ",mine,";
+    PrintPoints(pole_num++, wgs84pc, extrema.at(i), fout, fout_circ);
+  }
+
+
+
+  extrema.clear();
+
+  pg = ProgressBar(previous_poles.size());
+  for(const auto &pp: previous_poles){
+    extrema.push_back(ComplexHillClimb(pp.pt, wgs84pc));
+    extrema.back().label = pp.label;
+    ++pg;
+  }
+
+  for(unsigned int i=0;i<extrema.size();i++){
+    extrema.at(i).label = ",improved," + extrema.at(i).label;
+    PrintPoints(pole_num++, wgs84pc, extrema.at(i), fout, fout_circ);
+  }
 
   return 0;
 }
