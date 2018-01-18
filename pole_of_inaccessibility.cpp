@@ -297,9 +297,9 @@ std::vector<PointWithStats> FilterPoints(const std::vector<PointWithStats> &pts)
   std::vector<bool> dominated(pts.size(),false);
 
   for(unsigned int i=0;i<pts.size();i++){
-    const auto neighbors = ptcloud.queryByDistance(TransLLto3D(pts[i].second),5);
+    const auto neighbors = ptcloud.queryByDistance(TransLLto3D(pts[i].pt),20);
     for(const auto &n: neighbors){
-      if(pts.at(i).first>pts.at(n.first).first)
+      if(pts.at(i).dist>pts.at(n.first).dist)
         dominated.at(n.first) = true;
     }
   }
