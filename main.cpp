@@ -632,7 +632,7 @@ std::ostream& PrintPOI(std::ostream& fout, const OSCollection &osc, const int i,
   if(header){
     fout<<"num"           <<","
         <<"overlaps"      <<","
-        <<"overlaps"      <<","
+        <<"overlapnum"    <<","
         <<"pole.y"        <<","
         <<"pole.x"        <<","
         <<"rtheta"        <<","
