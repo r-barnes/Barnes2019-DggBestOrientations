@@ -77,8 +77,8 @@ void SetupForCoastline(const std::string coastname){
     FILE_WGS84_LANDMASS       = DATA_DIR + "land-polygons-complete-4326/land_polygons.shp";
     FILE_WGS84_LANDMASS_LAYER = "land_polygons";
   } else if(coastname=="gshhg"){
-    FILE_WGS84_LANDMASS       = DATA_DIR + "GSHHS_shp/f/GSHHS_f_L1.shp";
-    FILE_WGS84_LANDMASS_LAYER = "GSHHS_f_L1";
+    FILE_WGS84_LANDMASS       = DATA_DIR + "GSHHS_shp/f/GSHHS_f_L1+L5.shp";
+    FILE_WGS84_LANDMASS_LAYER = "GSHHS_f_L1+L5";
   } else {
     throw std::runtime_error("Unrecognized coastline name!");
   }
