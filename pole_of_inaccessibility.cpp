@@ -570,8 +570,8 @@ int main(int argc, char **argv){
     {99999, {-175,77.75},          "prev,\"Rees Wilkins 1928a\""},
     {99999, {157,88},              "prev,\"Rees Ice Pole (Ellsworth 1938:217)\""},
     {99999, {-174.85, 84.05},      "prev,\"Rees Generally accepted value\""},
-    {99999, {-176.149, 85.802},    "prev,\"Rees New calculated API\""},
-    {99999, {-176.145, 85.780},    "prev,\"Rees Scambos and Haran 2005\""},
+    {99999, {176.149, 85.802},     "prev,\"Rees New calculated API\""},
+    {99999, {176.145, 85.780},     "prev,\"Rees Scambos and Haran 2005\""},
   };
 
   PointCloud wgs84pc;
