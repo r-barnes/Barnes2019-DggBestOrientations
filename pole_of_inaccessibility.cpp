@@ -614,7 +614,8 @@ int main(int argc, char **argv){
   extrema.clear();
 
   pg = ProgressBar(previous_poles.size());
-  for(const auto &pp: previous_poles){
+  for(const auto &pp: previous_poles)
+  for(int i=0;i<100;i++){
     extrema.push_back(ComplexHillClimb(pp.pt, wgs84pc));
     extrema.back().label = pp.label;
     ++pg;
