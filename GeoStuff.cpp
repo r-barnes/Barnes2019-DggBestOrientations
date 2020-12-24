@@ -279,6 +279,18 @@ Polygons ReadShapefile(std::string filename, std::string layername){
     poGeometry = poFeature->GetGeometryRef();
     if (poGeometry==NULL){
       //Pass
+    } else if( wkbFlatten(poGeometry->getGeometryType()) == wkbLineString ){
+      OGRLineString *ls = (OGRLineString *) poGeometry;
+      geometries.emplace_back();
+      for(int i=0;i<ls->getNumPoints();i++)
+        geometries.back().exterior.emplace_back(ls->getX(i),ls->getY(i));
+    } else if( wkbFlatten(poGeometry->getGeometryType()) == wkbMultiLineString ){
+      OGRMultiLineString *mls = (OGRMultiLineString *) poGeometry;
+      for(const auto &ls: *mls){
+        geometries.emplace_back();
+        for(int i=0;i<ls->getNumPoints();i++)
+          geometries.back().exterior.emplace_back(ls->getX(i),ls->getY(i));
+      }
     } else if( wkbFlatten(poGeometry->getGeometryType()) == wkbPolygon ){
       OGRPolygon *poly = (OGRPolygon *) poGeometry;
       auto extring = poly->getExteriorRing();
@@ -287,7 +299,7 @@ Polygons ReadShapefile(std::string filename, std::string layername){
       for(int i=0;i<extring->getNumPoints();i++)
         geometries.back().exterior.emplace_back(extring->getX(i),extring->getY(i));
     } else {
-      std::cerr<<"Unrecognised geometry of type: "<<wkbFlatten(poGeometry->getGeometryType())<<std::endl;
+      std::cerr<<"Unrecognised geometry of type: "<<OGRGeometryTypeToName(poGeometry->getGeometryType())<<std::endl;
     }
     OGRFeature::DestroyFeature( poFeature );
   }
@@ -365,7 +377,7 @@ Point2D GeographicLibGreatCircleGenerator::operator()(const int i) const {
   temp.toRadians();
   return temp;
 }
-  
+
 
 
 // """
