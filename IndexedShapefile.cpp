@@ -2,6 +2,8 @@
 #include "Timer.hpp"
 #include "GeoStuff.hpp"
 
+#include <iostream>
+
 ///Read a shapefile and build an (R*-tree) index of its polygons
 /// @param shapefile Shapefile to read
 /// @param layer     Layer from the shapefile
