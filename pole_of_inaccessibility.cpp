@@ -79,6 +79,9 @@ void SetupForCoastline(const std::string coastname){
   } else if(coastname=="gshhg"){
     FILE_WGS84_LANDMASS       = DATA_DIR + "GSHHS_shp/f/GSHHS_f_L1+L5.shp";
     FILE_WGS84_LANDMASS_LAYER = "GSHHS_f_L1+L5";
+  } else if(coastname=="add"){
+    FILE_WGS84_LANDMASS       = DATA_DIR + "addv73/add_ice_coast_and_grounding_line.shp";
+    FILE_WGS84_LANDMASS_LAYER = "add_ice_coast_and_grounding_line";
   } else {
     throw std::runtime_error("Unrecognized coastline name!");
   }
@@ -616,7 +619,7 @@ int main(int argc, char **argv){
 
   extrema.clear();
 
-  pg = ProgressBar(previous_poles.size());
+  pg = ProgressBar(100*previous_poles.size());
   for(const auto &pp: previous_poles)
   for(int i=0;i<100;i++){
     extrema.push_back(ComplexHillClimb(pp.pt, wgs84pc));

@@ -65,3 +65,22 @@ The result of either compilation is a program called `dgfinder.exe`.
 
 Running this program will either run extensive code tests or perform the optimal
 orientation search.
+
+
+
+Converting the ADD data
+=======================
+
+The ADD high-res data can be acquired from here:
+
+https://data.bas.ac.uk/collections/e74543c0-4c4e-4b41-aa33-5bb2f67df389/
+
+The exact dataset used is here:
+
+https://data.bas.ac.uk/items/ad7d345a-0650-4f44-b7eb-c48e1999086b/
+
+It must be converted into a WGS84 projection and appropriate datasets selected,
+as follows:
+```bash
+ogr2ogr -progress -t_srs '+proj=longlat +datum=WGS84 +no_defs' -where "surface='ice coastline' OR surface='grounding line'" -f "ESRI Shapefile" add_ice_coast_and_grounding_line.shp add_coastline_high_res_line_v7.3.shp
+```
