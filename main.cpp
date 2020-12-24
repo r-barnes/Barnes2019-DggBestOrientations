@@ -32,12 +32,12 @@
   const std::string FILE_OUTPUT_PREFIX  = "/home/rbarnes1/scratch/dgg_best/";
   const std::string FILE_MERC_LANDMASS  = "/home/rbarnes1/scratch/dgg_best/land-polygons-split-3857/land_polygons.shp";
   const double MUTATION_WIDTH           = 0.01;
-#elif ENV_CORI
+#elif defined ENV_CORI
   const std::string FILE_WGS84_LANDMASS = "/global/homes/r/rbarnes/dgg_best/land-polygons-complete-4326/land_polygons.shp";
   const std::string FILE_OUTPUT_PREFIX  = "/global/homes/r/rbarnes/dgg_best/";
   const std::string FILE_MERC_LANDMASS  = "/global/homes/r/rbarnes/dgg_best/land-polygons-split-3857/land_polygons.shp";
   const double MUTATION_WIDTH           = 0.01;
-#elif ENV_LAPTOP
+#elif defined ENV_LAPTOP
   const std::string FILE_WGS84_LANDMASS = "data/land-polygons-complete-4326/land_polygons.shp";
   const std::string FILE_OUTPUT_PREFIX  = "/z/";
   const std::string FILE_MERC_LANDMASS  = "data/land-polygons-split-3857/land_polygons.shp";
@@ -227,7 +227,7 @@ PointCloud ReadPointCloudFromShapefile(std::string filename, std::string layer){
   std::cerr<<"Ensuring polygon edges are not too long..."<<std::endl;
   std::vector<Point2D> wgs84_ll_flat;
   #pragma omp declare reduction (merge : std::vector<Point2D> : omp_out.insert(omp_out.end(), omp_in.begin(), omp_in.end()))
-  #pragma omp parallel for default(none) schedule(static) shared(landmass_wgs84) reduction(merge: wgs84_ll_flat)
+  #pragma omp parallel for default(none) schedule(static) shared(landmass_wgs84,poly_filler) reduction(merge: wgs84_ll_flat)
   for(unsigned int pi=0;pi<landmass_wgs84.size();pi++){
     const auto filled_poly = poly_filler(landmass_wgs84[pi].exterior);
     wgs84_ll_flat.insert(wgs84_ll_flat.end(),filled_poly.begin(),filled_poly.end());
@@ -271,7 +271,7 @@ norientations_t FindNearbyOrientations(const std::vector<T> &osc, const double d
 
   ProgressBar pg(osc.size());
   norientations_t oneighbors(osc.size());
-  #pragma omp parallel for default(none) schedule(static) shared(osc,oneighbors,oidx,pg)
+  #pragma omp parallel for default(none) schedule(static) shared(distance,osc,oneighbors,oidx,pg)
   for(unsigned int i=0;i<osc.size();i++){
     oneighbors[i] = oidx.query(i,distance);
     ++pg;
@@ -383,7 +383,7 @@ OCollection OrientationsFilteredByOverlaps(
   ProgressBar pg(og.size());
   OCollection ret;
   #pragma omp declare reduction (merge : OCollection : omp_out.insert(omp_out.end(), omp_in.begin(), omp_in.end()))
-  #pragma omp parallel for default(none) schedule(static) shared(COARSE_THETA_STEP,COARSE_THETA_MAX,landmass,pg) reduction(merge: ret)
+  #pragma omp parallel for default(none) schedule(static) shared(og,COARSE_THETA_STEP,COARSE_THETA_MAX,landmass,pg) reduction(merge: ret)
   for(unsigned int o=0;o<og.size();o++){
     const auto pole = og(o);
     for(double theta=COARSE_THETA_MIN;theta<=COARSE_THETA_MAX;theta+=COARSE_THETA_STEP){
@@ -489,7 +489,7 @@ class HillClimber {
       x = std::abs(x-rangemin)+rangemin;
     else if(x>rangemax)
       x = rangemax-std::abs(x-rangemax);
-    return x;    
+    return x;
   }
   double wrapLong(double x) const {
     x += M_PI;               //Move [0,360]
@@ -600,7 +600,7 @@ OrientationWithStats HillClimb(
   HillClimber hc(ows,fail_max,mutation_std);
 
   //Start a large number of hill-climbing walks from the origin
-  #pragma omp parallel for default(none) schedule(static) firstprivate(hc) shared(bestv,landmass,wgs84pc,do_edge,dom_checker)
+  #pragma omp parallel for default(none) schedule(static) firstprivate(hc) shared(attempts,bestv,landmass,wgs84pc,do_edge,dom_checker)
   for(int i=0;i<attempts;i++){
     hc.reset();
     hc.climb(wgs84pc, landmass, do_edge, dom_checker);
@@ -765,7 +765,7 @@ void FindBest(
   }
 
   FindBestHelper("out_" + find_what, orients, wgs84pc, landmass, do_edges, dom_checker);
-  
+
   std::cerr<<"Found best in = "<<tmr.elapsed()<<std::endl;
 }
 
@@ -896,7 +896,7 @@ TEST_CASE("Test with data [expensive]"){
       CHECK(c.x==doctest::Approx(converted.x));
       CHECK(c.y==doctest::Approx(converted.y));
     }
-    
+
 
     //Check that all GC arcs between cities include at least some land
     for(unsigned int i=0;i<cities.size();i++)
@@ -941,7 +941,7 @@ TEST_CASE("[GreatCircle] Generate great cicles between points"){
     const auto neighbors = sxy.neighbors();             //Get a list of neighbouring vertices on the polyhedron
     std::ofstream fout(filename);
     fout<<"lat,lon\n";
-    
+
     if(neighbors.size()==0)
       return;
 
@@ -1202,9 +1202,9 @@ int main(int argc, char **argv){
     FuncGetOrientInfo(argc,argv);
   else if(argv[1]==std::string("get_polyhedron_info"))
     FuncPolyhedronInfo();
-  else 
+  else
     return FuncHelp(argc,argv);
-  
+
   return 0;
 }
 

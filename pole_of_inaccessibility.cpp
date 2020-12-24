@@ -29,10 +29,10 @@
 #ifdef ENV_XSEDE
   const std::string DATA_DIR           = "/home/rbarnes1/scratch/dgg_best/";
   const std::string FILE_OUTPUT_PREFIX = "/home/rbarnes1/scratch/dgg_best/";
-#elif ENV_CORI
+#elif defined ENV_CORI
   const std::string DATA_DIR            = "/global/homes/r/rbarnes/dgg_best/";
   const std::string FILE_OUTPUT_PREFIX  = "/global/homes/r/rbarnes/dgg_best/";
-#elif ENV_LAPTOP
+#elif defined ENV_LAPTOP
   const std::string DATA_DIR            = "data/";
   const std::string FILE_OUTPUT_PREFIX  = "/z/";
 #else
@@ -191,7 +191,7 @@ PointCloud ReadPointCloudFromShapefile(std::string filename, std::string layer){
   std::cerr<<"Ensuring polygon edges are not too long..."<<std::endl;
   std::vector<Point2D> wgs84_ll_flat;
   #pragma omp declare reduction (merge : std::vector<Point2D> : omp_out.insert(omp_out.end(), omp_in.begin(), omp_in.end()))
-  #pragma omp parallel for default(none) schedule(static) shared(landmass_wgs84) reduction(merge: wgs84_ll_flat)
+  #pragma omp parallel for default(none) schedule(static) shared(landmass_wgs84,poly_filler) reduction(merge: wgs84_ll_flat)
   for(unsigned int pi=0;pi<landmass_wgs84.size();pi++){
     const auto filled_poly = poly_filler(landmass_wgs84[pi].exterior);
     wgs84_ll_flat.insert(wgs84_ll_flat.end(),filled_poly.begin(),filled_poly.end());
@@ -242,7 +242,7 @@ class HillClimber {
       x = std::abs(x-rangemin)+rangemin;
     else if(x>rangemax)
       x = rangemax-std::abs(x-rangemax);
-    return x;    
+    return x;
   }
   double wrapLong(double x) const {
     x += M_PI;               //Move [0,360]
@@ -335,7 +335,7 @@ PointWithStats HillClimb(
   HillClimber hc(pt,fail_max,mutation_std);
 
   //Start a large number of hill-climbing walks from the origin
-  #pragma omp parallel for default(none) schedule(static) firstprivate(hc) shared(bestv,wgs84pc)
+  #pragma omp parallel for default(none) schedule(static) firstprivate(hc) shared(bestv,wgs84pc,attempts)
   for(int i=0;i<attempts;i++){
     hc.reset();
     hc.climb(wgs84pc);
@@ -352,8 +352,8 @@ PointWithStats ComplexHillClimb(
   const Point2D &pt,
   const PointCloud &wgs84pc
 ){
-  auto best = HillClimb(pt,         wgs84pc,4*50,20,0.3*DEG_TO_RAD);
-  best      = HillClimb(best.pt,wgs84pc,4*50,50,0.1*DEG_TO_RAD);
+  auto best = HillClimb(pt,     wgs84pc,4*50,  20, 0.3*DEG_TO_RAD);
+  best      = HillClimb(best.pt,wgs84pc,4*50,  50, 0.1*DEG_TO_RAD);
   best      = HillClimb(best.pt,wgs84pc,24*50,100,0.05*DEG_TO_RAD);
   return best;
 }
@@ -382,7 +382,7 @@ std::vector<PointWithStats> FilterPoints(const std::vector<PointWithStats> &pts)
     if(!dominated.at(i))
       undom.push_back(pts.at(i));
 
-  return undom;  
+  return undom;
 }
 
 
@@ -458,7 +458,7 @@ TEST_CASE("Test with data [expensive]"){
       const auto converted = SphericalCartesiantoWGS84(WGS84toSphericalCartesian(c));
       CHECK(c.x==doctest::Approx(converted.x));
       CHECK(c.y==doctest::Approx(converted.y));
-    }    
+    }
   }
 }
 
@@ -508,7 +508,7 @@ void PrintPoints(
   // {
   //   const auto frontpt = Trans3DtoLL(wgs84pc.pts.at(annulus.at(0).first));
   //   geom<<frontpt.x<<" "<<frontpt.y;
-  // } 
+  // }
   // geom<<"))";
 
   pt.pt.toDegrees();
@@ -517,7 +517,7 @@ void PrintPoints(
       <<chosen_projection<<","
       <<std::fixed<<std::setprecision(10)<<pt.pt.x<<","
       <<std::fixed<<std::setprecision(10)<<pt.pt.y<<","
-      <<std::fixed<<std::setprecision(10)<<pt.dist<<","  
+      <<std::fixed<<std::setprecision(10)<<pt.dist<<","
       <<pt.label<<","
       //<<"\""<<geom.str()<<"\""
       <<"\"\""
@@ -578,6 +578,7 @@ int main(int argc, char **argv){
   wgs84pc = ReadPointCloudFromShapefile(FILE_WGS84_LANDMASS, FILE_WGS84_LANDMASS_LAYER);
   wgs84pc.buildIndex();
 
+  std::cerr<<"Getting distance to previous poles..."<<std::endl;
   for(auto &pp: previous_poles){
     pp.pt.toRadians();
     pp.dist = DistanceToCoast(pp.pt, wgs84pc);
@@ -588,6 +589,7 @@ int main(int argc, char **argv){
   fout<<"poi_num,data,proj,PoleX,PoleY,Distance,Type,Label,geom\n";
   fout_circ<<"poi_num,data,proj,pt_num,X,Y,distance\n";
 
+  std::cerr<<"Printing previous poles..."<<std::endl;
   for(unsigned int i=0;i<previous_poles.size();i++)
     PrintPoints(pole_num++, wgs84pc, previous_poles.at(i), fout, fout_circ);
 
@@ -596,6 +598,7 @@ int main(int argc, char **argv){
 
   std::vector<PointWithStats> extrema;
 
+  std::cerr<<"Performing hill climbing from many points..."<<std::endl;
   ProgressBar pg(og.size());
   for(int i=0;i<og.size();i++){
     extrema.push_back(ComplexHillClimb(og(i), wgs84pc));
@@ -609,7 +612,7 @@ int main(int argc, char **argv){
     PrintPoints(pole_num++, wgs84pc, extrema.at(i), fout, fout_circ);
   }
 
-
+  std::cerr<<"Performing hill climbing from previous points..."<<std::endl;
 
   extrema.clear();
 
