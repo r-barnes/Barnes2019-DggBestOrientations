@@ -56,10 +56,10 @@ compiled on your machine of choice.
 
 To compile the program for production run:
 
+    mkdir build
+    cd build
+    cmake -DCMAKE_BUILD_TYPE=Release ..
     make
-
-To compile the program for debugging, please comment/uncomment the indicated
-lines in `Makefile`.
 
 The result of either compilation is a program called `dgfinder.exe`.
 

@@ -11,3 +11,5 @@ clean.sh
 upserver.sh
 test_*
 misc/
+build/
+.vscode/
