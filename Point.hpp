@@ -28,6 +28,9 @@ class Point3D {
   double mag2() const;                   //Magnitude squared (avoids square root operation)
 };
 
+
+
+///Class for rotating a point in three dimensions about a vector of rotation. 
 class Rotator {
  private:
   double mr;

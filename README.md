@@ -1,5 +1,5 @@
-2017-DggBestOrientations
-========================
+Source Code: Optimal orientations of discrete global grids
+==========================================================
 
 **Title of Manuscript**:
 Optimal orientations of discrete global grids

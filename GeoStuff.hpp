@@ -30,6 +30,10 @@ double EuclideanDistance(const Point3D &a, const Point3D &b);
 
 Polygons ReadShapefile(std::string filename, std::string layername);
 
+
+///A base class for generating evenly-distributed points between two ends of a
+///great- circle or great-ellipse arc. The class is specialized by several types
+///of classes which generate arcs on different spheres and ellipsoids.
 class GreatCircleGenerator {
  protected:
   double spacing;

@@ -183,6 +183,7 @@ void ThetaRotateSolidToZero(SolidXY &sxy){
 
 
 
+//TODO: Does polar versus equatorial angle matter here?
 SolidXY OrientationToRegularIcosahedron(const Orientation &o) {
   static std::vector<Point2D> v;
 

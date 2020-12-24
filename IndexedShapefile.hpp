@@ -6,6 +6,9 @@
 #include <vector>
 #include <string>
 
+///An indexed shapefile is one which has a quick look-up as to whether a point
+///falls within the bounding box of any of the shapefile's polygons. This class
+///handles such lookups.
 class IndexedShapefile {
  public:
   Polygons          polys;

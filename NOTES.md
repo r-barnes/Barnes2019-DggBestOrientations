@@ -118,7 +118,7 @@ export PATH="/home/rbarnes1/os/anaconda3/bin:$PATH"
 
 cd /home/rbarnes1/dgg_best_poles2
 
-export LD_LIBRARY_PATH=$HOME/os/anaconda3/lib:$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=$HOME/os/anaconda3/envs/dgg/lib:$HOME/os/anaconda3/lib:$LD_LIBRARY_PATH
 
 ulimit -c unlimited
 

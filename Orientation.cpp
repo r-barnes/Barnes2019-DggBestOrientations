@@ -49,6 +49,9 @@ OrientationGenerator::OrientationGenerator(
   // }
 }
 
+
+
+///Returns the number of orientations to be generated
 long OrientationGenerator::size() const {
   return Nmax;
 }

@@ -2,6 +2,9 @@
 #include "Timer.hpp"
 #include "GeoStuff.hpp"
 
+///Read a shapefile and build an (R*-tree) index of its polygons
+/// @param shapefile Shapefile to read
+/// @param layer     Layer from the shapefile
 IndexedShapefile::IndexedShapefile(const std::string shapefile, const std::string layer){
   {
     std::cerr<<"Reading shapefile '"<<shapefile<<"'..."<<std::endl;
@@ -19,7 +22,11 @@ IndexedShapefile::IndexedShapefile(const std::string shapefile, const std::strin
       //Rectangular polygons have size 5 (four points plus one overlap)
       if(polys[p].exterior.size()!=5)
         continue;
-      //Rectangular polygons' first and last points match
+
+      //TODO: Improved rectangularity check
+
+      //Rectangular polygons' first and last points match, so, if this is not
+      //the case here, then this cannot be a rectangle.
       if(polys[p].exterior.front().x!=polys[p].exterior.back().x)
         continue;
       if(polys[p].exterior.front().y!=polys[p].exterior.back().y)
@@ -41,6 +48,10 @@ IndexedShapefile::IndexedShapefile(const std::string shapefile, const std::strin
   }
 }
 
+///Indicates whether or not a given polygon is a rectangle, as may often happen
+///if pre-subdivided polygons are used.
+///@param pid Polygon id of the polygon to be checked
+///@returns True if the polygon is a rectangle; otherwise, false
 bool IndexedShapefile::isRect(int pid) const {
   return rectangular[pid];
 }

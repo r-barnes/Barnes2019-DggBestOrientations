@@ -459,9 +459,9 @@ OrientationWithStats OrientationStats(
   ows.overlap_count = std::accumulate(ows.overlaps.begin(),ows.overlaps.end(),0);
 
   for(unsigned int i=0;i<sxy.v.size();i++){
-    const auto cp  = wgs84pc.queryPoint(TransLLto3D(sxy.v[i])); //Closest point
-    const auto llc = Trans3DtoLL(cp);
-    auto dist      = GeoDistance(llc,sxy.v[i]);
+    const auto closest_pt     = wgs84pc.queryPoint(TransLLto3D(sxy.v[i]));
+    const auto latlng_closest = Trans3DtoLL(closest_pt);
+    auto dist                 = GeoDistance(latlng_closest,sxy.v[i]);
     if(ows.overlaps.at(i))
       dist = -dist;
     ows.mindist = std::min(ows.mindist,dist);
@@ -982,6 +982,8 @@ void FuncOptimize(int argc, char **argv){
   std::cout<<"FILE_OUTPUT_PREFIX        = " << FILE_OUTPUT_PREFIX        <<std::endl;
   std::cout<<"FILE_MERC_LANDMASS        = " << FILE_MERC_LANDMASS        <<std::endl;
   std::cout<<"MUTATION_WIDTH            = " << MUTATION_WIDTH            <<std::endl;
+  std::cout<<"MAX_COAST_INTERPOINT_DIST = " << MAX_COAST_INTERPOINT_DIST <<std::endl;
+  std::cout<<"EDGE_OVERLAPS_SAMPLE_DIST = " << EDGE_OVERLAPS_SAMPLE_DIST <<std::endl;
   std::cout<<"Rearth                    = " << Rearth                    <<std::endl;
   std::cout<<"COARSE_SPACING            = " << COARSE_SPACING            <<std::endl;
   std::cout<<"COARSE_RADIAL_LIMIT       = " << COARSE_RADIAL_LIMIT       <<std::endl;
