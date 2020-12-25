@@ -298,6 +298,15 @@ Polygons ReadShapefile(std::string filename, std::string layername){
       geometries.emplace_back();
       for(int i=0;i<extring->getNumPoints();i++)
         geometries.back().exterior.emplace_back(extring->getX(i),extring->getY(i));
+    } else if( wkbFlatten(poGeometry->getGeometryType()) == wkbMultiPolygon ){
+      OGRMultiPolygon *mpoly = (OGRMultiPolygon *) poGeometry;
+      for(const auto &poly: mpoly){
+        auto extring = poly->getExteriorRing();
+        //Ignore interior rings for now: they're probably lakes
+        geometries.emplace_back();
+        for(int i=0;i<extring->getNumPoints();i++)
+          geometries.back().exterior.emplace_back(extring->getX(i),extring->getY(i));
+      }
     } else {
       std::cerr<<"Unrecognised geometry of type: "<<OGRGeometryTypeToName(poGeometry->getGeometryType())<<std::endl;
     }
