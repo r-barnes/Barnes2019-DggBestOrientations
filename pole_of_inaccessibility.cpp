@@ -216,6 +216,8 @@ PointCloud ReadPointCloudFromShapefile(std::string filename, std::string layer){
 
   wgs84_xyz.shrink_to_fit();
 
+  std::cerr<<"Number of points = "<<wgs84_xyz.size()<<std::endl;
+
   PointCloud wgs84pc;
   std::cerr<<"Adding polygon points to PointCloud..."<<std::endl;
   wgs84pc.pts.swap(wgs84_xyz);
