@@ -1,7 +1,9 @@
 #include "Orientation.hpp"
 #include "doctest.h"
-#include <iostream>
+
 #include <cmath>
+#include <iostream>
+#include <utility>
 
 const double DEG_TO_RAD = M_PI/180.0;
 
@@ -28,16 +30,11 @@ TEST_CASE("Orientation Constructors"){
 
 OrientationGenerator::OrientationGenerator(
   const double point_spacingkm,
-  const double radial_limit
-){
+  const double south_of0,
+  const double north_of0
+) : south_of(south_of0*M_PI/180), north_of(north_of0*M_PI/180) {
   //Number of points to sample
   N = (long)(8*M_PI*Rearth*Rearth/std::sqrt(3)/point_spacingkm/point_spacingkm);
-
-  //This might induce minor sample loss near the South Pole due to numeric
-  //issues, but that turns out not to be an issue since we generate solids from
-  //the North Pole and only explore orientations down to the equator (below
-  //which symmetry guarantees that we've already explored what we need to)
-  Nmax = (N*(1-std::cos(radial_limit))-1)/2;
 
   // #pragma omp critical
   // {
@@ -53,7 +50,7 @@ OrientationGenerator::OrientationGenerator(
 
 ///Returns the number of orientations to be generated
 long OrientationGenerator::size() const {
-  return Nmax;
+  return N;
 }
 
 //Generate a set of orientations. The zeroth pole is near the South Pole with
@@ -62,7 +59,7 @@ long OrientationGenerator::size() const {
 //spaced with approximately `point_spacingkm` kilometres between themselves. The
 //polyhedron will also be rotated from `theta_min` to `theta_max` with steps of
 //size `theta_step`.
-Point2D OrientationGenerator::operator()(long i) const {
+std::pair<bool, Point2D> OrientationGenerator::operator()(long i) const {
   Point2D pole (
     M_PI*(3.0-std::sqrt(5.0))*i,
     std::acos(1-(2.0*i+1.0)/N)
@@ -70,5 +67,8 @@ Point2D OrientationGenerator::operator()(long i) const {
   pole.x = std::fmod(pole.x,2*M_PI)-M_PI;
   pole.y = pole.y-M_PI/2;
   pole.y = -pole.y; //Orientate so North Pole is up
-  return pole;
+
+  const bool valid = north_of <= pole.y && pole.y <= south_of;
+
+  return std::make_pair(valid, pole);
 }

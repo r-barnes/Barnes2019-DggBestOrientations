@@ -75,7 +75,7 @@ typedef std::vector< std::vector<unsigned int> > norientations_t;
 const auto dnan = std::numeric_limits<double>::quiet_NaN();
 
 //GLOBALS: Default values are designed to blow things up
-double COARSE_RADIAL_LIMIT       = dnan;
+double COARSE_SOUTHERN_LIMIT       = dnan;
 double COARSE_THETA_MAX          = dnan;
 int OVERLAPS_TO_BEAT             = 999999; //Number of overlaps beyond (and including) which we are interested
 double FILTER_OUT_ORIENTS_WITHIN = dnan;   //km
@@ -123,7 +123,7 @@ void SetupForPolyhedron(const std::string polyhedron){
     solidifier_func           = OrientationToRegularIcosahedron;
     OVERLAPS_TO_BEAT          = 8;
     COARSE_THETA_MAX          = 72*DEG_TO_RAD;
-    COARSE_RADIAL_LIMIT       = 90*DEG_TO_RAD;
+    COARSE_SOUTHERN_LIMIT       = 90*DEG_TO_RAD;
     ORIENTATION_VERTICES      = 12;
     FILTER_OUT_ORIENTS_WITHIN = 100; //km
     COARSE_SPACING            = 100; //km
@@ -132,7 +132,7 @@ void SetupForPolyhedron(const std::string polyhedron){
     solidifier_func           = OrientationToRegularDodecahedron;
     OVERLAPS_TO_BEAT          = 12;
     COARSE_THETA_MAX          = 120*DEG_TO_RAD;
-    COARSE_RADIAL_LIMIT       = 90*DEG_TO_RAD;
+    COARSE_SOUTHERN_LIMIT       = 90*DEG_TO_RAD;
     ORIENTATION_VERTICES      = 20;
     FILTER_OUT_ORIENTS_WITHIN = 25;  //km
     COARSE_SPACING            = 100; //km
@@ -141,7 +141,7 @@ void SetupForPolyhedron(const std::string polyhedron){
     solidifier_func           = OrientationToRegularTetrahedron;
     OVERLAPS_TO_BEAT          = 4;
     COARSE_THETA_MAX          = 120*DEG_TO_RAD;
-    COARSE_RADIAL_LIMIT       = 180*DEG_TO_RAD;
+    COARSE_SOUTHERN_LIMIT       = 180*DEG_TO_RAD;
     ORIENTATION_VERTICES      = 4;
     FILTER_OUT_ORIENTS_WITHIN = 200; //km
     COARSE_SPACING            = 400; //km
@@ -150,7 +150,7 @@ void SetupForPolyhedron(const std::string polyhedron){
     solidifier_func           = OrientationToRegularOctahedron;
     OVERLAPS_TO_BEAT          = 6;
     COARSE_THETA_MAX          = 90*DEG_TO_RAD;
-    COARSE_RADIAL_LIMIT       = 90*DEG_TO_RAD;
+    COARSE_SOUTHERN_LIMIT       = 90*DEG_TO_RAD;
     ORIENTATION_VERTICES      = 6;
     FILTER_OUT_ORIENTS_WITHIN = 300; //km
     COARSE_SPACING            = 100; //km
@@ -159,7 +159,7 @@ void SetupForPolyhedron(const std::string polyhedron){
     solidifier_func           = OrientationToCuboctahedron;
     OVERLAPS_TO_BEAT          = 9;
     COARSE_THETA_MAX          = 180*DEG_TO_RAD;
-    COARSE_RADIAL_LIMIT       = 90*DEG_TO_RAD;
+    COARSE_SOUTHERN_LIMIT       = 90*DEG_TO_RAD;
     ORIENTATION_VERTICES      = 12;
     FILTER_OUT_ORIENTS_WITHIN = 100; //km
     COARSE_SPACING            = 200; //km
@@ -168,7 +168,7 @@ void SetupForPolyhedron(const std::string polyhedron){
     solidifier_func           = OrientationToPoint;
     OVERLAPS_TO_BEAT          = 1;
     COARSE_THETA_MAX          = 360*DEG_TO_RAD;
-    COARSE_RADIAL_LIMIT       = 180*DEG_TO_RAD;
+    COARSE_SOUTHERN_LIMIT       = 180*DEG_TO_RAD;
     ORIENTATION_VERTICES      = 1;
     FILTER_OUT_ORIENTS_WITHIN = 100; //km
     COARSE_SPACING            = 300; //km
@@ -373,7 +373,7 @@ OCollection OrientationsFilteredByOverlaps(
 ){
   std::cerr<<"Filtering orientations for overlaps..."<<std::endl;
 
-  const OrientationGenerator og(COARSE_SPACING, COARSE_RADIAL_LIMIT);
+  const OrientationGenerator og(COARSE_SPACING, 90, COARSE_SOUTHERN_LIMIT);
 
   std::cerr<<"Orientations to generate sans theta-rotation = "<<(long)og.size()<<std::endl;
 
@@ -386,8 +386,10 @@ OCollection OrientationsFilteredByOverlaps(
   #pragma omp parallel for default(none) schedule(static) shared(og,COARSE_THETA_STEP,COARSE_THETA_MAX,landmass,pg) reduction(merge: ret)
   for(unsigned int o=0;o<og.size();o++){
     const auto pole = og(o);
+    if(!pole.first)
+      continue;
     for(double theta=COARSE_THETA_MIN;theta<=COARSE_THETA_MAX;theta+=COARSE_THETA_STEP){
-      const Orientation ori(pole,theta);
+      const Orientation ori(pole.second, theta);
       SolidXY sxy = Solidifier(ori);
       const auto overlaps     = OrientationOverlaps(sxy, landmass);
       const int overlap_count = std::accumulate(overlaps.begin(),overlaps.end(),0);
@@ -773,11 +775,11 @@ void FindBest(
 
 TEST_CASE("Check orientation of generated points"){
   //Use NaN to ensure that all points are generated
-  OrientationGenerator og(200,180*DEG_TO_RAD);
+  OrientationGenerator og(200, 90, -90);
 
   std::vector<Point2D> orients;
   for(long i=0;i<og.size();i++)
-    orients.push_back(og(i));
+    orients.push_back(og(i).second);
 
   CHECK(orients.front().y>0);
   CHECK(orients.back().y<0);
@@ -986,7 +988,7 @@ void FuncOptimize(int argc, char **argv){
   std::cout<<"EDGE_OVERLAPS_SAMPLE_DIST = " << EDGE_OVERLAPS_SAMPLE_DIST <<std::endl;
   std::cout<<"Rearth                    = " << Rearth                    <<std::endl;
   std::cout<<"COARSE_SPACING            = " << COARSE_SPACING            <<std::endl;
-  std::cout<<"COARSE_RADIAL_LIMIT       = " << COARSE_RADIAL_LIMIT       <<std::endl;
+  std::cout<<"COARSE_SOUTHERN_LIMIT       = " << COARSE_SOUTHERN_LIMIT       <<std::endl;
   std::cout<<"COARSE_THETA_MIN          = " << COARSE_THETA_MIN          <<std::endl;
   std::cout<<"COARSE_THETA_MAX          = " << COARSE_THETA_MAX          <<std::endl;
   std::cout<<"COARSE_THETA_STEP         = " << COARSE_THETA_STEP         <<std::endl;
@@ -1103,13 +1105,13 @@ void FuncPolyhedronInfo(){
     const std::string note,
     const std::function<bool(const double y, const double z)> vol_select
   ){
-    const OrientationGenerator og(200,90*DEG_TO_RAD);
+    const OrientationGenerator og(200, 90, 0);
 
     int mincount = std::numeric_limits<int>::max();
     int maxcount = std::numeric_limits<int>::lowest();
     //#pragma omp parallel for default(none) shared(sf) schedule(static) reduction(min:mincount) reduction(max:maxcount)
     for(long i=0;i<og.size();i++){
-      SolidXYZ p = Solidifier(Orientation(og(i),0)).toXYZ(1);
+      SolidXYZ p = Solidifier(Orientation(og(i).second,0)).toXYZ(1);
       int count = 0;
       for(const auto &v: p.v)
         count += vol_select(v.y,v.z);
@@ -1131,9 +1133,9 @@ void FuncPolyhedronInfo(){
   const auto landmass = IndexedShapefile(FILE_MERC_LANDMASS,"land_polygons");
 
   const auto overlap_counter = [&](const std::string note){
-    const OrientationGenerator og(COARSE_SPACING, COARSE_RADIAL_LIMIT);
+    const OrientationGenerator og(COARSE_SPACING, 90, COARSE_SOUTHERN_LIMIT);
 
-    const auto test_solid = Solidifier(Orientation(og(0),0));
+    const auto test_solid = Solidifier(Orientation(og(0).second,0));
 
     std::vector<int> ocount(test_solid.v.size()+1,0);
 
@@ -1143,8 +1145,11 @@ void FuncPolyhedronInfo(){
     //#pragma omp parallel for default(none) schedule(static) shared(sf,landmass,pg) reduction(merge: ocount)
     for(unsigned int o=0;o<og.size();o++){
       const auto pole = og(o);
+      if(!pole.first)
+        continue;
+
       for(double theta=COARSE_THETA_MIN;theta<=COARSE_THETA_MAX;theta+=COARSE_THETA_STEP){
-        const Orientation ori(pole,theta);
+        const Orientation ori(pole.second, theta);
         SolidXY sxy = Solidifier(ori);
         const auto overlaps     = OrientationOverlaps(sxy, landmass);
         const int overlap_count = std::accumulate(overlaps.begin(),overlaps.end(),0);

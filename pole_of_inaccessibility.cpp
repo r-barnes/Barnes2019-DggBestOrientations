@@ -2,52 +2,37 @@
   #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #endif
 
-#include "Polygon.hpp"
-#include "SpIndex.hpp"
-#include "PointCloud.hpp"
-#include "Solid.hpp"
+#include "CLI11.hpp"
 #include "GeoStuff.hpp"
-#include "Point.hpp"
 #include "Orientation.hpp"
-#include "Timer.hpp"
 #include "OrientationIndex.hpp"
+#include "Point.hpp"
+#include "PointCloud.hpp"
+#include "Polygon.hpp"
 #include "Progress.hpp"
 #include "random.hpp"
-#include <iostream>
-#include <vector>
-#include <stdexcept>
+#include "Solid.hpp"
+#include "SpIndex.hpp"
+#include "Timer.hpp"
+
 #include <algorithm>
 #include <array>
-#include <iomanip>
 #include <cassert>
 #include <fstream>
-#include <sstream>
 #include <iomanip>
-#include "doctest.h"
+#include <iomanip>
+#include <iostream>
 #include <omp.h>
+#include <sstream>
+#include <stdexcept>
+#include <vector>
 
-#ifdef ENV_XSEDE
-  const std::string DATA_DIR           = "/home/rbarnes1/scratch/dgg_best/";
-  const std::string FILE_OUTPUT_PREFIX = "/home/rbarnes1/scratch/dgg_best/";
-#elif defined ENV_CORI
-  const std::string DATA_DIR            = "/global/homes/r/rbarnes/dgg_best/";
-  const std::string FILE_OUTPUT_PREFIX  = "/global/homes/r/rbarnes/dgg_best/";
-#elif defined ENV_LAPTOP
-  const std::string DATA_DIR            = "data/";
-  const std::string FILE_OUTPUT_PREFIX  = "/z/";
-#else
-  #error "ENV_XSEDE or ENV_LAPTOP must be defined!"
-#endif
-
-std::string FILE_WGS84_LANDMASS;
-std::string FILE_WGS84_LANDMASS_LAYER;
-std::string chosen_coastname;
+#include "doctest.h"
 
 const double Rearth = 6371; //km
 
 const double DEG_TO_RAD = M_PI/180.0;
 const double RAD_TO_DEG = 180.0/M_PI;
-const double MAX_COAST_INTERPOINT_DIST = 0.5; //km
 
 //Polyhedron and Projection configuration globals
 SolidifyingFunc solidifier_func;
@@ -71,35 +56,19 @@ class PointWithStats {
   }
 };
 
-void SetupForCoastline(const std::string coastname){
-  chosen_coastname = coastname;
-  if(coastname == "osm"){
-    FILE_WGS84_LANDMASS       = DATA_DIR + "land-polygons-complete-4326/land_polygons.shp";
-    FILE_WGS84_LANDMASS_LAYER = "land_polygons";
-  } else if(coastname=="gshhg"){
-    FILE_WGS84_LANDMASS       = DATA_DIR + "GSHHS_shp/f/GSHHS_f_L1+L5.shp";
-    FILE_WGS84_LANDMASS_LAYER = "GSHHS_f_L1+L5";
-  } else if(coastname=="add"){
-    FILE_WGS84_LANDMASS       = DATA_DIR + "addv73/add_ice_coast_and_grounding_line.shp";
-    FILE_WGS84_LANDMASS_LAYER = "add_ice_coast_and_grounding_line";
-  } else {
-    throw std::runtime_error("Unrecognized coastline name!");
-  }
-}
-
-void SetupForProjection(const std::string projection){
-  chosen_projection = projection;
-  if(projection=="spherical"){
+void SetupForProjection(const std::string &projection_name){
+  chosen_projection = projection_name;
+  if(projection_name=="spherical"){
     TransLLto3D            = WGS84toSphericalCartesian;
     Trans3DtoLL            = SphericalCartesiantoWGS84;
     GeoDistance            = GeoDistanceSphere;
     great_circle_generator = GreatCircleGeneratorType::SIMPLE_SPHERICAL;
-  } else if(projection=="ellipsoidal"){
+  } else if(projection_name=="ellipsoidal"){
     TransLLto3D            = WGS84toEllipsoidCartesian;
     Trans3DtoLL            = EllipsoidCartesiantoWGS84;
     GeoDistance            = GeoDistanceEllipsoid;
     great_circle_generator = GreatCircleGeneratorType::SIMPLE_SPHERICAL;
-  } else if(projection=="haversine"){
+  } else if(projection_name=="haversine"){
     TransLLto3D            = WGS84toSphericalCartesian;
     Trans3DtoLL            = SphericalCartesiantoWGS84;
     GeoDistance            = GeoDistanceHaversine;
@@ -160,7 +129,7 @@ void SetupForProjection(const std::string projection){
 // }
 
 
-PointCloud ReadPointCloudFromShapefile(std::string filename, std::string layer){
+PointCloud ReadPointCloudFromShapefile(std::string filename, std::string layer, const double interp_dist){
   std::cerr<<"Reading point cloud from shapefile..."<<std::endl;
   auto landmass_wgs84 = ReadShapefile(filename, layer);
 
@@ -170,9 +139,12 @@ PointCloud ReadPointCloudFromShapefile(std::string filename, std::string layer){
 
   const auto poly_fill_point = [&](const Point2D &a, const Point2D &b){
     std::vector<Point2D> ret;
+    // Do a quick flat-earth projection check to see if the edge is longer
+    // than the allowed length. Since the distances are short this should
+    // be safe.
     const auto quickdist = GeoDistanceFlatEarth(a,b);
-    if(quickdist>MAX_COAST_INTERPOINT_DIST){
-      const auto gcg = GreatArcFactory::make(great_circle_generator,a,b,MAX_COAST_INTERPOINT_DIST);
+    if(quickdist>interp_dist){
+      const auto gcg = GreatArcFactory::make(great_circle_generator, a, b, interp_dist);
       for(unsigned int i=0;i<gcg->size();i++)
         ret.push_back((*gcg)(i));
     }
@@ -468,6 +440,7 @@ TEST_CASE("Test with data [expensive]"){
 }
 
 void PrintPoints(
+  const std::string &coastname,
   const unsigned int poi_num,
   const PointCloud  &wgs84pc,
   PointWithStats     pt,
@@ -501,7 +474,7 @@ void PrintPoints(
     cp.toDegrees();
     fout_circ<<poi_num<<","
              <<i      <<","
-             <<chosen_coastname<<","
+             <<coastname        <<","
              <<chosen_projection<<","
              <<std::fixed<<std::setprecision(10)<<cp.x<<","
              <<std::fixed<<std::setprecision(10)<<cp.y<<","
@@ -518,7 +491,7 @@ void PrintPoints(
 
   pt.pt.toDegrees();
   fout<<poi_num<<","
-      <<chosen_coastname<<","
+      <<coastname<<","
       <<chosen_projection<<","
       <<std::fixed<<std::setprecision(10)<<pt.pt.x<<","
       <<std::fixed<<std::setprecision(10)<<pt.pt.y<<","
@@ -534,15 +507,34 @@ void PrintPoints(
 #ifdef DOCTEST_CONFIG_DISABLE
 
 int main(int argc, char **argv){
-  if(argc!=3){
-    std::cerr<<argv[0]<<" <Coastline> <Projection>"<<std::endl;
-    return -1;
+  CLI::App app{"Pole of Inaccesibility finder"};
+
+  std::string coastname;
+  std::string shapefile_name;
+  std::string shapefile_layer_name;
+  std::string projection_name;
+  std::string out_prefix;
+  double initial_point_spacing = 300;
+  double south_of = 90;
+  double north_of = -90;
+  double interp_dist = 0.5;
+  app.add_option("-c,--coastname",  coastname,                 "Coastline name to use in the output CSV")->required();
+  app.add_option("-s,--shapefile",  shapefile_name,            "Shapefile to use as input data source")->required();
+  app.add_option("-l,--layer",      shapefile_layer_name,      "Layer in the shapefile to use as input data source")->required();
+  app.add_option("-p,--projection", projection_name,           "Which projection to use: spherical, ellipsoidal, haversine")->required();
+  app.add_option("-o,--output",     out_prefix,                "Prefix to use for output (Default: poi-<coastname>-<projection>)");
+  app.add_option("--spacing",       initial_point_spacing,     "Desired spacing of initial points in kilometers (Default: 300)");
+  app.add_option("--south_of",      south_of,                  "Generated points must be south of this latitude (in degrees) (Default: 90)");
+  app.add_option("--north_of",      north_of,                  "Generated points must be north of this latitude (in degrees) (Default: -90)");
+  app.add_option("--interp_dist",   interp_dist,               "Interpolate edges so that no edge is longer than this in kilometers (Default: 0.5)");
+
+  CLI11_PARSE(app, argc, argv);
+
+  SetupForProjection(projection_name);
+
+  if(out_prefix.empty()){
+    out_prefix = "poi-"+coastname+"-"+projection_name;
   }
-
-  SetupForCoastline(argv[1]);
-  SetupForProjection(argv[2]);
-
-  std::string outname = "poi-"+std::string(argv[1])+"-"+std::string(argv[2]);
 
   unsigned int pole_num = 0;
 
@@ -580,7 +572,7 @@ int main(int argc, char **argv){
   };
 
   PointCloud wgs84pc;
-  wgs84pc = ReadPointCloudFromShapefile(FILE_WGS84_LANDMASS, FILE_WGS84_LANDMASS_LAYER);
+  wgs84pc = ReadPointCloudFromShapefile(shapefile_name, shapefile_layer_name, interp_dist);
   wgs84pc.buildIndex();
 
   std::cerr<<"Getting distance to previous poles..."<<std::endl;
@@ -589,32 +581,44 @@ int main(int argc, char **argv){
     pp.dist = DistanceToCoast(pp.pt, wgs84pc);
   }
 
-  std::ofstream fout(FILE_OUTPUT_PREFIX + outname + ".csv");
-  std::ofstream fout_circ(FILE_OUTPUT_PREFIX + outname + "-circ.csv");
+  std::ofstream fout(out_prefix + "-poles_of_inaccessibility.csv");
+  std::ofstream fout_circ(out_prefix + "-circles_of_inaccessibility.csv");
   fout<<"poi_num,data,proj,PoleX,PoleY,Distance,Type,Label,geom\n";
   fout_circ<<"poi_num,data,proj,pt_num,X,Y,distance\n";
 
   std::cerr<<"Printing previous poles..."<<std::endl;
   for(unsigned int i=0;i<previous_poles.size();i++)
-    PrintPoints(pole_num++, wgs84pc, previous_poles.at(i), fout, fout_circ);
+    PrintPoints(coastname, pole_num++, wgs84pc, previous_poles.at(i), fout, fout_circ);
 
   //Generate evenly-spaced points covering the whole globe
-  OrientationGenerator og(300,180*DEG_TO_RAD); //TODO: 300
+  OrientationGenerator og(initial_point_spacing, south_of, north_of);
 
   std::vector<PointWithStats> extrema;
 
   std::cerr<<"Performing hill climbing from many points..."<<std::endl;
   ProgressBar pg(og.size());
   for(int i=0;i<og.size();i++){
-    extrema.push_back(ComplexHillClimb(og(i), wgs84pc));
+    //Get the next initial pole
+    const auto initial_pole = og(i);
+
+    //Ignore poles outside of the bounds of interest
+    if(!initial_pole.first)
+      continue;
+
+    std::cerr<<(initial_pole.second.y*180/M_PI)<<" "<<(initial_pole.second.x*180/M_PI)<<std::endl;
+    continue;
+
+    extrema.push_back(ComplexHillClimb(initial_pole.second, wgs84pc));
     ++pg;
   }
+
+  return -1;
 
   extrema = FilterPoints(extrema);
 
   for(unsigned int i=0;i<extrema.size();i++){
     extrema.at(i).label = ",mine,";
-    PrintPoints(pole_num++, wgs84pc, extrema.at(i), fout, fout_circ);
+    PrintPoints(coastname, pole_num++, wgs84pc, extrema.at(i), fout, fout_circ);
   }
 
   std::cerr<<"Performing hill climbing from previous points..."<<std::endl;
@@ -631,7 +635,7 @@ int main(int argc, char **argv){
 
   for(unsigned int i=0;i<extrema.size();i++){
     extrema.at(i).label = ",improved," + extrema.at(i).label;
-    PrintPoints(pole_num++, wgs84pc, extrema.at(i), fout, fout_circ);
+    PrintPoints(coastname, pole_num++, wgs84pc, extrema.at(i), fout, fout_circ);
   }
 
   return 0;

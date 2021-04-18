@@ -36,7 +36,7 @@ void PointCloud::newIndex() {
     new my_kd_tree_t(3 /*dim*/, *this, nanoflann::KDTreeSingleIndexAdaptorParams(10 /* max leaf */) ),
     [](my_kd_tree_t *t){
       std::cerr<<"Freeing PointCloud index."<<std::endl;
-      t->freeIndex(); 
+      // t->freeIndex(); //TODO
     }
   );
 }

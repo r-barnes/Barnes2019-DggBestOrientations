@@ -4,7 +4,7 @@
 #include <unordered_map>
 
 OrientationIndex::~OrientationIndex(){
-  index->freeIndex();
+  // index->freeIndex(); //TODO
 }
 
 inline size_t OrientationIndex::kdtree_get_point_count() const {
@@ -30,7 +30,7 @@ inline double OrientationIndex::kdtree_distance(const double *p1, const size_t i
 
 OrientationIndex::OrientationIndex(
   const OCollection &orients,
-  const SolidifyingFunc sf, 
+  const SolidifyingFunc sf,
   const int required_ncount0
 ){  //Cannot be parallelized, otherwise the order of the points might get mixed up
   for(unsigned int oi=0;oi<orients.size();oi++)
@@ -44,7 +44,7 @@ OrientationIndex::OrientationIndex(
 
 OrientationIndex::OrientationIndex(
   const OSCollection &orients,
-  const SolidifyingFunc sf, 
+  const SolidifyingFunc sf,
   const int required_ncount0
 ){  //Cannot be parallelized, otherwise the order of the points might get mixed up
   for(unsigned int oi=0;oi<orients.size();oi++)
@@ -60,7 +60,7 @@ void OrientationIndex::addOrientation(const unsigned int id, const SolidXY &sxy)
   const SolidXYZ sxyz = sxy.toXYZ(Rearth);
   for(unsigned int vi=0;vi<sxyz.v.size();vi++){
     //Choose one quadrant of 3-space. Will have 2-3 members
-    if(vertexInSubdivision(sxyz.v[vi])){ 
+    if(vertexInSubdivision(sxyz.v[vi])){
       p3ds.push_back(sxyz.v[vi]);
       p2ds.push_back(sxy.v[vi]);
       pidx.push_back(id);

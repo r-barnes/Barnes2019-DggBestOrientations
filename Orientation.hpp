@@ -2,8 +2,10 @@
 #define _poi_hpp_
 
 #include "Point.hpp"
+
 #include <limits>
 #include <string>
+#include <utility>
 #include <vector>
 
 ///Holds the orientation of a polyhedron
@@ -45,14 +47,17 @@ class OrientationGenerator {
  private:
   const double Rearth = 6371;
   long   N;                       ///< Total number of orientations
-  long   Nmax;                    ///< Number to be generated given the radial_limit.
+  const double south_of;          ///< Generated points will be south of this latitude (in radians)
+  const double north_of;          ///< Generated points will be north of this latitude (in radians)
+
  public:
   OrientationGenerator(
     const double point_spacingkm, ///< Approximate distance between points
-    const double radial_limit     ///< Radians from North pole to which orientations should be generated
+    const double south_of,        ///< Generated points must be south of this latitude (in degrees)
+    const double north_of         ///< Generated points must be north of this latitude (in degrees)
   );
 
-  Point2D operator()(long i) const; ///< Returns the ith orientation
+  std::pair<bool, Point2D> operator()(long i) const; ///< Returns the ith orientation
   long size() const;                ///< Returns the number of orientations to be generated
 };
 

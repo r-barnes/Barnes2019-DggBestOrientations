@@ -28,7 +28,7 @@ add_executable(dgfinder.exe
   Timer.cpp
 )
 target_compile_features(dgfinder.exe PRIVATE cxx_std_14)
-target_compile_options(dgfinder.exe PRIVATE -march=native -Wall -Wextra -Wfloat-equal -Wundef -Wcast-align -Wwrite-strings -Wlogical-op -Wredundant-decls -Wshadow -Woverloaded-virtual)
+target_compile_options(dgfinder.exe PRIVATE -march=native -Wall -Wextra -Wundef -Wcast-align -Wwrite-strings -Wlogical-op -Wredundant-decls -Wshadow -Woverloaded-virtual)
 target_compile_definitions(dgfinder.exe PRIVATE ENV_LAPTOP COARSE_RESOLUTION DOCTEST_CONFIG_DISABLE)
 target_link_libraries(dgfinder.exe PRIVATE OpenMP::OpenMP_CXX ${GDAL_LIBRARY} ${GeographicLib_LIBRARIES})
 target_include_directories(dgfinder.exe PRIVATE ${GDAL_INCLUDE_DIR})
@@ -49,7 +49,7 @@ add_executable(poi.exe
   Timer.cpp
 )
 target_compile_features(poi.exe PRIVATE cxx_std_14)
-target_compile_options(poi.exe PRIVATE -march=native -Wall -Wextra -Wfloat-equal -Wundef -Wcast-align -Wwrite-strings -Wlogical-op -Wredundant-decls -Wshadow -Woverloaded-virtual)
+target_compile_options(poi.exe PRIVATE -march=native -Wall -Wextra -Wundef -Wcast-align -Wwrite-strings -Wlogical-op -Wredundant-decls -Wshadow -Woverloaded-virtual)
 target_compile_definitions(poi.exe PRIVATE ENV_LAPTOP COARSE_RESOLUTION DOCTEST_CONFIG_DISABLE)
 target_link_libraries(poi.exe PRIVATE OpenMP::OpenMP_CXX ${GDAL_LIBRARY} ${GeographicLib_LIBRARIES})
 target_include_directories(poi.exe PRIVATE ${GDAL_INCLUDE_DIR})
