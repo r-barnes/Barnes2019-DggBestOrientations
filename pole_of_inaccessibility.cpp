@@ -478,7 +478,7 @@ void PrintPoints(
              <<chosen_projection<<","
              <<std::fixed<<std::setprecision(10)<<cp.x<<","
              <<std::fixed<<std::setprecision(10)<<cp.y<<","
-             <<std::fixed<<std::setprecision(10)<<GeoDistance(pt.pt,cp)<<","
+             <<std::fixed<<std::setprecision(10)<<GeoDistance(pt.pt,cp)
              <<"\n";
     // geom<<std::fixed<<std::setprecision(10)<<cp.x<<" ";
     // geom<<std::fixed<<std::setprecision(10)<<cp.y<<",";
@@ -514,19 +514,25 @@ int main(int argc, char **argv){
   std::string shapefile_layer_name;
   std::string projection_name;
   std::string out_prefix;
+  std::string previous_poles_fname;
   double initial_point_spacing = 300;
   double south_of = 90;
   double north_of = -90;
   double interp_dist = 0.5;
-  app.add_option("-c,--coastname",  coastname,                 "Coastline name to use in the output CSV")->required();
-  app.add_option("-s,--shapefile",  shapefile_name,            "Shapefile to use as input data source")->required();
-  app.add_option("-l,--layer",      shapefile_layer_name,      "Layer in the shapefile to use as input data source")->required();
-  app.add_option("-p,--projection", projection_name,           "Which projection to use: spherical, ellipsoidal, haversine")->required();
-  app.add_option("-o,--output",     out_prefix,                "Prefix to use for output (Default: poi-<coastname>-<projection>)");
-  app.add_option("--spacing",       initial_point_spacing,     "Desired spacing of initial points in kilometers (Default: 300)");
-  app.add_option("--south_of",      south_of,                  "Generated points must be south of this latitude (in degrees) (Default: 90)");
-  app.add_option("--north_of",      north_of,                  "Generated points must be north of this latitude (in degrees) (Default: -90)");
-  app.add_option("--interp_dist",   interp_dist,               "Interpolate edges so that no edge is longer than this in kilometers (Default: 0.5)");
+  double distance_filter = -std::numeric_limits<double>::infinity();
+  double likely_frac = 1;
+  app.add_option("-c,--coastname",    coastname,                 "Coastline name to use in the output CSV")->required();
+  app.add_option("-s,--shapefile",    shapefile_name,            "Shapefile to use as input data source")->required();
+  app.add_option("-l,--layer",        shapefile_layer_name,      "Layer in the shapefile to use as input data source")->required();
+  app.add_option("-p,--projection",   projection_name,           "Which projection to use: spherical, ellipsoidal, haversine")->required();
+  app.add_option("-o,--output",       out_prefix,                "Prefix to use for output (Default: poi-<coastname>-<projection>)");
+  app.add_option("--spacing",         initial_point_spacing,     "Desired spacing of initial points in kilometers (Default: 300)");
+  app.add_option("--south_of",        south_of,                  "Generated points must be south of this latitude (in degrees) (Default: 90)");
+  app.add_option("--north_of",        north_of,                  "Generated points must be north of this latitude (in degrees) (Default: -90)");
+  app.add_option("--interp_dist",     interp_dist,               "Interpolate edges so that no edge is longer than this in kilometers (Default: 0.5)");
+  app.add_option("--distance_filter", distance_filter,           "Filter out initial poles closer to the coastline than this (in km) (Default: -inf)");
+  app.add_option("--likely_frac",     likely_frac,               "Proportion of initial points to consider likely for further exploration (in [0,1]) (Default: 1)");
+  app.add_option("--previous_poles",  previous_poles_fname,      "Space-delimited file of previous pole locations to try to improve on (Lng Lat Label)");
 
   CLI11_PARSE(app, argc, argv);
 
@@ -536,40 +542,20 @@ int main(int argc, char **argv){
     out_prefix = "poi-"+coastname+"-"+projection_name;
   }
 
-  unsigned int pole_num = 0;
-
-  //http://apl.maps.arcgis.com/apps/MapJournal/index.html?appid=ce19bec7a3c541d0b95c449df9bb8eb5 (Dr Witold Frączek and Mr Lenny Kneller)
-  //Gareth  and Robert Headland and Ted Scambos and Terry Haran
-  //Garcia-Castellanos and Lombardo (2007)
-  std::vector< PointWithStats > previous_poles = {
-    {99999, {54.966,-82.1},        "prev,\"Wikipedia Antarctica - Soviet Station coordinates\""},
-    //{99999, {-82.97,54.97},        "prev,\"Castellanos Antartica - Soviet Station coordinates\""},
-    {99999, {26.17,5.65},          "prev,\"Castellanos Africa\""},
-    {99999, {-101.97,43.46},       "prev,\"Castellanos North America\""},
-    {99999, {-56.85,-14.05},       "prev,\"Castellanos South America\""},
-    {99999, {132.27,-23.17},       "prev,\"Castellanos Australia\""},
-    {99999, {82.19,44.29},         "prev,\"Castellanos EPIA1\""},
-    {99999, {88.14,45.28},         "prev,\"Castellanos EPIA2\""},
-    {99999, {86.67,46.28},         "prev,\"Castellanos Former EPIA (found with undocumented calculation)\""},
-    {99999, {-1.56,52.65},         "prev,\"Castellanos Great Britain\""},
-    {99999, {-41.0,76.50},         "prev,\"Castellanos Greenland\""},
-    {99999, {-4.51,39.99},         "prev,\"Castellanos Iberian Peninsula\""},
-    {99999, {46.67,-18.33},        "prev,\"Castellanos Madagascar\""},
-    {99999, {-123.45,-48.89},      "prev,\"Castellanos Pacific/Oceanic (Point Nemo)\""},
-    {99999, {54.9681,-83.6978},    "prev,\"Frączek Antarctica\""},
-    {99999, {88.24835,45.34058},   "prev,\"Frączek Eurasia\""},
-    {99999, {-102.01128,43.37508}, "prev,\"Frączek North America\""},
-    {99999, {-56.99196,-14.38964}, "prev,\"Frączek South America\""},
-    {99999, {26.15324,5.64142},    "prev,\"Frączek Africa\""},
-    {99999, {132.2763,-23.1734},   "prev,\"Frączek Australia\""},
-    {99999, {-167.4357,83.1527},   "prev,\"Frączek Arctic Pole\""},
-    {99999, {-160,83.83333},       "prev,\"Rees Stefansson 1921\""},
-    {99999, {-175,77.75},          "prev,\"Rees Wilkins 1928a\""},
-    {99999, {157,88},              "prev,\"Rees Ice Pole (Ellsworth 1938:217)\""},
-    {99999, {-174.85, 84.05},      "prev,\"Rees Generally accepted value\""},
-    {99999, {176.149, 85.802},     "prev,\"Rees New calculated API\""},
-    {99999, {176.145, 85.780},     "prev,\"Rees Scambos and Haran 2005\""},
-  };
+  //PREVIOUS POLES
+  std::vector<PointWithStats> previous_poles;
+  if(!previous_poles_fname.empty()){
+    std::ifstream fin(previous_poles_fname);
+    double lng;
+    double lat;
+    std::string label;
+    std::cerr<<"Loading previous points (Lng Lat Label)..."<<std::endl;
+    while(fin>>lng>>lat){
+      std::getline(fin, label);
+      previous_poles.emplace_back(99999.0, Point2D{lng, lat}, "prev," + label);
+      std::cerr<<"\t"<<lng<<" "<<lat<<" "<<label<<std::endl;
+    }
+  }
 
   PointCloud wgs84pc;
   wgs84pc = ReadPointCloudFromShapefile(shapefile_name, shapefile_layer_name, interp_dist);
@@ -586,56 +572,75 @@ int main(int argc, char **argv){
   fout<<"poi_num,data,proj,PoleX,PoleY,Distance,Type,Label,geom\n";
   fout_circ<<"poi_num,data,proj,pt_num,X,Y,distance\n";
 
-  std::cerr<<"Printing previous poles..."<<std::endl;
-  for(unsigned int i=0;i<previous_poles.size();i++)
-    PrintPoints(coastname, pole_num++, wgs84pc, previous_poles.at(i), fout, fout_circ);
-
   //Generate evenly-spaced points covering the whole globe
   OrientationGenerator og(initial_point_spacing, south_of, north_of);
 
   std::vector<PointWithStats> extrema;
 
-  std::cerr<<"Performing hill climbing from many points..."<<std::endl;
+  std::cerr<<"Finding likely initial points..."<<std::endl;
   ProgressBar pg(og.size());
   for(int i=0;i<og.size();i++){
     //Get the next initial pole
     const auto initial_pole = og(i);
 
     //Ignore poles outside of the bounds of interest
-    if(!initial_pole.first)
+    if(!initial_pole.first){
       continue;
+    }
 
-    std::cerr<<(initial_pole.second.y*180/M_PI)<<" "<<(initial_pole.second.x*180/M_PI)<<std::endl;
-    continue;
+    const auto distance = DistanceToCoast(initial_pole.second, wgs84pc);
 
-    extrema.push_back(ComplexHillClimb(initial_pole.second, wgs84pc));
+    // Ignore poles that are distance-filtered
+    if(distance <= distance_filter){
+      continue;
+    }
+
+    extrema.emplace_back(distance, initial_pole.second, "extrema");
     ++pg;
   }
+  pg.stop();
+  std::cerr<<"Found "<<extrema.size()<<" likely initial points."<<std::endl;
 
-  return -1;
+  //Retain only the top `likely_frac` of points
+  std::sort(extrema.begin(), extrema.end(), [](const auto &a, const auto &b) { return a.dist > b.dist; });
+  const size_t cut_point = static_cast<size_t>(std::ceil(likely_frac * extrema.size()));
+  extrema.resize(cut_point);
+  extrema.shrink_to_fit();
+  std::cerr<<"Considering "<<extrema.size()<<" of the initial points for hill climbing."<<std::endl;
+  std::cerr<<"Most isolated point is at "<<extrema.front().dist<<"km and least isolated is at "<<extrema.back().dist<<"km."<<std::endl;
 
+  std::cerr<<"Performing hill climbing from likely initial points..."<<std::endl;
+  pg = ProgressBar(extrema.size());
+  for(auto &initial_pole: extrema){
+    initial_pole = ComplexHillClimb(initial_pole.pt, wgs84pc);
+    ++pg;
+  }
+  pg.stop();
+
+  std::cout<<"Filtering points to reduce density..."<<std::endl;
   extrema = FilterPoints(extrema);
 
-  for(unsigned int i=0;i<extrema.size();i++){
-    extrema.at(i).label = ",mine,";
-    PrintPoints(coastname, pole_num++, wgs84pc, extrema.at(i), fout, fout_circ);
+  //Label extrema to indicate origin of points
+  for(auto &x: extrema){
+    x.label = "ours," + x.label;
   }
 
   std::cerr<<"Performing hill climbing from previous points..."<<std::endl;
-
-  extrema.clear();
-
-  pg = ProgressBar(100*previous_poles.size());
+  pg = ProgressBar(20*previous_poles.size());
   for(const auto &pp: previous_poles)
-  for(int i=0;i<100;i++){
+  for(int i=0;i<20;i++){
     extrema.push_back(ComplexHillClimb(pp.pt, wgs84pc));
-    extrema.back().label = pp.label;
+    extrema.back().label = "improved+" + pp.label;
     ++pg;
   }
+  pg.stop();
 
-  for(unsigned int i=0;i<extrema.size();i++){
-    extrema.at(i).label = ",improved," + extrema.at(i).label;
-    PrintPoints(coastname, pole_num++, wgs84pc, extrema.at(i), fout, fout_circ);
+  std::cerr<<"Sorting all the extrema we found..."<<std::endl;
+  std::sort(extrema.begin(), extrema.end(), [](const auto &a, const auto &b) { return a.dist > b.dist; });
+  std::cerr<<"Most isolated point is at "<<extrema.front().dist<<"km and least isolated is at "<<extrema.back().dist<<"km."<<std::endl;
+
+  for(size_t i=0;i<extrema.size();i++){
+    PrintPoints(coastname, i, wgs84pc, extrema.at(i), fout, fout_circ);
   }
 
   return 0;
