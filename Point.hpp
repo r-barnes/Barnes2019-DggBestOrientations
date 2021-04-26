@@ -13,6 +13,7 @@ class Point2D {
   Point2D& toDegrees();
   Point2D& rotateTheta(const double rtheta);
   Point3D toXYZ(const double radius) const;
+  bool operator==(const Point2D &other) const;
 };
 
 class Point3D {
@@ -30,7 +31,7 @@ class Point3D {
 
 
 
-///Class for rotating a point in three dimensions about a vector of rotation. 
+///Class for rotating a point in three dimensions about a vector of rotation.
 class Rotator {
  private:
   double mr;

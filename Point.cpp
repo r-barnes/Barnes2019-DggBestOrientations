@@ -156,6 +156,14 @@ Point2D& Point2D::rotateTheta(const double rtheta) {
   return *this;
 }
 
+
+
+bool Point2D::operator==(const Point2D &other) const {
+  return x==other.x && y==other.y;
+}
+
+
+
 TEST_CASE("rotateTheta"){
   SUBCASE("Test1"){
     auto p = Point2D(-93,45).toRadians();
@@ -219,7 +227,7 @@ Point3D::Point3D(double x0, double y0, double z0) {
 
 Point2D Point3D::toLatLon() const {
   const double radius = mag();
-  
+
   if(!(std::abs(radius-1)<1e-6 || std::abs(radius-6371)<1e-6))
     throw std::runtime_error("Radius invalid = " + std::to_string(radius));
 
