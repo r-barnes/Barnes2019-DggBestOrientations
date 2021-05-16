@@ -570,7 +570,7 @@ int main(int argc, char **argv){
   std::ofstream fout(out_prefix + "-poles_of_inaccessibility.csv");
   std::ofstream fout_circ(out_prefix + "-circles_of_inaccessibility.csv");
   fout<<"poi_num,data,proj,PoleX,PoleY,Distance,Type,Label,geom\n";
-  fout_circ<<"poi_num,data,proj,pt_num,X,Y,distance\n";
+  fout_circ<<"poi_num,circle_pt_num,data,proj,X,Y,distance\n";
 
   //Generate evenly-spaced points covering the whole globe
   OrientationGenerator og(initial_point_spacing, south_of, north_of);
